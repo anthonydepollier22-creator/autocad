@@ -248,6 +248,22 @@ document.addEventListener('DOMContentLoaded', () => {
     simResults.innerHTML = html;
   });
 
+  // Analyse fréquentielle (Bode)
+  document.getElementById('btn-bode').addEventListener('click', () => {
+    editor.clearSim();
+    const res = simulateAC(editor.components, editor.wires, SYMBOLS, { fmin: 1, fmax: 1e6, pts: 120 });
+    let html = '';
+    if (res.warnings && res.warnings.length) html += '<div class="warn">⚠️ ' + res.warnings.join('<br>⚠️ ') + '</div>';
+    if (res.ok) {
+      simStatus.textContent = '〰️ Réponse en fréquence (1 Hz → 1 MHz) — gain (haut) et phase (bas).';
+      drawBode(res);
+    } else {
+      simStatus.textContent = '❌ Bode impossible.';
+      scope.style.display = 'none';
+    }
+    simResults.innerHTML = html;
+  });
+
   // ERC : vérification des règles électriques
   document.getElementById('btn-erc').addEventListener('click', () => {
     editor.clearSim();
@@ -319,6 +335,56 @@ document.addEventListener('DOMContentLoaded', () => {
       ctx.fillRect(x0 + 4, ly - 3, 10, 6);
       ctx.fillStyle = '#aebacb'; ctx.fillText(s.label, x0 + 18, ly);
     });
+  }
+
+  function drawBode(res) {
+    scope.style.display = 'block';
+    const W = scope.clientWidth || 260, H = 220;
+    const dpr = window.devicePixelRatio || 1;
+    scope.width = W * dpr; scope.height = H * dpr;
+    const ctx = scope.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#0d1016'; ctx.fillRect(0, 0, W, H);
+    const padL = 40, padR = 6;
+    const x0 = padL, x1 = W - padR;
+    const f0 = res.freqs[0], f1 = res.freqs[res.freqs.length - 1];
+    const lf0 = Math.log10(f0), lf1 = Math.log10(f1);
+    const sx = (f) => x0 + (Math.log10(f) - lf0) / (lf1 - lf0) * (x1 - x0);
+
+    // bornes magnitude
+    let mmin = Infinity, mmax = -Infinity;
+    for (const s of res.series) for (const v of s.mag) { if (isFinite(v)) { mmin = Math.min(mmin, v); mmax = Math.max(mmax, v); } }
+    if (!isFinite(mmin)) { mmin = -60; mmax = 0; }
+    mmax = Math.ceil((mmax + 3) / 10) * 10; mmin = Math.floor((mmin - 3) / 10) * 10;
+    if (mmax - mmin < 10) mmax = mmin + 10;
+
+    function panel(yT, yB, vmin, vmax, get, unit, dash) {
+      const sy = (v) => yB - (v - vmin) / (vmax - vmin) * (yB - yT);
+      ctx.strokeStyle = '#222a36'; ctx.lineWidth = 1; ctx.fillStyle = '#6b7888'; ctx.font = '9px sans-serif';
+      ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      for (let i = 0; i <= 4; i++) { const v = vmin + i / 4 * (vmax - vmin), y = sy(v); ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke(); ctx.fillText(v.toFixed(0), x0 - 4, y); }
+      // décades verticales
+      for (let d = Math.ceil(lf0); d <= Math.floor(lf1); d++) { const x = sx(Math.pow(10, d)); ctx.beginPath(); ctx.moveTo(x, yT); ctx.lineTo(x, yB); ctx.stroke(); }
+      ctx.fillStyle = '#8a97ab'; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(unit, x0 + 2, yT + 1);
+      res.series.forEach((s, i) => {
+        ctx.strokeStyle = SCOPE_COLORS[i % SCOPE_COLORS.length]; ctx.lineWidth = 1.5;
+        ctx.setLineDash(dash ? [3, 2] : []);
+        ctx.beginPath();
+        const arr = get(s);
+        for (let k = 0; k < arr.length; k++) { const X = sx(res.freqs[k]), Y = sy(Math.max(vmin, Math.min(vmax, arr[k]))); k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }
+        ctx.stroke();
+      });
+      ctx.setLineDash([]);
+    }
+    panel(8, H * 0.5 - 6, mmin, mmax, (s) => s.mag, 'dB');
+    panel(H * 0.5 + 8, H - 16, -180, 180, (s) => s.phase, '°');
+    // axe fréquence
+    ctx.fillStyle = '#8a97ab'; ctx.font = '9px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (let d = Math.ceil(lf0); d <= Math.floor(lf1); d++) {
+      const f = Math.pow(10, d), lbl = f >= 1e6 ? '1M' : f >= 1e3 ? (f / 1e3) + 'k' : '' + f;
+      ctx.fillText(lbl, sx(f), H - 12);
+    }
+    ctx.textAlign = 'right'; ctx.fillText('Hz', x1, H - 12);
   }
   function showTab(name) {
     activeTab = name;

@@ -33,7 +33,8 @@ const DIODE_MODEL = {
   led: { Is: 1e-16, N: 2 },
   zener: { Is: 1e-14, N: 1, zener: true },
 };
-const UNSUPPORTED = new Set(['transistor_npn', 'transistor_pnp', 'transformer']);
+const BJT_IS = 1e-15, BJT_BR = 1; // Ebers-Moll : courant de saturation, gain inverse
+const UNSUPPORTED = new Set(['transformer']);
 
 // ---- Résolution Ax = b (Gauss, pivot partiel) -----------------------------
 function solveLinear(A, b) {
@@ -75,7 +76,7 @@ function collectElements(components, wires, symbols) {
   const ground = new Set();
   for (const c of components) if (c.type === 'ground') ground.add(tn[c.id][0]);
 
-  const E = { R: [], V: [], I: [], C: [], L: [], D: [] };
+  const E = { R: [], V: [], I: [], C: [], L: [], D: [], Q: [] };
   const warnings = [];
   let hasSource = false;
 
@@ -101,6 +102,9 @@ function collectElements(components, wires, symbols) {
     } else if (c.type in DIODE_MODEL) {
       const md = DIODE_MODEL[c.type];
       E.D.push({ p: t[0], n: t[1], Is: md.Is, N: md.N, Vz: md.zener ? parseValue(c.value, 5.1) : 0, comp: c });
+    } else if (c.type === 'transistor_npn' || c.type === 'transistor_pnp') {
+      // terminaux : [base, collecteur, émetteur]
+      E.Q.push({ b: t[0], c: t[1], e: t[2], Is: BJT_IS, bf: parseValue(c.value, 100), br: BJT_BR, pol: c.type === 'transistor_npn' ? 1 : -1, comp: c });
     } else if (c.type === 'switch' || c.type === 'push_button') {
       if (c.closed) E.R.push({ a: t[0], b: t[1], R: 1e-6, comp: c });
     }
@@ -126,6 +130,7 @@ function solveStep(E, ground, nets, opts) {
   if (N === 0) return null;
 
   const dVd = E.D.map(() => 0);
+  const dVbe = E.Q.map(() => 0), dVbc = E.Q.map(() => 0);
   let x = new Array(N).fill(0);
   let conv = false;
 
@@ -170,12 +175,44 @@ function solveStep(E, ground, nets, opts) {
       if (pi >= 0) z[pi] -= Ieq; if (qi >= 0) z[qi] += Ieq;
     });
 
+    // Transistors bipolaires (Ebers-Moll)
+    E.Q.forEach((q, qi) => {
+      const bi = idx(q.b), ci = idx(q.c), ei = idx(q.e), p = q.pol;
+      const Vb = bi >= 0 ? x[bi] : 0, Vc = ci >= 0 ? x[ci] : 0, Ve = ei >= 0 ? x[ei] : 0;
+      const vcrit = VT * Math.log(VT / (Math.SQRT2 * q.Is));
+      const VbeRaw = p * (Vb - Ve), VbcRaw = p * (Vb - Vc);
+      const Vbe = pnjlim(VbeRaw, dVbe[qi], VT, vcrit);
+      const Vbc = pnjlim(VbcRaw, dVbc[qi], VT, vcrit);
+      if (Math.abs(VbeRaw - Vbe) > 1e-9 || Math.abs(VbcRaw - Vbc) > 1e-9) limiting = true;
+      dVbe[qi] = Vbe; dVbc[qi] = Vbc;
+      const exbe = Math.exp(Math.min(Vbe / VT, 40)), exbc = Math.exp(Math.min(Vbc / VT, 40));
+      const Icc = q.Is * (exbe - 1), Ice = q.Is * (exbc - 1);
+      const gcc = (q.Is / VT) * exbe, gce = (q.Is / VT) * exbc;
+      const a = gcc / q.bf, b2 = gce / q.br, cc = gcc, dd = -gce * (1 + 1 / q.br);
+      const Ib = Icc / q.bf + Ice / q.br, Ic = Icc - Ice * (1 + 1 / q.br);
+      const Ivec = [p * Ib, p * Ic, -(p * Ib + p * Ic)];
+      // Jacobien courant-de-borne / tension-de-nœud (identique NPN/PNP)
+      const J = [
+        [a + b2, -b2, -a],
+        [cc + dd, -dd, -cc],
+        [-(a + b2 + cc + dd), b2 + dd, a + cc],
+      ];
+      const nodes = [bi, ci, ei], V0 = [Vb, Vc, Ve];
+      for (let r = 0; r < 3; r++) {
+        const ri = nodes[r]; if (ri < 0) continue;
+        let Ieq = Ivec[r];
+        for (let s = 0; s < 3; s++) { if (nodes[s] >= 0) A[ri][nodes[s]] += J[r][s]; Ieq -= J[r][s] * V0[s]; }
+        z[ri] -= Ieq;
+      }
+      for (let r = 0; r < 3; r++) if (nodes[r] >= 0) A[nodes[r]][nodes[r]] += 1e-12;
+    });
+
     const xn = solveLinear(A.map((r) => r.slice()), z.slice());
     if (!xn) return null;
     let maxd = 0; for (let i = 0; i < N; i++) maxd = Math.max(maxd, Math.abs(xn[i] - x[i]));
     x = xn;
     // Convergence : tensions stables ET plus aucune jonction en limitation
-    if (E.D.length === 0) { if (it >= 1) { conv = true; break; } }
+    if (E.D.length === 0 && E.Q.length === 0) { if (it >= 1) { conv = true; break; } }
     else if (!limiting && maxd < 1e-6) { conv = true; break; }
   }
   return { x, node, idx, n, m, conv };
@@ -205,6 +242,11 @@ function simulateDC(components, wires, symbols) {
     let I = d.Is * (Math.exp(Math.min(Vd / nvt, 40)) - 1);
     if (d.Vz) I -= d.Is * (Math.exp(Math.min(-(Vd + d.Vz) / nvt, 40)) - 1);
     compI[d.comp.id] = I;
+  }
+  for (const q of ctx.E.Q) { // courant collecteur
+    const Vbe = q.pol * (netV[q.b] - netV[q.e]), Vbc = q.pol * (netV[q.b] - netV[q.c]);
+    const Icc = q.Is * (Math.exp(Math.min(Vbe / VT, 40)) - 1), Ice = q.Is * (Math.exp(Math.min(Vbc / VT, 40)) - 1);
+    compI[q.comp.id] = q.pol * (Icc - Ice * (1 + 1 / q.br));
   }
   return { ok: true, warnings, netV, compI, netSample: ctx.netSample, groundNets: [...ctx.ground] };
 }
@@ -239,6 +281,93 @@ function simulateTransient(components, wires, symbols, opt) {
     for (const l of ctx.E.L) { const G = h / l.L; indI[l.comp.id] = G * (netV(l.a) - netV(l.b)) + (indI[l.comp.id] || 0); }
   }
   return { ok: true, warnings, t, series, unit: 'ms' };
+}
+
+// ---- Résolution complexe Ax = b (Gauss, pivot partiel) --------------------
+// Nombres complexes représentés par [re, im].
+function cmul(a, b) { return [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]]; }
+function cdiv(a, b) { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; }
+function cabs(a) { return Math.hypot(a[0], a[1]); }
+function solveComplex(A, b) {
+  const n = b.length;
+  for (let col = 0; col < n; col++) {
+    let piv = col;
+    for (let r = col + 1; r < n; r++) if (cabs(A[r][col]) > cabs(A[piv][col])) piv = r;
+    if (cabs(A[piv][col]) < 1e-18) return null;
+    [A[col], A[piv]] = [A[piv], A[col]];
+    [b[col], b[piv]] = [b[piv], b[col]];
+    for (let r = 0; r < n; r++) {
+      if (r === col) continue;
+      const f = cdiv(A[r][col], A[col][col]);
+      for (let cc = col; cc < n; cc++) { const t = cmul(f, A[col][cc]); A[r][cc] = [A[r][cc][0] - t[0], A[r][cc][1] - t[1]]; }
+      const tb = cmul(f, b[col]); b[r] = [b[r][0] - tb[0], b[r][1] - tb[1]];
+    }
+  }
+  return b.map((v, i) => cdiv(v, A[i][i]));
+}
+
+// ---- Analyse fréquentielle (Bode) -----------------------------------------
+// Petits signaux autour du point de fonctionnement continu.
+function simulateAC(components, wires, symbols, opt) {
+  opt = opt || {};
+  const ctx = collectElements(components, wires, symbols);
+  const warnings = ctx.warnings.slice();
+  if (!components.some((c) => c.type === 'ac_source')) { warnings.push("Ajoute une source AC (sera l'entrée du Bode)."); return { ok: false, warnings }; }
+  ensureGround(ctx);
+
+  // Point de fonctionnement (pour linéariser diodes / transistors)
+  const op = solveStep(ctx.E, ctx.ground, ctx.nets, { transient: false });
+  if (!op) { warnings.push('Point de fonctionnement non résoluble.'); return { ok: false, warnings }; }
+  const opV = (net) => (ctx.ground.has(net) ? 0 : op.x[op.node[net]]);
+
+  // Conductances petits signaux figées au point de fonctionnement
+  const gD = ctx.E.D.map((d) => { const nvt = d.N * VT; let gd = (d.Is / nvt) * Math.exp(Math.min((opV(d.p) - opV(d.n)) / nvt, 40)); if (d.Vz) gd += (d.Is / nvt) * Math.exp(Math.min(-((opV(d.p) - opV(d.n)) + d.Vz) / nvt, 40)); return gd + 1e-12; });
+  const gQ = ctx.E.Q.map((q) => {
+    const Vbe = q.pol * (opV(q.b) - opV(q.e)), Vbc = q.pol * (opV(q.b) - opV(q.c));
+    const gcc = (q.Is / VT) * Math.exp(Math.min(Vbe / VT, 40)), gce = (q.Is / VT) * Math.exp(Math.min(Vbc / VT, 40));
+    const a = gcc / q.bf, b2 = gce / q.br, cc = gcc, dd = -gce * (1 + 1 / q.br);
+    return [[a + b2, -b2, -a], [cc + dd, -dd, -cc], [-(a + b2 + cc + dd), b2 + dd, a + cc]];
+  });
+
+  const node = {}; let n = 0;
+  for (const net of ctx.nets) if (!ctx.ground.has(net)) node[net] = n++;
+  const idx = (net) => (ctx.ground.has(net) || net < 0 ? -1 : node[net]);
+  const m = ctx.E.V.length, N = n + m;
+
+  const fmin = opt.fmin || 1, fmax = opt.fmax || 1e6, pts = opt.pts || 100;
+  const freqs = [], plot = ctx.nets.filter((net) => !ctx.ground.has(net)).slice(0, 8);
+  const series = plot.map((net) => ({ net, label: 'N' + (net + 1), mag: [], phase: [] }));
+
+  for (let i = 0; i <= pts; i++) {
+    const f = fmin * Math.pow(fmax / fmin, i / pts), w = 2 * Math.PI * f;
+    freqs.push(f);
+    const A = Array.from({ length: N }, () => Array.from({ length: N }, () => [0, 0]));
+    const z = Array.from({ length: N }, () => [0, 0]);
+    const gc = (a, b, Y) => { if (a >= 0) { A[a][a][0] += Y[0]; A[a][a][1] += Y[1]; } if (b >= 0) { A[b][b][0] += Y[0]; A[b][b][1] += Y[1]; } if (a >= 0 && b >= 0) { A[a][b][0] -= Y[0]; A[a][b][1] -= Y[1]; A[b][a][0] -= Y[0]; A[b][a][1] -= Y[1]; } };
+    for (const r of ctx.E.R) gc(idx(r.a), idx(r.b), [1 / r.R, 0]);
+    for (const c of ctx.E.C) gc(idx(c.a), idx(c.b), [0, w * c.C]);
+    for (const l of ctx.E.L) gc(idx(l.a), idx(l.b), [0, -1 / (w * l.L)]);
+    for (let i2 = 0; i2 < n; i2++) A[i2][i2][0] += 1e-12;
+    ctx.E.D.forEach((d, di) => gc(idx(d.p), idx(d.n), [gD[di], 0]));
+    ctx.E.Q.forEach((q, qi) => {
+      const nodes = [idx(q.b), idx(q.c), idx(q.e)], J = gQ[qi];
+      for (let r = 0; r < 3; r++) for (let s = 0; s < 3; s++) if (nodes[r] >= 0 && nodes[s] >= 0) A[nodes[r]][nodes[s]][0] += J[r][s];
+    });
+    ctx.E.V.forEach((v, k) => {
+      const p = idx(v.p), q = idx(v.n), row = n + k;
+      if (p >= 0) { A[p][row][0] += 1; A[row][p][0] += 1; }
+      if (q >= 0) { A[q][row][0] -= 1; A[row][q][0] -= 1; }
+      if (v.comp.type === 'ac_source') z[row][0] += 1; // entrée 1∠0
+    });
+    const x = solveComplex(A, z);
+    if (!x) { warnings.push('Non résoluble à ' + f.toFixed(0) + ' Hz'); return { ok: false, warnings }; }
+    series.forEach((s) => {
+      const V = ctx.ground.has(s.net) ? [0, 0] : x[node[s.net]];
+      s.mag.push(20 * Math.log10(Math.max(cabs(V), 1e-12)));
+      s.phase.push(Math.atan2(V[1], V[0]) * 180 / Math.PI);
+    });
+  }
+  return { ok: true, warnings, freqs, series };
 }
 
 // ---- Vérification des règles électriques (ERC) ----------------------------

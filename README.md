@@ -41,6 +41,12 @@ Aucune installation, aucun serveur : il suffit d'ouvrir `index.html` dans un nav
   **bobines** et **sources sinusoïdales (AC)** → **oscilloscope** intégré qui trace
   les tensions de nœud dans le temps (ex. charge RC, redresseur à diode…). Fréquence
   et durée réglables.
+- **Transistors bipolaires (BJT)** NPN / PNP en modèle **d'Ebers-Moll** : régimes
+  actif, saturé et bloqué (amplification, commutation). Le gain β se règle dans le
+  champ *Valeur* (défaut 100).
+- **Analyse fréquentielle (Bode)** : MNA en **nombres complexes**, petits signaux
+  autour du point de fonctionnement → courbes de **gain (dB)** et de **phase (°)**
+  de 1 Hz à 1 MHz (échelle logarithmique). Validé sur filtre RC (−3 dB / −45° à fc).
 - **ERC — vérification des règles électriques** : broches non connectées, absence de
   masse / de source, source court-circuitée. Clique un problème pour cibler le
   composant fautif.

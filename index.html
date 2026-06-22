@@ -124,6 +124,7 @@
           <label>f (Hz)<input type="number" id="trans-f" value="50" min="0" step="10" /></label>
           <label>Durée (ms)<input type="number" id="trans-t" value="60" min="1" step="10" /></label>
           <button id="btn-trans" class="btn-sim" title="Analyse temporelle (oscilloscope)">📈 Transitoire</button>
+          <button id="btn-bode" class="btn-sim" title="Réponse en fréquence (nécessite une source AC)">〰️ Bode</button>
         </div>
         <canvas id="scope" class="scope" style="display:none"></canvas>
         <div id="sim-status" class="sim-status">Analyse en courant continu (Ohm &amp; Kirchhoff) et transitoire (condensateurs, bobines, AC). Place une source et une masse, puis lance.</div>
