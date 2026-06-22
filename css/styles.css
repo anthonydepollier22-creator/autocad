@@ -1,0 +1,101 @@
+/* ÉlectriCAD — feuille de style (thème sombre type CAO) */
+:root {
+  --bg: #14171e;
+  --panel: #1e232d;
+  --panel-2: #252b37;
+  --border: #2f3744;
+  --text: #d7e0ee;
+  --muted: #8a97ab;
+  --accent: #4aa3ff;
+  --accent-2: #2b6fb8;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0; height: 100%;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg); color: var(--text);
+  overflow: hidden; user-select: none;
+}
+body { display: flex; flex-direction: column; height: 100vh; }
+
+/* En-tête */
+.topbar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 6px 12px; background: var(--panel);
+  border-bottom: 1px solid var(--border); flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+.brand { font-weight: 700; font-size: 18px; color: var(--accent); white-space: nowrap; }
+.toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.group { display: flex; gap: 4px; }
+.sep { width: 1px; height: 26px; background: var(--border); }
+
+.toolbar button {
+  background: var(--panel-2); color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 6px 10px; font-size: 13px; cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.toolbar button:hover { background: #303847; }
+.toolbar button.active { background: var(--accent-2); border-color: var(--accent); color: #fff; }
+
+.chk { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.chk input { accent-color: var(--accent); }
+
+/* Disposition principale */
+.main { flex: 1 1 auto; display: flex; min-height: 0; }
+.sidebar {
+  background: var(--panel); border-right: 1px solid var(--border);
+  width: 230px; flex: 0 0 230px; display: flex; flex-direction: column;
+  overflow-y: auto;
+}
+.sidebar.right { border-right: none; border-left: 1px solid var(--border); width: 250px; flex-basis: 250px; }
+.side-head {
+  padding: 10px 12px; font-size: 12px; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--muted); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: var(--panel); z-index: 1;
+}
+
+/* Palette */
+.palette { padding: 8px; }
+.cat-title { font-size: 12px; color: var(--accent); margin: 12px 4px 6px; font-weight: 600; }
+.cat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.sym-btn {
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 4px 4px; cursor: pointer; color: var(--muted);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  transition: border-color .12s, background .12s;
+}
+.sym-btn:hover { border-color: var(--accent); background: #2a3140; }
+.sym-btn.active { border-color: var(--accent); background: var(--accent-2); color: #fff; }
+.sym-btn canvas { width: 64px; height: 48px; }
+.sym-btn span { font-size: 10px; text-align: center; line-height: 1.1; }
+
+/* Canvas */
+.canvas-wrap { flex: 1 1 auto; position: relative; min-width: 0; }
+#canvas { display: block; width: 100%; height: 100%; }
+
+/* Propriétés */
+.props, .props-empty { padding: 12px; }
+.props-empty { color: var(--muted); font-size: 13px; }
+.prop-type { font-weight: 600; margin-bottom: 10px; color: var(--accent); }
+.props label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+.props input {
+  width: 100%; margin-top: 4px; padding: 7px 9px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); font-size: 13px;
+}
+.props input:focus { outline: none; border-color: var(--accent); }
+
+.help { padding: 4px 12px 16px; }
+.help ul { margin: 8px 0 0; padding-left: 18px; }
+.help li { font-size: 12px; color: var(--muted); margin-bottom: 7px; line-height: 1.35; }
+.help b { color: var(--text); }
+
+/* Barre d'état */
+.statusbar {
+  flex: 0 0 auto; display: flex; gap: 24px;
+  padding: 5px 14px; background: var(--panel); border-top: 1px solid var(--border);
+  font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums;
+}
