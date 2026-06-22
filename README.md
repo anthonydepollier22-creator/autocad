@@ -31,11 +31,19 @@ Aucune installation, aucun serveur : il suffit d'ouvrir `index.html` dans un nav
 
 ### ⚡ Fonctions « métier » élec
 
-- **Simulation en courant continu** (analyse nodale modifiée — lois d'Ohm & Kirchhoff) :
-  calcule les **tensions de chaque nœud** et les **courants de branche**, affichés
-  directement sur le schéma (tensions en vert, courants en orange). Gère résistances,
-  sources de tension/courant, piles, lampes/moteurs, interrupteurs (ouvert/fermé),
-  ampèremètres, masse. Signale les composants non linéaires ignorés.
+- **Simulation en courant continu — non linéaire** (analyse nodale modifiée +
+  **Newton-Raphson** avec limitation de jonction) : calcule les **tensions de nœud**
+  et **courants de branche**, affichés sur le schéma (tensions en vert, courants en
+  orange). Gère résistances, sources, piles, lampes/moteurs, interrupteurs,
+  ampèremètres, **diodes / LED / Zener** (chute ~0,7 V, etc.), bobines (court-circuit)
+  et condensateurs (circuit ouvert).
+- **Analyse transitoire** (régime temporel, Euler implicite) avec **condensateurs**,
+  **bobines** et **sources sinusoïdales (AC)** → **oscilloscope** intégré qui trace
+  les tensions de nœud dans le temps (ex. charge RC, redresseur à diode…). Fréquence
+  et durée réglables.
+- **ERC — vérification des règles électriques** : broches non connectées, absence de
+  masse / de source, source court-circuitée. Clique un problème pour cibler le
+  composant fautif.
 - **Nomenclature (BOM)** générée automatiquement, regroupée par type/valeur avec
   quantités et références — **export CSV**.
 - **Points de jonction** dessinés automatiquement aux connexions (≥ 3 fils ou T).

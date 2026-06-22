@@ -116,10 +116,17 @@
       <!-- Onglet Simulation -->
       <div class="tab-panel" data-panel="sim" style="display:none">
         <div class="sim-actions">
-          <button id="btn-sim2" class="btn-sim">▶️ Lancer</button>
-          <button id="btn-sim-stop">⏹️ Arrêter</button>
+          <button id="btn-sim2" class="btn-sim">▶️ Continu (DC)</button>
+          <button id="btn-erc" title="Vérification des règles électriques">🔍 ERC</button>
+          <button id="btn-sim-stop" title="Effacer l'affichage">⏹️</button>
         </div>
-        <div id="sim-status" class="sim-status">Analyse en courant continu (loi d'Ohm &amp; Kirchhoff). Place une source (pile/source) et une masse, puis lance la simulation.</div>
+        <div class="sim-trans">
+          <label>f (Hz)<input type="number" id="trans-f" value="50" min="0" step="10" /></label>
+          <label>Durée (ms)<input type="number" id="trans-t" value="60" min="1" step="10" /></label>
+          <button id="btn-trans" class="btn-sim" title="Analyse temporelle (oscilloscope)">📈 Transitoire</button>
+        </div>
+        <canvas id="scope" class="scope" style="display:none"></canvas>
+        <div id="sim-status" class="sim-status">Analyse en courant continu (Ohm &amp; Kirchhoff) et transitoire (condensateurs, bobines, AC). Place une source et une masse, puis lance.</div>
         <div id="sim-results" class="sim-results"></div>
       </div>
     </aside>

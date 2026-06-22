@@ -220,13 +220,106 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     simResults.innerHTML = html;
   }
+  const scope = document.getElementById('scope');
   document.getElementById('btn-sim').addEventListener('click', () => { showTab('sim'); runSim(); });
   document.getElementById('btn-sim2').addEventListener('click', runSim);
   document.getElementById('btn-sim-stop').addEventListener('click', () => {
     editor.clearSim();
     simStatus.textContent = 'Simulation arrêtée.';
     simResults.innerHTML = '';
+    scope.style.display = 'none';
   });
+
+  // Analyse transitoire (oscilloscope)
+  document.getElementById('btn-trans').addEventListener('click', () => {
+    editor.clearSim();
+    const f = parseFloat(document.getElementById('trans-f').value) || 50;
+    const time = parseFloat(document.getElementById('trans-t').value) || 60;
+    const res = simulateTransient(editor.components, editor.wires, SYMBOLS, { f, time });
+    let html = '';
+    if (res.warnings && res.warnings.length) html += '<div class="warn">⚠️ ' + res.warnings.join('<br>⚠️ ') + '</div>';
+    if (res.ok) {
+      simStatus.textContent = `📈 Transitoire sur ${time} ms — ${res.series.length} net(s) tracé(s).`;
+      drawScope(res);
+    } else {
+      simStatus.textContent = '❌ Transitoire impossible.';
+      scope.style.display = 'none';
+    }
+    simResults.innerHTML = html;
+  });
+
+  // ERC : vérification des règles électriques
+  document.getElementById('btn-erc').addEventListener('click', () => {
+    editor.clearSim();
+    scope.style.display = 'none';
+    const issues = runERC(editor.components, editor.wires, SYMBOLS);
+    simStatus.textContent = '🔍 Vérification des règles électriques (ERC) :';
+    let html = '<ul class="erc">';
+    for (const it of issues) {
+      const ic = it.level === 'err' ? '❌' : it.level === 'warn' ? '⚠️' : '✅';
+      const cls = it.compId ? ' class="clickable" data-id="' + it.compId + '"' : '';
+      html += `<li${cls}>${ic} ${it.msg}</li>`;
+    }
+    html += '</ul>';
+    simResults.innerHTML = html;
+    simResults.querySelectorAll('.erc .clickable').forEach((li) => {
+      li.addEventListener('click', () => editor.focusComponent(li.dataset.id));
+    });
+  });
+
+  const SCOPE_COLORS = ['#5ce08a', '#7fd1ff', '#ffb454', '#ff7a90', '#c08bff', '#ffe06a', '#6ad7d0', '#ff9d5c'];
+  function drawScope(res) {
+    scope.style.display = 'block';
+    const W = scope.clientWidth || 260, H = 180;
+    const dpr = window.devicePixelRatio || 1;
+    scope.width = W * dpr; scope.height = H * dpr;
+    const ctx = scope.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#0d1016'; ctx.fillRect(0, 0, W, H);
+    const padL = 38, padB = 18, padT = 8, padR = 6;
+    const x0 = padL, x1 = W - padR, y0 = padT, y1 = H - padB;
+    // bornes
+    let vmin = Infinity, vmax = -Infinity;
+    for (const s of res.series) for (const v of s.values) { vmin = Math.min(vmin, v); vmax = Math.max(vmax, v); }
+    if (!isFinite(vmin)) { vmin = -1; vmax = 1; }
+    if (vmax - vmin < 1e-9) { vmax += 1; vmin -= 1; }
+    const pad = (vmax - vmin) * 0.1; vmin -= pad; vmax += pad;
+    const tmax = res.t[res.t.length - 1] || 1;
+    const sx = (t) => x0 + (t / tmax) * (x1 - x0);
+    const sy = (v) => y1 - ((v - vmin) / (vmax - vmin)) * (y1 - y0);
+    // grille + axes
+    ctx.strokeStyle = '#222a36'; ctx.lineWidth = 1; ctx.fillStyle = '#6b7888'; ctx.font = '9px sans-serif';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let i = 0; i <= 4; i++) {
+      const v = vmin + (i / 4) * (vmax - vmin), y = sy(v);
+      ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+      ctx.fillText(v.toFixed(1), x0 - 4, y);
+    }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (let i = 0; i <= 4; i++) {
+      const t = (i / 4) * tmax, x = sx(t);
+      ctx.fillText(t.toFixed(0), x, y1 + 4);
+    }
+    ctx.fillStyle = '#8a97ab'; ctx.fillText('ms', x1, y1 + 4);
+    // courbes
+    res.series.forEach((s, i) => {
+      ctx.strokeStyle = SCOPE_COLORS[i % SCOPE_COLORS.length]; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let k = 0; k < s.values.length; k++) {
+        const X = sx(res.t[k]), Y = sy(s.values[k]);
+        k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
+      }
+      ctx.stroke();
+    });
+    // légende
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.font = '9px sans-serif';
+    res.series.forEach((s, i) => {
+      const ly = y0 + 8 + i * 12;
+      ctx.fillStyle = SCOPE_COLORS[i % SCOPE_COLORS.length];
+      ctx.fillRect(x0 + 4, ly - 3, 10, 6);
+      ctx.fillStyle = '#aebacb'; ctx.fillText(s.label, x0 + 18, ly);
+    });
+  }
   function showTab(name) {
     activeTab = name;
     tabs.forEach((x) => x.classList.toggle('active', x.dataset.tab === name));

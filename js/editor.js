@@ -667,6 +667,16 @@ class Editor {
     }
   }
 
+  // Sélectionne un composant et le centre dans la vue (utilisé par l'ERC)
+  focusComponent(id) {
+    const c = this.components.find((x) => x.id === id);
+    if (!c) return;
+    this.selection = new Set([id]);
+    this.view.x = this._cssW / 2 - c.x * this.view.scale;
+    this.view.y = this._cssH / 2 - c.y * this.view.scale;
+    this.render(); this._emit();
+  }
+
   // --- Vue d'ensemble -----------------------------------------------------
   zoomBy(f) {
     const cx = this._cssW / 2, cy = this._cssH / 2;
