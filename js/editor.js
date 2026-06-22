@@ -406,9 +406,10 @@ class Editor {
     const c = this.hitComponent(w.x, w.y);
     if (c && (c.type === 'switch' || c.type === 'push_button')) {
       c.closed = !c.closed;
-      this.pushHistory();
-      this.render();
-      this._emit();
+      this.pushHistory(); this.render(); this._emit();
+    } else if (c && c.type === 'logic_in') {
+      c.high = !c.high;
+      this.pushHistory(); this.render(); this._emit();
     }
   }
 

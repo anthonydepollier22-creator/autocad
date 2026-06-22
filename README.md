@@ -50,6 +50,11 @@ Aucune installation, aucun serveur : il suffit d'ouvrir `index.html` dans un nav
 - **ERC — vérification des règles électriques** : broches non connectées, absence de
   masse / de source, source court-circuitée. Clique un problème pour cibler le
   composant fautif.
+- **Électronique numérique** : portes logiques **ET / OU / NON / NON-ET / NON-OU /
+  OU-X**, **horloge** (créneau), **entrées** (0/1 basculables au double-clic) et
+  **sorties** (indicateurs). Le simulateur logique évalue le réseau dans le temps et
+  affiche un **chronogramme** (timing diagram). Les indicateurs de sortie s'allument
+  selon leur état.
 - **Nomenclature (BOM)** générée automatiquement, regroupée par type/valeur avec
   quantités et références — **export CSV**.
 - **Points de jonction** dessinés automatiquement aux connexions (≥ 3 fils ou T).
@@ -98,7 +103,8 @@ python3 -m http.server 8000
 └── js/
     ├── symbols.js     # Bibliothèque de symboles électriques (dessin vectoriel)
     ├── netlist.js     # Connectivité électrique (nets), jonctions, nomenclature
-    ├── simulate.js    # Simulation DC (analyse nodale modifiée / MNA)
+    ├── simulate.js    # Simulation analogique : DC non-linéaire, transitoire, AC (Bode), ERC
+    ├── digital.js     # Simulation logique (portes) + chronogramme
     ├── svg.js         # Export vectoriel SVG (réutilise le dessin des symboles)
     ├── editor.js      # Moteur CAO : vue, modèle, outils, historique, rendu
     └── ui.js          # Câblage de l'interface et opérations fichier

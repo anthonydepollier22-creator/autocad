@@ -264,6 +264,23 @@ document.addEventListener('DOMContentLoaded', () => {
     simResults.innerHTML = html;
   });
 
+  // Simulation logique (chronogramme)
+  document.getElementById('btn-logic').addEventListener('click', () => {
+    editor.clearSim();
+    const res = simulateDigital(editor.components, editor.wires, SYMBOLS, {});
+    let html = '';
+    if (res.warnings && res.warnings.length) html += '<div class="warn">⚠️ ' + res.warnings.join('<br>⚠️ ') + '</div>';
+    if (res.ok) {
+      simStatus.textContent = '🔢 Simulation logique — chronogramme des signaux.';
+      drawTiming(res);
+      editor.render(); // met à jour les indicateurs de sortie
+    } else {
+      simStatus.textContent = '❌ Simulation logique impossible.';
+      scope.style.display = 'none';
+    }
+    simResults.innerHTML = html;
+  });
+
   // ERC : vérification des règles électriques
   document.getElementById('btn-erc').addEventListener('click', () => {
     editor.clearSim();
@@ -385,6 +402,47 @@ document.addEventListener('DOMContentLoaded', () => {
       ctx.fillText(lbl, sx(f), H - 12);
     }
     ctx.textAlign = 'right'; ctx.fillText('Hz', x1, H - 12);
+  }
+
+  function drawTiming(res) {
+    scope.style.display = 'block';
+    const rows = res.signals.length || 1;
+    const rowH = 26;
+    const W = scope.clientWidth || 260, H = Math.max(120, rows * rowH + 24);
+    const dpr = window.devicePixelRatio || 1;
+    scope.width = W * dpr; scope.height = H * dpr;
+    const ctx = scope.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = '#0d1016'; ctx.fillRect(0, 0, W, H);
+    const padL = 44, padR = 8;
+    const x0 = padL, x1 = W - padR;
+    const tmax = res.t[res.t.length - 1] || 1;
+    const sx = (tt) => x0 + (tt / tmax) * (x1 - x0);
+    ctx.font = '10px sans-serif';
+    res.signals.forEach((s, i) => {
+      const top = 8 + i * rowH, hi = top + 3, lo = top + rowH - 9;
+      // étiquette
+      ctx.fillStyle = '#aebacb'; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+      ctx.fillText(s.label, x0 - 6, (hi + lo) / 2);
+      // ligne de base
+      ctx.strokeStyle = '#1e2430'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x0, lo); ctx.lineTo(x1, lo); ctx.stroke();
+      // signal
+      ctx.strokeStyle = SCOPE_COLORS[i % SCOPE_COLORS.length]; ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      let prev = s.values[0];
+      ctx.moveTo(sx(res.t[0]), prev ? hi : lo);
+      for (let k = 1; k < s.values.length; k++) {
+        const X = sx(res.t[k]);
+        if (s.values[k] !== prev) { ctx.lineTo(X, prev ? hi : lo); ctx.lineTo(X, s.values[k] ? hi : lo); prev = s.values[k]; }
+        else ctx.lineTo(X, prev ? hi : lo);
+      }
+      ctx.stroke();
+    });
+    // axe temps
+    ctx.fillStyle = '#8a97ab'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    for (let i = 0; i <= 4; i++) { const tt = (i / 4) * tmax; ctx.fillText(tt.toFixed(tt < 10 ? 1 : 0), sx(tt), H - 2); }
+    ctx.textAlign = 'right'; ctx.fillText(res.unit || 'ms', x1, H - 2);
   }
   function showTab(name) {
     activeTab = name;

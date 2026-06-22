@@ -403,7 +403,110 @@ const SYMBOLS = {
       ctx.stroke();
     },
   },
+
+  // ----- Logique (numérique) ---------------------------------------------
+  gate_and: {
+    name: 'Porte ET', category: 'Logique', prefix: 'U',
+    terminals: [{ x: -2 * U, y: -U }, { x: -2 * U, y: U }, { x: 2 * U, y: 0 }],
+    bbox: { x: -40, y: -24, w: 80, h: 48 },
+    draw(ctx) { gateLeads2(ctx); andBody(ctx); line(ctx, 20, 0, 40, 0); },
+  },
+  gate_nand: {
+    name: 'Porte NON-ET', category: 'Logique', prefix: 'U',
+    terminals: [{ x: -2 * U, y: -U }, { x: -2 * U, y: U }, { x: 2 * U, y: 0 }],
+    bbox: { x: -40, y: -24, w: 80, h: 48 },
+    draw(ctx) { gateLeads2(ctx); andBody(ctx); circle(ctx, 24, 0, 4); line(ctx, 28, 0, 40, 0); },
+  },
+  gate_or: {
+    name: 'Porte OU', category: 'Logique', prefix: 'U',
+    terminals: [{ x: -2 * U, y: -U }, { x: -2 * U, y: U }, { x: 2 * U, y: 0 }],
+    bbox: { x: -40, y: -24, w: 80, h: 48 },
+    draw(ctx) { gateLeads2(ctx, -18); orBody(ctx); line(ctx, 22, 0, 40, 0); },
+  },
+  gate_nor: {
+    name: 'Porte NON-OU', category: 'Logique', prefix: 'U',
+    terminals: [{ x: -2 * U, y: -U }, { x: -2 * U, y: U }, { x: 2 * U, y: 0 }],
+    bbox: { x: -40, y: -24, w: 80, h: 48 },
+    draw(ctx) { gateLeads2(ctx, -18); orBody(ctx); circle(ctx, 26, 0, 4); line(ctx, 30, 0, 40, 0); },
+  },
+  gate_xor: {
+    name: 'Porte OU-X', category: 'Logique', prefix: 'U',
+    terminals: [{ x: -2 * U, y: -U }, { x: -2 * U, y: U }, { x: 2 * U, y: 0 }],
+    bbox: { x: -40, y: -24, w: 80, h: 48 },
+    draw(ctx) {
+      gateLeads2(ctx, -24); orBody(ctx);
+      ctx.beginPath(); ctx.moveTo(-26, -20); ctx.quadraticCurveTo(-12, 0, -26, 20); ctx.stroke();
+      line(ctx, 22, 0, 40, 0);
+    },
+  },
+  gate_not: {
+    name: 'Porte NON (inverseur)', category: 'Logique', prefix: 'U',
+    terminals: [{ x: -2 * U, y: 0 }, { x: 2 * U, y: 0 }],
+    bbox: { x: -40, y: -18, w: 80, h: 36 },
+    draw(ctx) {
+      line(ctx, -40, 0, -18, 0);
+      poly(ctx, [[-18, -15], [-18, 15], [16, 0]], true);
+      circle(ctx, 20, 0, 4);
+      line(ctx, 24, 0, 40, 0);
+    },
+  },
+  clock: {
+    name: 'Horloge', category: 'Logique', prefix: 'CLK',
+    terminals: [{ x: 2 * U, y: 0 }], bbox: { x: -20, y: -18, w: 60, h: 36 },
+    draw(ctx) {
+      ctx.strokeRect(-20, -16, 40, 32);
+      line(ctx, 20, 0, 40, 0);
+      ctx.beginPath();
+      ctx.moveTo(-14, 6); ctx.lineTo(-14, -6); ctx.lineTo(-4, -6);
+      ctx.lineTo(-4, 6); ctx.lineTo(6, 6); ctx.lineTo(6, -6); ctx.lineTo(14, -6);
+      ctx.stroke();
+    },
+  },
+  logic_in: {
+    name: 'Entrée logique', category: 'Logique', prefix: 'IN',
+    terminals: [{ x: 2 * U, y: 0 }], bbox: { x: -20, y: -18, w: 60, h: 36 },
+    draw(ctx, c) {
+      ctx.strokeRect(-20, -16, 40, 32);
+      line(ctx, 20, 0, 40, 0);
+      ctx.save();
+      ctx.fillStyle = c && c.high ? '#5ce08a' : ctx.strokeStyle;
+      ctx.font = '18px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(c && c.high ? '1' : '0', 0, 1);
+      ctx.restore();
+    },
+  },
+  logic_out: {
+    name: 'Sortie logique', category: 'Logique', prefix: 'OUT',
+    terminals: [{ x: -2 * U, y: 0 }], bbox: { x: -40, y: -18, w: 56, h: 36 },
+    draw(ctx, c) {
+      line(ctx, -40, 0, -16, 0);
+      if (c && c.__on) { ctx.save(); ctx.fillStyle = '#5ce08a'; circle(ctx, 0, 0, 15, true); ctx.restore(); }
+      circle(ctx, 0, 0, 16);
+    },
+  },
 };
+
+// Tracés communs aux portes -------------------------------------------------
+function gateLeads2(ctx, xEnd) {
+  const xe = xEnd === undefined ? -20 : xEnd;
+  line(ctx, -40, -20, xe, -20);
+  line(ctx, -40, 20, xe, 20);
+}
+function andBody(ctx) {
+  ctx.beginPath();
+  ctx.moveTo(-20, 20); ctx.lineTo(-20, -20); ctx.lineTo(0, -20);
+  ctx.arc(0, 0, 20, -Math.PI / 2, Math.PI / 2, false);
+  ctx.lineTo(-20, 20);
+  ctx.stroke();
+}
+function orBody(ctx) {
+  ctx.beginPath();
+  ctx.moveTo(-20, -20);
+  ctx.quadraticCurveTo(-6, 0, -20, 20);
+  ctx.quadraticCurveTo(8, 18, 22, 0);
+  ctx.quadraticCurveTo(8, -18, -20, -20);
+  ctx.stroke();
+}
 
 // Lettre centrée pour les appareils de mesure (M/V/A/Ω)
 function meterLetter(ctx, ch) {

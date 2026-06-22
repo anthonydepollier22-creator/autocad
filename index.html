@@ -125,6 +125,7 @@
           <label>Durée (ms)<input type="number" id="trans-t" value="60" min="1" step="10" /></label>
           <button id="btn-trans" class="btn-sim" title="Analyse temporelle (oscilloscope)">📈 Transitoire</button>
           <button id="btn-bode" class="btn-sim" title="Réponse en fréquence (nécessite une source AC)">〰️ Bode</button>
+          <button id="btn-logic" class="btn-sim" title="Simulation logique (chronogramme)">🔢 Logique</button>
         </div>
         <canvas id="scope" class="scope" style="display:none"></canvas>
         <div id="sim-status" class="sim-status">Analyse en courant continu (Ohm &amp; Kirchhoff) et transitoire (condensateurs, bobines, AC). Place une source et une masse, puis lance.</div>
@@ -145,6 +146,7 @@
   <script src="js/symbols.js"></script>
   <script src="js/netlist.js"></script>
   <script src="js/simulate.js"></script>
+  <script src="js/digital.js"></script>
   <script src="js/svg.js"></script>
   <script src="js/editor.js"></script>
   <script src="js/ui.js"></script>
