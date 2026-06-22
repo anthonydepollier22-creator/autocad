@@ -48,6 +48,23 @@ document.addEventListener('DOMContentLoaded', () => {
     palette.appendChild(grid);
   }
 
+  // Recherche dans la palette
+  const searchInput = document.getElementById('palette-search');
+  searchInput.addEventListener('input', () => {
+    const q = searchInput.value.trim().toLowerCase();
+    document.querySelectorAll('.sym-btn').forEach((b) => {
+      const name = SYMBOLS[b.dataset.type].name.toLowerCase();
+      b.style.display = !q || name.includes(q) ? '' : 'none';
+    });
+    // Masquer les titres de catégorie vides
+    document.querySelectorAll('.cat-grid').forEach((grid) => {
+      const visible = [...grid.querySelectorAll('.sym-btn')].some((b) => b.style.display !== 'none');
+      grid.style.display = visible ? '' : 'none';
+      const title = grid.previousElementSibling;
+      if (title && title.classList.contains('cat-title')) title.style.display = visible ? '' : 'none';
+    });
+  });
+
   function drawThumb(c, key) {
     const ctx = c.getContext('2d');
     const sym = SYMBOLS[key];
@@ -118,6 +135,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const a = document.createElement('a');
     a.href = url; a.download = 'schema.png'; a.click();
   });
+  document.getElementById('btn-svg').addEventListener('click', () => {
+    const blob = new Blob([editor.exportSVG()], { type: 'image/svg+xml' });
+    download(blob, (editor.meta.title || 'schema') + '.svg');
+  });
+  document.getElementById('btn-print').addEventListener('click', () => editor.print());
 
   function download(blob, name) {
     const a = document.createElement('a');
@@ -134,11 +156,82 @@ document.addEventListener('DOMContentLoaded', () => {
   const propEmpty = document.getElementById('props-empty');
   const propType = document.getElementById('prop-type');
 
+  const switchWrap = document.getElementById('prop-switch-wrap');
+  const closedChk = document.getElementById('prop-closed');
   function applyProps() {
     editor.updateSelectedProps(labelInput.value, valueInput.value);
   }
   labelInput.addEventListener('change', applyProps);
   valueInput.addEventListener('change', applyProps);
+  closedChk.addEventListener('change', () => editor.toggleSelectedSwitch());
+
+  // --- Cartouche / métadonnées projet ------------------------------------
+  const metaTitle = document.getElementById('meta-title');
+  const metaAuthor = document.getElementById('meta-author');
+  metaTitle.addEventListener('change', () => { editor.meta.title = metaTitle.value; editor.autosave(); });
+  metaAuthor.addEventListener('change', () => { editor.meta.author = metaAuthor.value; editor.autosave(); });
+
+  // --- Onglets -----------------------------------------------------------
+  const tabs = document.querySelectorAll('.tab');
+  const panels = document.querySelectorAll('.tab-panel');
+  let activeTab = 'props';
+  tabs.forEach((t) => t.addEventListener('click', () => {
+    activeTab = t.dataset.tab;
+    tabs.forEach((x) => x.classList.toggle('active', x === t));
+    panels.forEach((p) => (p.style.display = p.dataset.panel === activeTab ? '' : 'none'));
+    if (activeTab === 'bom') renderBOM();
+  }));
+
+  // --- Nomenclature (BOM) ------------------------------------------------
+  const bomTable = document.getElementById('bom-table');
+  function renderBOM() {
+    const rows = buildBOM(editor.components, SYMBOLS);
+    if (!rows.length) { bomTable.innerHTML = '<div class="empty">Aucun composant.</div>'; return; }
+    let html = '<table><thead><tr><th>Réf.</th><th>Composant</th><th>Valeur</th><th>Qté</th></tr></thead><tbody>';
+    for (const r of rows) html += `<tr><td>${r.refs.join(', ')}</td><td>${r.name}</td><td>${r.value || '—'}</td><td>${r.qty}</td></tr>`;
+    html += '</tbody></table>';
+    bomTable.innerHTML = html;
+  }
+  document.getElementById('btn-csv').addEventListener('click', () => {
+    const rows = buildBOM(editor.components, SYMBOLS);
+    let csv = 'Reference;Composant;Valeur;Quantite\n';
+    for (const r of rows) csv += `"${r.refs.join(', ')}";"${r.name}";"${r.value}";${r.qty}\n`;
+    download(new Blob(['﻿' + csv], { type: 'text/csv' }), 'nomenclature.csv');
+  });
+
+  // --- Simulation --------------------------------------------------------
+  const simStatus = document.getElementById('sim-status');
+  const simResults = document.getElementById('sim-results');
+  function runSim() {
+    const r = editor.runSim();
+    let html = '';
+    if (r.warnings.length) html += '<div class="warn">⚠️ ' + r.warnings.join('<br>⚠️ ') + '</div>';
+    if (r.ok) {
+      simStatus.textContent = '✅ Simulation OK — tensions (vert) et courants (orange) affichés sur le schéma.';
+      const comps = editor.components.filter((c) => r.compI[c.id] !== undefined)
+        .sort((a, b) => (a.label || '').localeCompare(b.label || ''));
+      if (comps.length) {
+        html += '<table><thead><tr><th>Réf.</th><th>Courant</th></tr></thead><tbody>';
+        for (const c of comps) html += `<tr><td>${c.label || c.type}</td><td>${fmtAmp(r.compI[c.id])}</td></tr>`;
+        html += '</tbody></table>';
+      }
+    } else {
+      simStatus.textContent = '❌ Simulation impossible.';
+    }
+    simResults.innerHTML = html;
+  }
+  document.getElementById('btn-sim').addEventListener('click', () => { showTab('sim'); runSim(); });
+  document.getElementById('btn-sim2').addEventListener('click', runSim);
+  document.getElementById('btn-sim-stop').addEventListener('click', () => {
+    editor.clearSim();
+    simStatus.textContent = 'Simulation arrêtée.';
+    simResults.innerHTML = '';
+  });
+  function showTab(name) {
+    activeTab = name;
+    tabs.forEach((x) => x.classList.toggle('active', x.dataset.tab === name));
+    panels.forEach((p) => (p.style.display = p.dataset.panel === name ? '' : 'none'));
+  }
 
   const statCoord = document.getElementById('stat-coord');
   const statZoom = document.getElementById('stat-zoom');
@@ -152,6 +245,9 @@ document.addEventListener('DOMContentLoaded', () => {
       propType.textContent = SYMBOLS[sel[0].type].name;
       labelInput.value = sel[0].label || '';
       valueInput.value = sel[0].value || '';
+      const isSwitch = sel[0].type === 'switch' || sel[0].type === 'push_button';
+      switchWrap.style.display = isSwitch ? '' : 'none';
+      closedChk.checked = !!sel[0].closed;
     } else {
       propBox.style.display = 'none';
       propEmpty.style.display = 'block';
@@ -159,11 +255,19 @@ document.addEventListener('DOMContentLoaded', () => {
         ? `${editor.selection.size} éléments sélectionnés`
         : 'Aucune sélection';
     }
+    // cartouche
+    if (document.activeElement !== metaTitle) metaTitle.value = editor.meta.title || '';
+    if (document.activeElement !== metaAuthor) metaAuthor.value = editor.meta.author || '';
+    // nomenclature si visible
+    if (activeTab === 'bom') renderBOM();
     // barre d'état
     statCoord.textContent = `X: ${Math.round(editor.mouse.wx)}  Y: ${Math.round(editor.mouse.wy)}`;
     statZoom.textContent = `Zoom: ${Math.round(editor.view.scale * 100)}%`;
     statCount.textContent = `${editor.components.length} composants · ${editor.wires.length} fils`;
   };
+
+  // Restauration de la dernière session (sauvegarde auto)
+  if (editor.restoreAuto()) editor.zoomFit();
   editor.onChange();
 
   // Glisser-déposer un fichier JSON

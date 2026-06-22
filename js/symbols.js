@@ -312,21 +312,23 @@ const SYMBOLS = {
   switch: {
     name: 'Interrupteur', category: 'Commutation', prefix: 'SW',
     terminals: T2, bbox: { x: -40, y: -18, w: 80, h: 24 },
-    draw(ctx) {
+    draw(ctx, c) {
       line(ctx, -40, 0, -20, 0);
       dot(ctx, -20, 0, 2.5); dot(ctx, 20, 0, 2.5);
-      line(ctx, -20, 0, 16, -14);
+      line(ctx, -20, 0, c && c.closed ? 20 : 16, c && c.closed ? 0 : -14);
       line(ctx, 20, 0, 40, 0);
     },
   },
   push_button: {
     name: 'Bouton poussoir', category: 'Commutation', prefix: 'SW',
     terminals: T2, bbox: { x: -40, y: -22, w: 80, h: 26 },
-    draw(ctx) {
+    draw(ctx, c) {
+      const y = c && c.closed ? -1 : -6;
       line(ctx, -40, 0, -16, 0);
       line(ctx, 16, 0, 40, 0);
-      line(ctx, -16, -6, 16, -6);
-      line(ctx, 0, -6, 0, -18);
+      if (!(c && c.closed)) { line(ctx, -16, 0, -16, -6); line(ctx, 16, 0, 16, -6); }
+      line(ctx, -16, y, 16, y);
+      line(ctx, 0, y, 0, -18);
       line(ctx, -8, -18, 8, -18);
     },
   },

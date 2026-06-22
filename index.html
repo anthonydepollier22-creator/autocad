@@ -16,6 +16,8 @@
         <button id="btn-open" title="Ouvrir un fichier .json">📂 Ouvrir</button>
         <button id="btn-save" title="Enregistrer en JSON">💾 Enregistrer</button>
         <button id="btn-png" title="Exporter en PNG">🖼️ PNG</button>
+        <button id="btn-svg" title="Exporter en SVG vectoriel">📐 SVG</button>
+        <button id="btn-print" title="Imprimer / PDF">🖨️ Imprimer</button>
       </div>
       <div class="sep"></div>
       <div class="group">
@@ -41,6 +43,10 @@
         <button id="btn-zoom-fit" title="Ajuster à l'écran">⛶ Ajuster</button>
       </div>
       <div class="sep"></div>
+      <div class="group">
+        <button id="btn-sim" class="btn-sim" title="Lancer la simulation (DC)">▶️ Simuler</button>
+      </div>
+      <div class="sep"></div>
       <label class="chk"><input type="checkbox" id="chk-snap" checked /> Magnétisme</label>
       <label class="chk"><input type="checkbox" id="chk-grid" checked /> Grille</label>
     </div>
@@ -50,6 +56,7 @@
     <!-- Palette de composants -->
     <aside class="sidebar left">
       <div class="side-head">Composants</div>
+      <div class="search-wrap"><input type="text" id="palette-search" placeholder="🔎 Rechercher…" /></div>
       <div id="palette" class="palette"></div>
     </aside>
 
@@ -58,28 +65,62 @@
       <canvas id="canvas"></canvas>
     </div>
 
-    <!-- Propriétés -->
+    <!-- Panneau de droite -->
     <aside class="sidebar right">
-      <div class="side-head">Propriétés</div>
-      <div id="props-empty" class="props-empty">Aucune sélection</div>
-      <div id="props" class="props" style="display:none">
-        <div class="prop-type" id="prop-type"></div>
-        <label>Référence
-          <input type="text" id="prop-label" placeholder="R1" />
-        </label>
-        <label>Valeur
-          <input type="text" id="prop-value" placeholder="1 kΩ" />
-        </label>
+      <div class="tabs">
+        <button class="tab active" data-tab="props">Propriétés</button>
+        <button class="tab" data-tab="bom">Nomenclature</button>
+        <button class="tab" data-tab="sim">Simulation</button>
       </div>
-      <div class="help">
-        <div class="side-head">Aide</div>
-        <ul>
-          <li>Clique un composant à gauche puis clique sur le plan pour le poser.</li>
-          <li><b>R</b> : pivoter · <b>Suppr</b> : effacer</li>
-          <li><b>Molette</b> : zoom · <b>Espace+glisser</b> ou clic milieu : déplacer la vue</li>
-          <li>Outil <b>Fil</b> : clique les points, double-clic ou clic droit pour terminer. Maintiens <b>Maj</b> pour inverser le coude.</li>
-          <li><b>Ctrl+Z / Ctrl+Y</b> : annuler / refaire · <b>Ctrl+A</b> : tout sélectionner</li>
-        </ul>
+
+      <!-- Onglet Propriétés -->
+      <div class="tab-panel" data-panel="props">
+        <div id="props-empty" class="props-empty">Aucune sélection</div>
+        <div id="props" class="props" style="display:none">
+          <div class="prop-type" id="prop-type"></div>
+          <label>Référence
+            <input type="text" id="prop-label" placeholder="R1" />
+          </label>
+          <label>Valeur
+            <input type="text" id="prop-value" placeholder="1 kΩ" />
+          </label>
+          <label id="prop-switch-wrap" style="display:none">
+            <input type="checkbox" id="prop-closed" /> Interrupteur fermé
+          </label>
+        </div>
+        <div class="proj">
+          <div class="side-head">Cartouche (projet)</div>
+          <div class="proj-fields">
+            <label>Titre <input type="text" id="meta-title" placeholder="Mon schéma" /></label>
+            <label>Auteur <input type="text" id="meta-author" placeholder="Nom" /></label>
+          </div>
+        </div>
+        <div class="help">
+          <div class="side-head">Aide</div>
+          <ul>
+            <li>Clique un composant à gauche puis clique sur le plan pour le poser.</li>
+            <li><b>R</b> : pivoter · <b>Suppr</b> : effacer · <b>double-clic</b> : ouvrir/fermer un interrupteur</li>
+            <li><b>Molette</b> : zoom · <b>Espace+glisser</b> : déplacer la vue</li>
+            <li>Outil <b>Fil</b> : clique les points, double-clic pour terminer.</li>
+            <li><b>Ctrl+Z / Ctrl+Y</b> : annuler / refaire · <b>Ctrl+A</b> : tout sélectionner</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Onglet Nomenclature -->
+      <div class="tab-panel" data-panel="bom" style="display:none">
+        <div class="bom-actions"><button id="btn-csv">⬇️ Exporter CSV</button></div>
+        <div id="bom-table" class="bom-table"></div>
+      </div>
+
+      <!-- Onglet Simulation -->
+      <div class="tab-panel" data-panel="sim" style="display:none">
+        <div class="sim-actions">
+          <button id="btn-sim2" class="btn-sim">▶️ Lancer</button>
+          <button id="btn-sim-stop">⏹️ Arrêter</button>
+        </div>
+        <div id="sim-status" class="sim-status">Analyse en courant continu (loi d'Ohm &amp; Kirchhoff). Place une source (pile/source) et une masse, puis lance la simulation.</div>
+        <div id="sim-results" class="sim-results"></div>
       </div>
     </aside>
   </div>
@@ -94,6 +135,9 @@
   <input type="file" id="file-input" accept=".json,application/json" hidden />
 
   <script src="js/symbols.js"></script>
+  <script src="js/netlist.js"></script>
+  <script src="js/simulate.js"></script>
+  <script src="js/svg.js"></script>
   <script src="js/editor.js"></script>
   <script src="js/ui.js"></script>
 </body>

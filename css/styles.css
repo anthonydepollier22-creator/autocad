@@ -93,6 +93,52 @@ body { display: flex; flex-direction: column; height: 100vh; }
 .help li { font-size: 12px; color: var(--muted); margin-bottom: 7px; line-height: 1.35; }
 .help b { color: var(--text); }
 
+/* Bouton simulation */
+.btn-sim, #btn-sim2 { background: #1f6b3a !important; border-color: #2e9c56 !important; color: #fff !important; }
+.btn-sim:hover, #btn-sim2:hover { background: #258347 !important; }
+
+/* Recherche palette */
+.search-wrap { padding: 8px; border-bottom: 1px solid var(--border); }
+.search-wrap input {
+  width: 100%; padding: 7px 9px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 13px;
+}
+.search-wrap input:focus { outline: none; border-color: var(--accent); }
+
+/* Onglets du panneau droit */
+.tabs { display: flex; border-bottom: 1px solid var(--border); }
+.tab {
+  flex: 1; padding: 10px 4px; background: var(--panel); border: none; cursor: pointer;
+  color: var(--muted); font-size: 12px; border-bottom: 2px solid transparent;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-panel { overflow-y: auto; }
+
+/* Cartouche projet */
+.proj { border-top: 1px solid var(--border); margin-top: 6px; }
+.proj-fields { padding: 8px 12px; }
+.proj-fields label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.proj-fields input {
+  width: 100%; margin-top: 4px; padding: 6px 8px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 13px;
+}
+.proj-fields input:focus { outline: none; border-color: var(--accent); }
+
+/* Tableaux (nomenclature / simulation) */
+.bom-actions, .sim-actions { padding: 10px 12px; display: flex; gap: 6px; }
+.bom-actions button, .sim-actions button {
+  background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 6px; padding: 7px 10px; font-size: 13px; cursor: pointer;
+}
+.bom-actions button:hover, .sim-actions button:hover { background: #303847; }
+.bom-table, .sim-results { padding: 0 12px 16px; }
+.bom-table table, .sim-results table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.bom-table th, .sim-results th { text-align: left; color: var(--muted); font-weight: 600; padding: 6px 6px; border-bottom: 1px solid var(--border); }
+.bom-table td, .sim-results td { padding: 6px 6px; border-bottom: 1px solid var(--border); color: var(--text); }
+.bom-table .empty, .sim-status { color: var(--muted); font-size: 12px; padding: 12px; line-height: 1.4; }
+.sim-results .warn { color: #ffb454; font-size: 12px; padding: 8px 12px; line-height: 1.4; }
+
 /* Barre d'état */
 .statusbar {
   flex: 0 0 auto; display: flex; gap: 24px;

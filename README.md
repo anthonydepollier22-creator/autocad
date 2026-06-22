@@ -26,8 +26,25 @@ Aucune installation, aucun serveur : il suffit d'ouvrir `index.html` dans un nav
 - **Propriétés** : référence automatique (`R1`, `C1`, …) et valeur (`1 kΩ`, `100 µF`, …)
   éditables par composant.
 - **Historique** : annuler / refaire illimité (dans la session).
-- **Fichiers** : nouveau, ouvrir / enregistrer en `JSON`, export en **PNG**, glisser-déposer
-  d'un fichier `.json` sur le plan.
+- **Fichiers** : nouveau, ouvrir / enregistrer en `JSON`, export en **PNG** et **SVG**
+  vectoriel, **impression / PDF** (avec cartouche projet), glisser-déposer d'un `.json`.
+
+### ⚡ Fonctions « métier » élec
+
+- **Simulation en courant continu** (analyse nodale modifiée — lois d'Ohm & Kirchhoff) :
+  calcule les **tensions de chaque nœud** et les **courants de branche**, affichés
+  directement sur le schéma (tensions en vert, courants en orange). Gère résistances,
+  sources de tension/courant, piles, lampes/moteurs, interrupteurs (ouvert/fermé),
+  ampèremètres, masse. Signale les composants non linéaires ignorés.
+- **Nomenclature (BOM)** générée automatiquement, regroupée par type/valeur avec
+  quantités et références — **export CSV**.
+- **Points de jonction** dessinés automatiquement aux connexions (≥ 3 fils ou T).
+- **Interrupteurs** ouvrables/fermables (double-clic ou case à cocher) et pris en
+  compte par la simulation.
+- **Sauvegarde automatique** locale (localStorage) : ton travail est restauré au
+  rechargement de la page.
+- **Cartouche** : titre et auteur du projet, inclus dans les exports SVG / impression.
+- **Recherche** instantanée dans la palette de composants.
 
 ## 🚀 Démarrer
 
@@ -53,7 +70,8 @@ python3 -m http.server 8000
 | `Ctrl + A` | Tout sélectionner |
 | `Maj` (clic) | Ajouter / retirer de la sélection |
 | `Maj` (outil Fil) | Inverser le coude du fil |
-| `Double-clic` / clic droit | Terminer un fil |
+| `Double-clic` (outil Fil) | Terminer un fil |
+| `Double-clic` (interrupteur) | Ouvrir / fermer l'interrupteur |
 | `Échap` | Annuler l'action en cours / outil Sélection |
 
 ## 🗂️ Structure du projet
@@ -65,6 +83,9 @@ python3 -m http.server 8000
 │   └── styles.css     # Thème sombre type CAO
 └── js/
     ├── symbols.js     # Bibliothèque de symboles électriques (dessin vectoriel)
+    ├── netlist.js     # Connectivité électrique (nets), jonctions, nomenclature
+    ├── simulate.js    # Simulation DC (analyse nodale modifiée / MNA)
+    ├── svg.js         # Export vectoriel SVG (réutilise le dessin des symboles)
     ├── editor.js      # Moteur CAO : vue, modèle, outils, historique, rendu
     └── ui.js          # Câblage de l'interface et opérations fichier
 ```

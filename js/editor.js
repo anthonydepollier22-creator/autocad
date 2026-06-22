@@ -40,11 +40,18 @@ class Editor {
     this.snapEnabled = true;
     this.showGrid = true;
 
+    // Métadonnées projet (cartouche) et simulation
+    this.meta = { title: '', author: '' };
+    this.simMode = false;
+    this.simResult = null;
+
     this.onChange = null; // callback UI
 
     this._bindEvents();
     this.resize();
-    this.pushHistory(); // état initial vide
+    // Amorce l'historique sans déclencher la sauvegarde auto (sinon on
+    // écraserait la session précédente avant de pouvoir la restaurer).
+    this.history.push(this.snapshot());
   }
 
   // --- Transformations ----------------------------------------------------
@@ -113,9 +120,12 @@ class Editor {
     });
   }
   pushHistory() {
+    // Le circuit change : un éventuel résultat de simulation n'est plus valide
+    if (this.simMode) { this.simMode = false; this.simResult = null; }
     this.history.push(this.snapshot());
     if (this.history.length > 100) this.history.shift();
     this.future = [];
+    this.autosave();
     this._emit();
   }
   _restore(str) {
@@ -245,7 +255,7 @@ class Editor {
     window.addEventListener('mouseup', (e) => this._up(e));
     cv.addEventListener('wheel', (e) => this._wheel(e), { passive: false });
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
-    cv.addEventListener('dblclick', () => this._finishWire());
+    cv.addEventListener('dblclick', (e) => this._dblclick(e));
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('keydown', (e) => this._key(e));
   }
@@ -388,6 +398,29 @@ class Editor {
     this.render(); this._emit();
   }
 
+  _dblclick(e) {
+    if (this.tool === 'wire') { this._finishWire(); return; }
+    // Double-clic sur un interrupteur : bascule ouvert/fermé
+    const s = this._evtPos(e);
+    const w = this.screenToWorld(s.x, s.y);
+    const c = this.hitComponent(w.x, w.y);
+    if (c && (c.type === 'switch' || c.type === 'push_button')) {
+      c.closed = !c.closed;
+      this.pushHistory();
+      this.render();
+      this._emit();
+    }
+  }
+
+  toggleSelectedSwitch() {
+    let changed = false;
+    for (const id of this.selection) {
+      const c = this.components.find((x) => x.id === id);
+      if (c && (c.type === 'switch' || c.type === 'push_button')) { c.closed = !c.closed; changed = true; }
+    }
+    if (changed) { this.pushHistory(); this.render(); this._emit(); }
+  }
+
   _finishWire() {
     if (this.wireDraft && this.wireDraft.points.length >= 2) {
       this.wires.push({ id: this.uid(), points: this.wireDraft.points });
@@ -468,6 +501,12 @@ class Editor {
     // Composants
     for (const c of this.components) this._drawComponent(c, this.selection.has(c.id), lw);
 
+    // Points de jonction
+    this._drawJunctions(lw);
+
+    // Superposition de simulation
+    if (this.simMode && this.simResult && this.simResult.ok) this._drawSim(lw);
+
     // Fil en cours
     if (this.wireDraft) {
       const pts = [...this.wireDraft.points];
@@ -538,6 +577,50 @@ class Editor {
     ctx.stroke();
   }
 
+  _drawJunctions(lw) {
+    const ctx = this.ctx;
+    const dots = computeJunctions(this.components, this.wires, SYMBOLS);
+    ctx.fillStyle = '#d7e0ee';
+    for (const j of dots) {
+      ctx.beginPath();
+      ctx.arc(j.x, j.y, lw * 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  _drawSim(lw) {
+    const ctx = this.ctx;
+    const r = this.simResult;
+    const fs = 12 / this.view.scale;
+    ctx.font = `${fs}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    // Tensions des nets
+    for (const [net, p] of Object.entries(r.netSample || {})) {
+      const v = r.netV[net];
+      if (v === undefined) continue;
+      this._badge(fmtVolt(v), p.x, p.y - 14, '#0e2a1a', '#5ce08a');
+    }
+    // Courants des composants
+    for (const c of this.components) {
+      const i = r.compI[c.id];
+      if (i === undefined) continue;
+      this._badge(fmtAmp(i), c.x, c.y + SYMBOLS[c.type].bbox.h / 2 + 14, '#2a200e', '#ffb454');
+    }
+  }
+
+  _badge(text, x, y, bg, fg) {
+    const ctx = this.ctx;
+    const pad = 3 / this.view.scale;
+    const w = ctx.measureText(text).width + pad * 2;
+    const h = (12 / this.view.scale) + pad;
+    ctx.fillStyle = bg;
+    ctx.globalAlpha = 0.85;
+    ctx.fillRect(x - w / 2, y - h / 2, w, h);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = fg;
+    ctx.fillText(text, x, y);
+  }
+
   _drawComponent(c, selected, lw) {
     const ctx = this.ctx;
     const sym = SYMBOLS[c.type];
@@ -549,7 +632,7 @@ class Editor {
     ctx.strokeStyle = selected ? '#4aa3ff' : '#e8edf5';
     ctx.fillStyle = selected ? '#4aa3ff' : '#e8edf5';
     ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    sym.draw(ctx);
+    sym.draw(ctx, c);
 
     // terminaux
     ctx.fillStyle = '#5a6678';
@@ -617,16 +700,62 @@ class Editor {
 
   // --- Sauvegarde / chargement -------------------------------------------
   serialize() {
-    return { version: 1, components: this.components, wires: this.wires, counters: this.counters };
+    return { version: 1, meta: this.meta, components: this.components, wires: this.wires, counters: this.counters };
   }
   load(data) {
     this.components = data.components || [];
     this.wires = data.wires || [];
     this.counters = data.counters || {};
+    this.meta = data.meta || { title: '', author: '' };
+    this.clearSim();
     this.selection.clear();
     this.history = []; this.future = [];
     this.pushHistory();
     this.zoomFit();
+  }
+
+  // --- Simulation ---------------------------------------------------------
+  runSim() {
+    this.simResult = simulateDC(this.components, this.wires, SYMBOLS);
+    this.simMode = true;
+    this.render(); this._emit();
+    return this.simResult;
+  }
+  clearSim() {
+    this.simMode = false; this.simResult = null;
+    this.render(); this._emit();
+  }
+
+  // --- Export SVG / impression -------------------------------------------
+  exportSVG() {
+    const date = new Date().toISOString().slice(0, 10);
+    return buildSVG(this.components, this.wires, SYMBOLS, { ...this.meta, date });
+  }
+  print() {
+    const svg = this.exportSVG();
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html><html><head><title>${this.meta.title || 'Schéma'}</title>` +
+      `<style>body{margin:0;display:flex;justify-content:center;padding:20px}svg{max-width:100%;height:auto}</style></head>` +
+      `<body onload="window.print()">${svg}</body></html>`);
+    win.document.close();
+  }
+
+  // --- Sauvegarde automatique (localStorage) -----------------------------
+  autosave() {
+    try { localStorage.setItem('electricad-doc', JSON.stringify(this.serialize())); } catch (_) {}
+  }
+  restoreAuto() {
+    try {
+      const s = localStorage.getItem('electricad-doc');
+      if (!s) return false;
+      const d = JSON.parse(s);
+      if (!d.components || (!d.components.length && !(d.wires || []).length)) return false;
+      this.components = d.components; this.wires = d.wires || [];
+      this.counters = d.counters || {}; this.meta = d.meta || { title: '', author: '' };
+      this.history = []; this.future = []; this.pushHistory();
+      return true;
+    } catch (_) { return false; }
   }
 
   exportPNG() {
