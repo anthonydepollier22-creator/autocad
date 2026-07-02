@@ -5,6 +5,9 @@
 
 const GRID = 20; // pas de grille (unités monde)
 
+// Composants basculables au double-clic (ouvert / fermé)
+const SWITCHABLE = new Set(['switch', 'push_button', 'breaker', 'rcd', 'sw_vv']);
+
 // Palettes de rendu du plan (synchronisées avec le thème de l'interface)
 const CANVAS_THEMES = {
   dark: {
@@ -175,6 +178,7 @@ class Editor {
   addComponent(type, wx, wy) {
     const p = this.snapPt({ x: wx, y: wy });
     const c = { id: this.uid(), type, x: p.x, y: p.y, rot: this.placeRot, label: this.nextRef(type), value: '' };
+    if (type === 'breaker' || type === 'rcd') c.closed = true; // conduisent par défaut
     this.components.push(c);
     this.pushHistory();
     this.render();
@@ -439,7 +443,7 @@ class Editor {
     const s = this._evtPos(e);
     const w = this.screenToWorld(s.x, s.y);
     const c = this.hitComponent(w.x, w.y);
-    if (c && (c.type === 'switch' || c.type === 'push_button')) {
+    if (c && SWITCHABLE.has(c.type)) {
       c.closed = !c.closed;
       this.pushHistory(); this.render(); this._emit();
     } else if (c && c.type === 'logic_in') {
@@ -452,7 +456,7 @@ class Editor {
     let changed = false;
     for (const id of this.selection) {
       const c = this.components.find((x) => x.id === id);
-      if (c && (c.type === 'switch' || c.type === 'push_button')) { c.closed = !c.closed; changed = true; }
+      if (c && SWITCHABLE.has(c.type)) { c.closed = !c.closed; changed = true; }
     }
     if (changed) { this.pushHistory(); this.render(); this._emit(); }
   }

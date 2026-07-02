@@ -28,6 +28,7 @@ const ICONS = {
   grid: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M3.5 9.2h17M3.5 14.9h17M9.2 3.5v17M14.9 3.5v17"/></svg>',
   magnet: '<svg viewBox="0 0 24 24"><path d="M6.5 3.5v8a5.5 5.5 0 0 0 11 0v-8"/><path d="M6.5 3.5H10V8H6.5zM14 3.5h3.5V8H14z"/></svg>',
   sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/></svg>',
+  cube: '<svg viewBox="0 0 24 24"><path d="M12 2.8l8 4.6v9.2l-8 4.6-8-4.6V7.4z"/><path d="M12 12l8-4.6M12 12L4 7.4M12 12v9.2"/></svg>',
   moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>',
 };
 
@@ -604,6 +605,31 @@ document.addEventListener('DOMContentLoaded', () => {
   modal.querySelector('.modal-backdrop').addEventListener('click', closeModal);
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) closeModal(); }, true);
 
+  // --- Vue 3D ----------------------------------------------------------------
+  const view3d = document.getElementById('view3d');
+  let viz3d = null;
+  function open3D() {
+    view3d.hidden = false;
+    if (!viz3d) viz3d = new Viz3D(document.getElementById('canvas3d'), { bg: null });
+    const radius = buildBoard(viz3d, editor.components, editor.wires, SYMBOLS);
+    viz3d.fit(radius);
+    viz3d.autoRotate = true;
+    viz3d.start();
+    if (!editor.components.length && !editor.wires.length) {
+      showToast('Carte vide — pose des composants puis reviens en 3D !', 3200);
+    }
+  }
+  function close3D() {
+    view3d.hidden = true;
+    if (viz3d) viz3d.stop();
+  }
+  if (document.getElementById('btn-3d')) {
+    document.getElementById('btn-3d').addEventListener('click', open3D);
+    document.getElementById('btn-3d-close').addEventListener('click', close3D);
+    window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !view3d.hidden) close3D(); }, true);
+    window.addEventListener('resize', () => { if (!view3d.hidden && viz3d) viz3d.resize(); });
+  }
+
   const statTool = document.getElementById('stat-tool');
   const TOOL_NAMES = { select: 'Sélection', wire: 'Fil', pan: 'Panoramique', place: 'Placement' };
   const emptyState = document.getElementById('empty-state');
@@ -620,7 +646,7 @@ document.addEventListener('DOMContentLoaded', () => {
       propType.textContent = SYMBOLS[sel[0].type].name;
       labelInput.value = sel[0].label || '';
       valueInput.value = sel[0].value || '';
-      const isSwitch = sel[0].type === 'switch' || sel[0].type === 'push_button';
+      const isSwitch = SWITCHABLE.has(sel[0].type);
       switchWrap.style.display = isSwitch ? '' : 'none';
       closedChk.checked = !!sel[0].closed;
     } else {
@@ -663,6 +689,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   if (params.get('modal') === 'examples') openModal();
+  if (params.get('3d') === '1' && document.getElementById('btn-3d')) open3D();
   editor.onChange();
 
   // Glisser-déposer un fichier JSON

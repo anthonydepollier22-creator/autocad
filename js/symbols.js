@@ -484,6 +484,80 @@ const SYMBOLS = {
       circle(ctx, 0, 0, 16);
     },
   },
+
+  // ----- Domestique — norme française NF C 15-100 --------------------------
+  breaker: {
+    name: 'Disjoncteur', category: 'Domestique (NF)', prefix: 'Q',
+    terminals: T2, bbox: { x: -40, y: -24, w: 80, h: 30 },
+    draw(ctx, c) {
+      const closed = !c || c.closed !== false;
+      line(ctx, -40, 0, -20, 0);
+      dot(ctx, -20, 0, 2.5); dot(ctx, 20, 0, 2.5);
+      const ex = closed ? 20 : 14, ey = closed ? -3 : -16;
+      line(ctx, -20, 0, ex, ey);
+      // croix de coupure au milieu du levier (symbole disjoncteur)
+      const mx = (-20 + ex) / 2, my = ey / 2;
+      line(ctx, mx - 4, my - 4, mx + 4, my + 4);
+      line(ctx, mx - 4, my + 4, mx + 4, my - 4);
+      line(ctx, 20, 0, 40, 0);
+    },
+  },
+  rcd: {
+    name: 'Interrupteur différentiel', category: 'Domestique (NF)', prefix: 'ID',
+    terminals: T2, bbox: { x: -40, y: -24, w: 80, h: 42 },
+    draw(ctx, c) {
+      const closed = !c || c.closed !== false;
+      line(ctx, -40, 0, -20, 0);
+      dot(ctx, -20, 0, 2.5); dot(ctx, 20, 0, 2.5);
+      line(ctx, -20, 0, closed ? 20 : 14, closed ? -3 : -16);
+      // tore de détection différentielle
+      circle(ctx, 0, 10, 7);
+      ctx.save();
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.font = '8px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText('30mA', 0, 19);
+      ctx.restore();
+      line(ctx, 20, 0, 40, 0);
+    },
+  },
+  socket: {
+    name: 'Prise 2P+T', category: 'Domestique (NF)', prefix: 'PC',
+    terminals: T2, bbox: { x: -40, y: -26, w: 80, h: 30 },
+    draw(ctx) {
+      line(ctx, -40, 0, -14, 0);
+      line(ctx, 14, 0, 40, 0);
+      ctx.beginPath();
+      ctx.arc(0, 0, 14, Math.PI, 2 * Math.PI); // demi-cercle (prise)
+      ctx.stroke();
+      line(ctx, -14, 0, 14, 0);
+      line(ctx, 0, -14, 0, -22);      // broche de terre
+      line(ctx, -6, -22, 6, -22);
+    },
+  },
+  sw_vv: {
+    name: 'Va-et-vient', category: 'Domestique (NF)', prefix: 'SW',
+    terminals: [{ x: -2 * U, y: 0 }, { x: 2 * U, y: -U }, { x: 2 * U, y: U }],
+    bbox: { x: -40, y: -26, w: 80, h: 52 },
+    draw(ctx, c) {
+      line(ctx, -40, 0, -20, 0);
+      dot(ctx, -20, 0, 2.5); dot(ctx, 20, -20, 2.5); dot(ctx, 20, 20, 2.5);
+      line(ctx, -20, 0, 20, c && c.closed ? 20 : -20);
+      line(ctx, 20, -20, 40, -20);
+      line(ctx, 20, 20, 40, 20);
+    },
+  },
+  bell: {
+    name: 'Sonnerie', category: 'Domestique (NF)', prefix: 'H',
+    terminals: T2, bbox: { x: -40, y: -18, w: 80, h: 22 },
+    draw(ctx) {
+      line(ctx, -40, 0, -16, 0);
+      line(ctx, 16, 0, 40, 0);
+      ctx.beginPath();
+      ctx.arc(0, 0, 16, Math.PI, 2 * Math.PI); // cloche
+      ctx.stroke();
+      line(ctx, -16, 0, 16, 0);
+    },
+  },
 };
 
 // Tracés communs aux portes -------------------------------------------------

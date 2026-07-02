@@ -5,14 +5,29 @@ Aucune installation, aucun serveur : il suffit d'ouvrir `index.html` dans un nav
 
 ![ÉlectriCAD](https://img.shields.io/badge/HTML5-Canvas-blue) ![Licence](https://img.shields.io/badge/licence-MIT-green)
 
-![Capture d'écran — thème sombre](docs/screenshot-dark.png)
+![Vue 3D de la carte](docs/screenshot-3d.png)
 
 ## 🌐 Essayer en ligne
 
-**https://anthonydepollier22-creator.github.io/autocad/**
+- **Site vitrine** : https://anthonydepollier22-creator.github.io/autocad/
+- **Éditeur** : https://anthonydepollier22-creator.github.io/autocad/app.html
 
-Liens directs vers un exemple : `?ex=divider`, `?ex=led`, `?ex=lowpass`, `?ex=bjt`,
-`?ex=halfadder`… et `?theme=light` pour forcer le thème clair.
+Liens directs : `app.html?ex=divider` (charge un exemple : `led`, `lowpass`, `bjt`,
+`halfadder`…), `&theme=light` force le thème clair, `&3d=1` ouvre la vue 3D.
+
+## 🧊 Vue 3D
+
+Le bouton **3D** de l'éditeur transforme le schéma en **carte électronique en
+relief** : PCB, pistes cuivrées, pastilles et composants volumétriques (résistance
+avec anneaux de couleur, dôme de LED, condensateur, transistor, modules DIN…).
+Rotation à la souris, zoom à la molette. Le moteur 3D est écrit maison
+(`js/viz3d.js`, canvas 2D + algorithme du peintre) — **zéro dépendance**.
+
+## 🇫🇷 Norme française — NF C 15-100
+
+Catégorie « Domestique (NF) » : **disjoncteur** (fermé par défaut, ouvrable au
+double-clic), **interrupteur différentiel 30 mA**, **prise 2P+T**, **va-et-vient**
+(3 bornes, bascule L1/L2) et **sonnerie** — tous pris en compte par la simulation.
 
 ## ✨ Fonctionnalités
 
