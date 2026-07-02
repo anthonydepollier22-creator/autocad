@@ -5,7 +5,32 @@ Aucune installation, aucun serveur : il suffit d'ouvrir `index.html` dans un nav
 
 ![ÉlectriCAD](https://img.shields.io/badge/HTML5-Canvas-blue) ![Licence](https://img.shields.io/badge/licence-MIT-green)
 
+![Capture d'écran — thème sombre](docs/screenshot-dark.png)
+
+## 🌐 Essayer en ligne
+
+**https://anthonydepollier22-creator.github.io/autocad/**
+
+Liens directs vers un exemple : `?ex=divider`, `?ex=led`, `?ex=lowpass`, `?ex=bjt`,
+`?ex=halfadder`… et `?theme=light` pour forcer le thème clair.
+
 ## ✨ Fonctionnalités
+
+### 🎨 Interface
+
+- **Thème sombre et clair** (bascule en un clic, mémorisé), icônes vectorielles,
+  survol des composants, bornes matérialisées en mode câblage.
+- **Bibliothèque d'exemples intégrée** : 8 circuits classiques prêts à simuler
+  (lampe + interrupteur, diviseur, LED, charge RC, filtre passe-bas, redresseur,
+  transistor, demi-additionneur logique), avec vignettes, niveaux et type d'analyse.
+  Chaque exemple est **validé numériquement par les tests**.
+- **Liens partageables** : `?ex=<id>` charge un exemple, `?theme=light|dark` force
+  le thème — pratique pour un cours ou un TP.
+- **Écran d'accueil** avec raccourcis essentiels sur document vide.
+
+![Bibliothèque d'exemples](docs/screenshot-exemples.png)
+
+### 🛠️ Éditeur
 
 - **Plan de travail CAO** : grille avec magnétisme (snap), zoom à la molette, panoramique
   (clic milieu ou `Espace` + glisser), ajustement automatique à l'écran.

@@ -1,0 +1,214 @@
+/*
+ * examples.js — Bibliothèque de circuits d'exemples.
+ *
+ * Chaque exemple est un document complet (composants + fils + cartouche),
+ * prêt à charger et à simuler. Les topologies sont vérifiées par les tests
+ * de simulation (mêmes coordonnées que les circuits de validation).
+ */
+
+const EXAMPLES = [
+  {
+    id: 'lamp',
+    name: 'Lampe + interrupteur',
+    level: 'Débutant',
+    sim: 'dc', simLabel: 'Simulation DC',
+    desc: 'Le circuit de base : pile, interrupteur, lampe. Double-clique l’interrupteur pour le fermer, puis lance la simulation continue.',
+    data: {
+      version: 1,
+      meta: { title: 'Lampe + interrupteur', author: 'Exemples ÉlectriCAD' },
+      counters: { BT: 1, SW: 1, LA: 1, GND: 1 },
+      components: [
+        { id: 'BT1', type: 'battery', x: 100, y: 200, rot: 0, label: 'BT1', value: '4.5 V' },
+        { id: 'SW1', type: 'switch', x: 260, y: 100, rot: 0, label: 'SW1', value: '', closed: false },
+        { id: 'LA1', type: 'lamp', x: 420, y: 200, rot: 90, label: 'LA1', value: '' },
+        { id: 'GND1', type: 'ground', x: 280, y: 300, rot: 0, label: '', value: '' },
+      ],
+      wires: [
+        { id: 'w1', points: [{ x: 60, y: 200 }, { x: 60, y: 100 }, { x: 220, y: 100 }] },
+        { id: 'w2', points: [{ x: 300, y: 100 }, { x: 420, y: 100 }, { x: 420, y: 160 }] },
+        { id: 'w3', points: [{ x: 420, y: 240 }, { x: 420, y: 300 }, { x: 140, y: 300 }, { x: 140, y: 200 }] },
+        { id: 'w4', points: [{ x: 280, y: 280 }, { x: 280, y: 300 }] },
+      ],
+    },
+  },
+  {
+    id: 'divider',
+    name: 'Diviseur de tension',
+    level: 'Débutant',
+    sim: 'dc', simLabel: 'Simulation DC',
+    desc: 'Deux résistances en série divisent la tension : 9 V → 4,5 V au point milieu. Le grand classique. Lance la simulation continue.',
+    data: {
+      version: 1,
+      meta: { title: 'Diviseur de tension', author: 'Exemples ÉlectriCAD' },
+      counters: { V: 1, R: 2, GND: 1 },
+      components: [
+        { id: 'V1', type: 'dc_source', x: 200, y: 200, rot: 0, label: 'V1', value: '9 V' },
+        { id: 'R1', type: 'resistor', x: 200, y: 100, rot: 90, label: 'R1', value: '1k' },
+        { id: 'R2', type: 'resistor', x: 200, y: 300, rot: 90, label: 'R2', value: '1k' },
+        { id: 'GND1', type: 'ground', x: 360, y: 360, rot: 0, label: '', value: '' },
+      ],
+      wires: [
+        { id: 'w1', points: [{ x: 160, y: 200 }, { x: 160, y: 60 }, { x: 200, y: 60 }] },
+        { id: 'w2', points: [{ x: 200, y: 140 }, { x: 200, y: 260 }] },
+        { id: 'w3', points: [{ x: 200, y: 340 }, { x: 240, y: 340 }, { x: 240, y: 200 }] },
+        { id: 'w4', points: [{ x: 360, y: 340 }, { x: 200, y: 340 }] },
+      ],
+    },
+  },
+  {
+    id: 'led',
+    name: 'LED + résistance',
+    level: 'Débutant',
+    sim: 'dc', simLabel: 'Simulation DC',
+    desc: 'Alimenter une LED sans la griller : la résistance de 330 Ω limite le courant à ~10 mA. Simulation non linéaire (Vf ≈ 1,8 V).',
+    data: {
+      version: 1,
+      meta: { title: 'LED + résistance série', author: 'Exemples ÉlectriCAD' },
+      counters: { V: 1, R: 1, D: 1, GND: 1 },
+      components: [
+        { id: 'V1', type: 'dc_source', x: 0, y: 0, rot: 0, label: 'V1', value: '5 V' },
+        { id: 'R1', type: 'resistor', x: 200, y: 0, rot: 0, label: 'R1', value: '330' },
+        { id: 'D1', type: 'led', x: 400, y: 100, rot: 90, label: 'D1', value: '' },
+        { id: 'GND1', type: 'ground', x: 500, y: 200, rot: 0, label: '', value: '' },
+      ],
+      wires: [
+        { id: 'w1', points: [{ x: -40, y: 0 }, { x: -40, y: -60 }, { x: 160, y: -60 }, { x: 160, y: 0 }] },
+        { id: 'w2', points: [{ x: 240, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 60 }] },
+        { id: 'w3', points: [{ x: 400, y: 140 }, { x: 400, y: 200 }, { x: 500, y: 200 }, { x: 500, y: 180 }] },
+        { id: 'w4', points: [{ x: 40, y: 0 }, { x: 40, y: 200 }, { x: 500, y: 200 }] },
+      ],
+    },
+  },
+  {
+    id: 'rc',
+    name: 'Charge d’un condensateur',
+    level: 'Intermédiaire',
+    sim: 'trans', simLabel: 'Transitoire',
+    desc: 'Circuit RC : le condensateur se charge exponentiellement (τ = RC = 1 ms). Lance l’analyse transitoire sur ~5 ms pour voir la courbe.',
+    data: {
+      version: 1,
+      meta: { title: 'Charge RC (τ = 1 ms)', author: 'Exemples ÉlectriCAD' },
+      counters: { V: 1, R: 1, C: 1, GND: 1 },
+      components: [
+        { id: 'V1', type: 'dc_source', x: 0, y: 0, rot: 0, label: 'V1', value: '5 V' },
+        { id: 'R1', type: 'resistor', x: 200, y: 0, rot: 0, label: 'R1', value: '1k' },
+        { id: 'C1', type: 'capacitor', x: 400, y: 100, rot: 90, label: 'C1', value: '1u' },
+        { id: 'GND1', type: 'ground', x: 500, y: 200, rot: 0, label: '', value: '' },
+      ],
+      wires: [
+        { id: 'w1', points: [{ x: -40, y: 0 }, { x: -40, y: -60 }, { x: 160, y: -60 }, { x: 160, y: 0 }] },
+        { id: 'w2', points: [{ x: 240, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 60 }] },
+        { id: 'w3', points: [{ x: 400, y: 140 }, { x: 400, y: 200 }, { x: 500, y: 200 }, { x: 500, y: 180 }] },
+        { id: 'w4', points: [{ x: 40, y: 0 }, { x: 40, y: 200 }, { x: 500, y: 200 }] },
+      ],
+    },
+  },
+  {
+    id: 'lowpass',
+    name: 'Filtre passe-bas RC',
+    level: 'Intermédiaire',
+    sim: 'bode', simLabel: 'Bode',
+    desc: 'Filtre du 1er ordre, fc = 159 Hz. Lance l’analyse Bode : −3 dB et −45° à la fréquence de coupure, pente −20 dB/décade.',
+    data: {
+      version: 1,
+      meta: { title: 'Filtre passe-bas RC (fc = 159 Hz)', author: 'Exemples ÉlectriCAD' },
+      counters: { V: 1, R: 1, C: 1, GND: 1 },
+      components: [
+        { id: 'AC1', type: 'ac_source', x: 0, y: 0, rot: 0, label: 'V1', value: '1' },
+        { id: 'R1', type: 'resistor', x: 200, y: 0, rot: 0, label: 'R1', value: '1k' },
+        { id: 'C1', type: 'capacitor', x: 400, y: 100, rot: 90, label: 'C1', value: '1u' },
+        { id: 'GND1', type: 'ground', x: 500, y: 200, rot: 0, label: '', value: '' },
+      ],
+      wires: [
+        { id: 'w1', points: [{ x: -40, y: 0 }, { x: -40, y: -60 }, { x: 160, y: -60 }, { x: 160, y: 0 }] },
+        { id: 'w2', points: [{ x: 240, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 60 }] },
+        { id: 'w3', points: [{ x: 400, y: 140 }, { x: 400, y: 200 }, { x: 500, y: 200 }, { x: 500, y: 180 }] },
+        { id: 'w4', points: [{ x: 40, y: 0 }, { x: 40, y: 200 }, { x: 500, y: 200 }] },
+      ],
+    },
+  },
+  {
+    id: 'rectifier',
+    name: 'Redresseur à diode',
+    level: 'Intermédiaire',
+    sim: 'trans', simLabel: 'Transitoire',
+    desc: 'Redressement mono-alternance : la diode ne laisse passer que les alternances positives. Analyse transitoire à 50 Hz sur 40 ms.',
+    data: {
+      version: 1,
+      meta: { title: 'Redresseur mono-alternance', author: 'Exemples ÉlectriCAD' },
+      counters: { V: 1, D: 1, R: 1, GND: 1 },
+      components: [
+        { id: 'AC1', type: 'ac_source', x: 0, y: 0, rot: 0, label: 'V1', value: '10' },
+        { id: 'D1', type: 'diode', x: 200, y: 0, rot: 0, label: 'D1', value: '' },
+        { id: 'R1', type: 'resistor', x: 400, y: 100, rot: 90, label: 'R1', value: '1k' },
+        { id: 'GND1', type: 'ground', x: 500, y: 200, rot: 0, label: '', value: '' },
+      ],
+      wires: [
+        { id: 'w1', points: [{ x: -40, y: 0 }, { x: -40, y: -60 }, { x: 160, y: -60 }, { x: 160, y: 0 }] },
+        { id: 'w2', points: [{ x: 240, y: 0 }, { x: 400, y: 0 }, { x: 400, y: 60 }] },
+        { id: 'w3', points: [{ x: 400, y: 140 }, { x: 400, y: 200 }, { x: 500, y: 200 }, { x: 500, y: 180 }] },
+        { id: 'w4', points: [{ x: 40, y: 0 }, { x: 40, y: 200 }, { x: 500, y: 200 }] },
+      ],
+    },
+  },
+  {
+    id: 'bjt',
+    name: 'Transistor en commutation',
+    level: 'Avancé',
+    sim: 'dc', simLabel: 'Simulation DC',
+    desc: 'Montage émetteur commun (β = 100) : le courant de base (43 µA) commande un courant de collecteur 100× plus grand. Simulation DC.',
+    data: {
+      version: 1,
+      meta: { title: 'Transistor NPN — émetteur commun', author: 'Exemples ÉlectriCAD' },
+      counters: { V: 1, R: 2, Q: 1, GND: 1 },
+      components: [
+        { id: 'V1', type: 'dc_source', x: 0, y: 100, rot: 0, label: 'V1', value: '5 V' },
+        { id: 'Rb', type: 'resistor', x: 150, y: 40, rot: 0, label: 'R1', value: '100k' },
+        { id: 'Rc', type: 'resistor', x: 150, y: 120, rot: 0, label: 'R2', value: '1k' },
+        { id: 'Q1', type: 'transistor_npn', x: 300, y: 200, rot: 0, label: 'Q1', value: '100' },
+        { id: 'GND1', type: 'ground', x: 40, y: 300, rot: 0, label: '', value: '' },
+      ],
+      wires: [
+        { id: 'w1', points: [{ x: -40, y: 100 }, { x: -40, y: 40 }, { x: 110, y: 40 }] },
+        { id: 'w2', points: [{ x: -40, y: 100 }, { x: -40, y: 120 }, { x: 110, y: 120 }] },
+        { id: 'w3', points: [{ x: 190, y: 40 }, { x: 260, y: 40 }, { x: 260, y: 200 }] },
+        { id: 'w4', points: [{ x: 190, y: 120 }, { x: 300, y: 120 }, { x: 300, y: 160 }] },
+        { id: 'w5', points: [{ x: 40, y: 100 }, { x: 40, y: 280 }] },
+        { id: 'w6', points: [{ x: 40, y: 280 }, { x: 300, y: 280 }, { x: 300, y: 240 }] },
+      ],
+    },
+  },
+  {
+    id: 'halfadder',
+    name: 'Demi-additionneur logique',
+    level: 'Avancé',
+    sim: 'logic', simLabel: 'Logique',
+    desc: 'S = A ⊕ B (somme), C = A · B (retenue). Double-clique les entrées pour changer 0/1, puis lance la simulation logique.',
+    data: {
+      version: 1,
+      meta: { title: 'Demi-additionneur (XOR + AND)', author: 'Exemples ÉlectriCAD' },
+      counters: { IN: 2, U: 2, OUT: 2 },
+      components: [
+        { id: 'A', type: 'logic_in', x: 0, y: -60, rot: 0, label: 'A', value: '', high: true },
+        { id: 'B', type: 'logic_in', x: 0, y: 140, rot: 0, label: 'B', value: '', high: false },
+        { id: 'U1', type: 'gate_xor', x: 240, y: -40, rot: 0, label: 'U1', value: '' },
+        { id: 'U2', type: 'gate_and', x: 240, y: 120, rot: 0, label: 'U2', value: '' },
+        { id: 'S', type: 'logic_out', x: 400, y: -40, rot: 0, label: 'S', value: '' },
+        { id: 'C', type: 'logic_out', x: 400, y: 120, rot: 0, label: 'C', value: '' },
+      ],
+      wires: [
+        { id: 'w1', points: [{ x: 40, y: -60 }, { x: 200, y: -60 }] },
+        { id: 'w2', points: [{ x: 100, y: -60 }, { x: 100, y: 100 }, { x: 200, y: 100 }] },
+        { id: 'w3', points: [{ x: 40, y: 140 }, { x: 200, y: 140 }] },
+        { id: 'w4', points: [{ x: 140, y: 140 }, { x: 140, y: -20 }, { x: 200, y: -20 }] },
+        { id: 'w5', points: [{ x: 280, y: -40 }, { x: 360, y: -40 }] },
+        { id: 'w6', points: [{ x: 280, y: 120 }, { x: 360, y: 120 }] },
+      ],
+    },
+  },
+];
+
+function getExampleData(id) {
+  const e = EXAMPLES.find((x) => x.id === id);
+  return e ? JSON.parse(JSON.stringify(e.data)) : null;
+}

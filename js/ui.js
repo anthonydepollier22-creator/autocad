@@ -4,11 +4,56 @@
  * enregistrer, exporter PNG).
  */
 
+// Icônes vectorielles (trait 1.8, coins arrondis)
+const ICONS = {
+  file: '<svg viewBox="0 0 24 24"><path d="M13 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z"/><path d="M13 3v5h5"/></svg>',
+  folder: '<svg viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"/></svg>',
+  save: '<svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13a0 0 0 0 1 0 0H5a0 0 0 0 1 0 0V4z"/><path d="M8 4v4h7V4"/><path d="M7 20v-7h10v7"/></svg>',
+  image: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3 17l5.5-5.5 4 4 2.5-2.5L21 19"/></svg>',
+  vector: '<svg viewBox="0 0 24 24"><path d="M5 16c3-8 11-8 14 0"/><rect x="2.5" y="14.5" width="4.5" height="4.5" rx="1"/><rect x="17" y="14.5" width="4.5" height="4.5" rx="1"/><circle cx="12" cy="10" r="1.6"/></svg>',
+  printer: '<svg viewBox="0 0 24 24"><path d="M7 8V3.5h10V8"/><path d="M7 16.5H4.5A1.5 1.5 0 0 1 3 15V9.5A1.5 1.5 0 0 1 4.5 8h15A1.5 1.5 0 0 1 21 9.5V15a1.5 1.5 0 0 1-1.5 1.5H17"/><path d="M7 13.5h10v7H7z"/></svg>',
+  cursor: '<svg viewBox="0 0 24 24"><path d="M5.5 3.5l6.7 16.3 2.2-6.4 6.4-2.2z"/></svg>',
+  wire: '<svg viewBox="0 0 24 24"><path d="M4 18h5v-6h6V6h5"/><circle cx="4" cy="18" r="1.7"/><circle cx="20" cy="6" r="1.7"/></svg>',
+  move: '<svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><path d="M9.5 5.5L12 3l2.5 2.5M9.5 18.5L12 21l2.5-2.5M5.5 9.5L3 12l2.5 2.5M18.5 9.5L21 12l-2.5 2.5"/></svg>',
+  rotate: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.9-6.2"/><path d="M20 3.5V8h-4.5"/></svg>',
+  copy: '<svg viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="1.5"/><path d="M15.5 8.5V5A1.5 1.5 0 0 0 14 3.5H5A1.5 1.5 0 0 0 3.5 5v9A1.5 1.5 0 0 0 5 15.5h3.5"/></svg>',
+  trash: '<svg viewBox="0 0 24 24"><path d="M4 6.5h16"/><path d="M9.5 6.5V4h5v2.5"/><path d="M6 6.5L7 20.5h10l1-14"/><path d="M10 10.5v6M14 10.5v6"/></svg>',
+  undo: '<svg viewBox="0 0 24 24"><path d="M4.5 9.5h9.5a5.5 5.5 0 0 1 0 11h-3"/><path d="M8.5 5.5l-4 4 4 4"/></svg>',
+  redo: '<svg viewBox="0 0 24 24"><path d="M19.5 9.5H10a5.5 5.5 0 0 0 0 11h3"/><path d="M15.5 5.5l4 4-4 4"/></svg>',
+  'zoom-in': '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/><path d="M8 10.5h5M10.5 8v5"/></svg>',
+  'zoom-out': '<svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21"/><path d="M8 10.5h5"/></svg>',
+  fit: '<svg viewBox="0 0 24 24"><path d="M3.5 8.5V5A1.5 1.5 0 0 1 5 3.5h3.5M15.5 3.5H19A1.5 1.5 0 0 1 20.5 5v3.5M20.5 15.5V19a1.5 1.5 0 0 1-1.5 1.5h-3.5M8.5 20.5H5A1.5 1.5 0 0 1 3.5 19v-3.5"/></svg>',
+  play: '<svg viewBox="0 0 24 24"><path d="M7.5 4.5l12 7.5-12 7.5z"/></svg>',
+  book: '<svg viewBox="0 0 24 24"><path d="M12 6.5C10 4.8 7 4.5 4 4.5v14.5c3 0 6 .3 8 2 2-1.7 5-2 8-2V4.5c-3 0-6 .3-8 2z"/><path d="M12 6.5V21"/></svg>',
+  grid: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M3.5 9.2h17M3.5 14.9h17M9.2 3.5v17M14.9 3.5v17"/></svg>',
+  magnet: '<svg viewBox="0 0 24 24"><path d="M6.5 3.5v8a5.5 5.5 0 0 0 11 0v-8"/><path d="M6.5 3.5H10V8H6.5zM14 3.5h3.5V8H14z"/></svg>',
+  sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/></svg>',
+  moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>',
+};
+
 document.addEventListener('DOMContentLoaded', () => {
+  // Injection des icônes
+  document.querySelectorAll('[data-icon]').forEach((b) => {
+    const svg = ICONS[b.dataset.icon];
+    if (svg) b.insertAdjacentHTML('afterbegin', svg);
+  });
+
   const canvas = document.getElementById('canvas');
   const editor = new Editor(canvas);
   editor.view = { x: canvas.clientWidth / 2, y: canvas.clientHeight / 2, scale: 1 };
   editor.render();
+
+  // --- Thème clair / sombre ------------------------------------------------
+  const themeBtn = document.getElementById('btn-theme');
+  function applyTheme(light) {
+    document.body.classList.toggle('light', light);
+    editor.setTheme(light ? 'light' : 'dark');
+    themeBtn.innerHTML = light ? ICONS.moon : ICONS.sun;
+    document.querySelector('meta[name="theme-color"]').content = light ? '#eceef3' : '#12151c';
+    try { localStorage.setItem('electricad-theme', light ? 'light' : 'dark'); } catch (_) {}
+    if (typeof repaintThumbs === 'function') repaintThumbs();
+  }
+  themeBtn.addEventListener('click', () => applyTheme(!document.body.classList.contains('light')));
 
   // --- Palette ------------------------------------------------------------
   const palette = document.getElementById('palette');
@@ -65,6 +110,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  function thumbColor() {
+    return document.body.classList.contains('light') ? '#3a4656' : '#cdd6e3';
+  }
   function drawThumb(c, key) {
     const ctx = c.getContext('2d');
     const sym = SYMBOLS[key];
@@ -74,10 +122,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const b = sym.bbox;
     const s = Math.min((c.width - 10) / b.w, (c.height - 10) / b.h, 0.55);
     ctx.scale(s, s);
-    ctx.strokeStyle = '#cdd6e3'; ctx.fillStyle = '#cdd6e3';
+    ctx.strokeStyle = thumbColor(); ctx.fillStyle = thumbColor();
     ctx.lineWidth = 2 / s; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     sym.draw(ctx);
     ctx.restore();
+  }
+  function repaintThumbs() {
+    document.querySelectorAll('.sym-btn').forEach((b) => {
+      const cv = b.querySelector('canvas');
+      if (cv) drawThumb(cv, b.dataset.type);
+    });
   }
 
   // --- Barre d'outils -----------------------------------------------------
@@ -104,10 +158,17 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-zoom-out').addEventListener('click', () => editor.zoomBy(1 / 1.2));
   document.getElementById('btn-zoom-fit').addEventListener('click', () => editor.zoomFit());
 
-  const snapChk = document.getElementById('chk-snap');
-  snapChk.addEventListener('change', () => { editor.snapEnabled = snapChk.checked; });
-  const gridChk = document.getElementById('chk-grid');
-  gridChk.addEventListener('change', () => { editor.showGrid = gridChk.checked; editor.render(); });
+  const tglSnap = document.getElementById('tgl-snap');
+  tglSnap.addEventListener('click', () => {
+    editor.snapEnabled = !editor.snapEnabled;
+    tglSnap.classList.toggle('active', editor.snapEnabled);
+  });
+  const tglGrid = document.getElementById('tgl-grid');
+  tglGrid.addEventListener('click', () => {
+    editor.showGrid = !editor.showGrid;
+    tglGrid.classList.toggle('active', editor.showGrid);
+    editor.render();
+  });
 
   // --- Fichier ------------------------------------------------------------
   document.getElementById('btn-new').addEventListener('click', () => {
@@ -450,6 +511,103 @@ document.addEventListener('DOMContentLoaded', () => {
     panels.forEach((p) => (p.style.display = p.dataset.panel === name ? '' : 'none'));
   }
 
+  // --- Toast ---------------------------------------------------------------
+  const toast = document.getElementById('toast');
+  let toastTimer = null;
+  function showToast(html, ms) {
+    toast.innerHTML = html;
+    toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toast.hidden = true; }, ms || 4200);
+  }
+
+  // --- Modal des exemples ---------------------------------------------------
+  const modal = document.getElementById('examples-modal');
+  const exGrid = document.getElementById('examples-grid');
+  const SIM_TAB_BTN = { dc: 'btn-sim2', trans: 'btn-trans', bode: 'btn-bode', logic: 'btn-logic' };
+
+  function renderExThumb(cv, data) {
+    const dpr = window.devicePixelRatio || 1;
+    const W = 218, H = 110;
+    cv.width = W * dpr; cv.height = H * dpr;
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // Boîte englobante du circuit
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    const acc = (x, y) => { minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y); };
+    for (const c of data.components) { const b = SYMBOLS[c.type].bbox; acc(c.x + b.x, c.y + b.y); acc(c.x + b.x + b.w, c.y + b.y + b.h); }
+    for (const w of data.wires) for (const p of w.points) acc(p.x, p.y);
+    const s = Math.min((W - 24) / (maxX - minX), (H - 20) / (maxY - minY), 0.6);
+    ctx.translate(W / 2 - (minX + maxX) / 2 * s, H / 2 - (minY + maxY) / 2 * s);
+    ctx.scale(s, s);
+    const col = thumbColor();
+    ctx.strokeStyle = col; ctx.fillStyle = col;
+    ctx.lineWidth = 1.6 / s; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    for (const w of data.wires) {
+      ctx.beginPath();
+      w.points.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.stroke();
+    }
+    for (const j of computeJunctions(data.components, data.wires, SYMBOLS)) {
+      ctx.beginPath(); ctx.arc(j.x, j.y, 3 / s, 0, Math.PI * 2); ctx.fill();
+    }
+    for (const c of data.components) {
+      ctx.save(); ctx.translate(c.x, c.y); ctx.rotate((c.rot * Math.PI) / 180);
+      SYMBOLS[c.type].draw(ctx, c); ctx.restore();
+    }
+  }
+
+  function buildExamplesGrid() {
+    exGrid.innerHTML = '';
+    for (const ex of EXAMPLES) {
+      const card = document.createElement('button');
+      card.className = 'ex-card';
+      const cv = document.createElement('canvas');
+      cv.className = 'ex-thumb';
+      renderExThumb(cv, ex.data);
+      const name = document.createElement('div');
+      name.className = 'ex-name'; name.textContent = ex.name;
+      const desc = document.createElement('div');
+      desc.className = 'ex-desc'; desc.textContent = ex.desc;
+      const badges = document.createElement('div');
+      badges.className = 'ex-badges';
+      badges.innerHTML = `<span class="badge level">${ex.level}</span><span class="badge sim-${ex.sim}">${ex.simLabel}</span>`;
+      card.append(cv, name, desc, badges);
+      card.addEventListener('click', () => loadExample(ex));
+      exGrid.appendChild(card);
+    }
+  }
+
+  function loadExample(ex) {
+    if ((editor.components.length || editor.wires.length) &&
+        !confirm('Remplacer le schéma actuel par « ' + ex.name + ' » ?')) return;
+    editor.load(getExampleData(ex.id));
+    closeModal();
+    showTab('sim');
+    showToast(`<b>${ex.name}</b> chargé — lance l'analyse « ${ex.simLabel} » dans le panneau Simulation.`);
+    const btn = document.getElementById(SIM_TAB_BTN[ex.sim] || 'btn-sim2');
+    if (btn) { btn.style.outline = '2px solid var(--accent)'; setTimeout(() => { btn.style.outline = ''; }, 2600); }
+  }
+
+  function openModal() {
+    buildExamplesGrid();
+    modal.hidden = false;
+    document.body.classList.add('modal-open');
+  }
+  function closeModal() {
+    modal.hidden = true;
+    document.body.classList.remove('modal-open');
+  }
+  document.getElementById('btn-examples').addEventListener('click', openModal);
+  document.getElementById('es-examples').addEventListener('click', openModal);
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  modal.querySelector('.modal-backdrop').addEventListener('click', closeModal);
+  window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) closeModal(); }, true);
+
+  const statTool = document.getElementById('stat-tool');
+  const TOOL_NAMES = { select: 'Sélection', wire: 'Fil', pan: 'Panoramique', place: 'Placement' };
+  const emptyState = document.getElementById('empty-state');
+
   const statCoord = document.getElementById('stat-coord');
   const statZoom = document.getElementById('stat-zoom');
   const statCount = document.getElementById('stat-count');
@@ -478,13 +636,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // nomenclature si visible
     if (activeTab === 'bom') renderBOM();
     // barre d'état
+    statTool.textContent = editor.tool === 'place' && editor.placeType
+      ? 'Placement : ' + SYMBOLS[editor.placeType].name
+      : TOOL_NAMES[editor.tool] || editor.tool;
     statCoord.textContent = `X: ${Math.round(editor.mouse.wx)}  Y: ${Math.round(editor.mouse.wy)}`;
     statZoom.textContent = `Zoom: ${Math.round(editor.view.scale * 100)}%`;
     statCount.textContent = `${editor.components.length} composants · ${editor.wires.length} fils`;
+    // écran d'accueil sur document vide
+    emptyState.hidden = editor.components.length > 0 || editor.wires.length > 0 || editor.tool === 'place';
   };
 
   // Restauration de la dernière session (sauvegarde auto)
   if (editor.restoreAuto()) editor.zoomFit();
+
+  // Liens partageables : ?ex=<id> charge un exemple, ?theme=light force le thème
+  const params = new URLSearchParams(location.search);
+  applyTheme(params.get('theme') === 'light' ||
+    (params.get('theme') !== 'dark' && localStorage.getItem('electricad-theme') === 'light'));
+  const exParam = params.get('ex');
+  if (exParam) {
+    const ex = EXAMPLES.find((e) => e.id === exParam);
+    if (ex) {
+      editor.load(getExampleData(ex.id));
+      showTab('sim');
+      showToast(`<b>${ex.name}</b> chargé — lance l'analyse « ${ex.simLabel} ».`);
+    }
+  }
+  if (params.get('modal') === 'examples') openModal();
   editor.onChange();
 
   // Glisser-déposer un fichier JSON

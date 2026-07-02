@@ -68,6 +68,18 @@ function buildNets(components, wires, symbols) {
     }
   }
 
+  // Sommet d'un fil posé sur l'intérieur d'un autre fil (jonction en T fil-fil)
+  for (const wp of wirePts) {
+    for (const p of wp.pts) {
+      for (const wp2 of wirePts) {
+        if (wp2 === wp) continue;
+        for (let i = 0; i < wp2.pts.length - 1; i++) {
+          if (_onSeg(p.x, p.y, wp2.pts[i], wp2.pts[i + 1])) { union(_key(p.x, p.y), _key(wp2.pts[0].x, wp2.pts[0].y)); break; }
+        }
+      }
+    }
+  }
+
   // Numérotation des nets
   const rootToId = {}; let next = 0;
   const idOf = (k) => { const r = find(k); if (rootToId[r] === undefined) rootToId[r] = next++; return rootToId[r]; };
@@ -115,6 +127,16 @@ function computeJunctions(components, wires, symbols) {
     for (const [a, b] of wireSegs) {
       const isEnd = (a.x === t.x && a.y === t.y) || (b.x === t.x && b.y === t.y);
       if (!isEnd && _onSeg(t.x, t.y, a, b)) dots.add(_key(t.x, t.y));
+    }
+  }
+  // Jonctions en T fil-fil : extrémité d'un fil sur l'intérieur d'un autre
+  for (const w of wires) {
+    const pts = w.points.map((p) => ({ x: _round(p.x), y: _round(p.y) }));
+    for (const p of [pts[0], pts[pts.length - 1]]) {
+      for (const [a, b] of wireSegs) {
+        const isEnd = (a.x === p.x && a.y === p.y) || (b.x === p.x && b.y === p.y);
+        if (!isEnd && _onSeg(p.x, p.y, a, b)) dots.add(_key(p.x, p.y));
+      }
     }
   }
   return [...dots].map((k) => { const [x, y] = k.split(',').map(Number); return { x, y }; });

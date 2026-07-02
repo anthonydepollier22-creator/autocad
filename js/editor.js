@@ -5,6 +5,26 @@
 
 const GRID = 20; // pas de grille (unités monde)
 
+// Palettes de rendu du plan (synchronisées avec le thème de l'interface)
+const CANVAS_THEMES = {
+  dark: {
+    bg: '#141821', grid: '#202632', gridDot: '#39414f',
+    wire: '#d7e0ee', comp: '#e8edf5', term: '#5a6678',
+    sel: '#4f9dff', selSoft: 'rgba(79,157,255,0.6)', selFill: 'rgba(79,157,255,0.12)',
+    hover: '#9dc4f0', label: '#94a3ba', labelSel: '#7fb8ff',
+    draft: '#7fd1ff', snap: '#ff5d5d', junction: '#d7e0ee',
+    badgeVbg: '#0e2a1a', badgeV: '#5ce08a', badgeIbg: '#2a200e', badgeI: '#ffb454',
+  },
+  light: {
+    bg: '#fafbfc', grid: '#e7eaf0', gridDot: '#c4cbd8',
+    wire: '#2a323f', comp: '#1f2733', term: '#94a0b0',
+    sel: '#1668c4', selSoft: 'rgba(22,104,196,0.55)', selFill: 'rgba(22,104,196,0.10)',
+    hover: '#4d84c4', label: '#5b6b82', labelSel: '#1668c4',
+    draft: '#1668c4', snap: '#d43a3a', junction: '#2a323f',
+    badgeVbg: '#dff3e7', badgeV: '#0f7a3d', badgeIbg: '#f9ecd4', badgeI: '#8f5607',
+  },
+};
+
 class Editor {
   constructor(canvas) {
     this.canvas = canvas;
@@ -39,6 +59,8 @@ class Editor {
     // Préférences
     this.snapEnabled = true;
     this.showGrid = true;
+    this.colors = CANVAS_THEMES.dark;
+    this.hoverId = null;
 
     // Métadonnées projet (cartouche) et simulation
     this.meta = { title: '', author: '' };
@@ -358,6 +380,19 @@ class Editor {
       return;
     }
 
+    // Surbrillance au survol (outil sélection)
+    if (this.tool === 'select') {
+      const h = this.hitComponent(w.x, w.y) || this.hitWire(w.x, w.y);
+      const id = h ? h.id : null;
+      if (id !== this.hoverId) {
+        this.hoverId = id;
+        this.canvas.style.cursor = id ? 'pointer' : 'default';
+        this.render();
+      }
+    } else if (this.hoverId) {
+      this.hoverId = null;
+    }
+
     if (this.tool === 'wire' || this.tool === 'place') this.render();
     this._emit();
   }
@@ -435,7 +470,14 @@ class Editor {
 
   _key(e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (document.body.classList.contains('modal-open')) return;
     if (e.key === ' ') { this._space = true; this.canvas.style.cursor = 'grab'; }
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+      const k = e.key.toLowerCase();
+      if (k === 'v') this.setTool('select');
+      if (k === 'w') this.setTool('wire');
+      if (k === 'h') this.setTool('pan');
+    }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); this.redo(); }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') { e.preventDefault(); this.duplicateSelection(); }
@@ -456,6 +498,11 @@ class Editor {
       this.render(); this._emit();
     }
     if (e.key === 'Shift' && this.tool === 'wire') { this.wireVertFirst = true; this.render(); }
+  }
+
+  setTheme(name) {
+    this.colors = CANVAS_THEMES[name] || CANVAS_THEMES.dark;
+    this.render();
   }
 
   setTool(tool, placeType = null) {
@@ -486,7 +533,7 @@ class Editor {
     const W = this._cssW, H = this._cssH;
     ctx.save();
     ctx.clearRect(0, 0, W, H);
-    ctx.fillStyle = '#1b1f27';
+    ctx.fillStyle = this.colors.bg;
     ctx.fillRect(0, 0, W, H);
 
     if (this.showGrid) this._drawGrid(W, H);
@@ -505,6 +552,16 @@ class Editor {
     // Points de jonction
     this._drawJunctions(lw);
 
+    // Mode fil : matérialise toutes les bornes connectables
+    if (this.tool === 'wire') {
+      ctx.strokeStyle = this.colors.draft;
+      ctx.lineWidth = 1 / this.view.scale;
+      ctx.globalAlpha = 0.55;
+      for (const c of this.components)
+        for (const t of this.termsOf(c)) circle(ctx, t.x, t.y, 4.5 / this.view.scale);
+      ctx.globalAlpha = 1;
+    }
+
     // Superposition de simulation
     if (this.simMode && this.simResult && this.simResult.ok) this._drawSim(lw);
 
@@ -515,14 +572,14 @@ class Editor {
       const last = pts[pts.length - 1];
       const route = this.wireRoute(last, { x: sp.x, y: sp.y });
       const preview = [...pts, ...route.slice(1)];
-      ctx.strokeStyle = '#7fd1ff'; ctx.lineWidth = lw; ctx.setLineDash([6 / this.view.scale, 4 / this.view.scale]);
+      ctx.strokeStyle = this.colors.draft; ctx.lineWidth = lw; ctx.setLineDash([6 / this.view.scale, 4 / this.view.scale]);
       ctx.beginPath();
       ctx.moveTo(preview[0].x, preview[0].y);
       for (let i = 1; i < preview.length; i++) ctx.lineTo(preview[i].x, preview[i].y);
       ctx.stroke();
       ctx.setLineDash([]);
       // marqueur d'accroche
-      ctx.fillStyle = sp.onTerm ? '#ff5d5d' : '#7fd1ff';
+      ctx.fillStyle = sp.onTerm ? this.colors.snap : this.colors.draft;
       circle(ctx, sp.x, sp.y, 4 / this.view.scale, true);
     }
 
@@ -541,7 +598,7 @@ class Editor {
       const a = this.worldToScreen(this.marquee.x0, this.marquee.y0);
       const b = this.worldToScreen(this.marquee.x1, this.marquee.y1);
       ctx.save();
-      ctx.strokeStyle = '#4aa3ff'; ctx.fillStyle = 'rgba(74,163,255,0.12)';
+      ctx.strokeStyle = this.colors.sel; ctx.fillStyle = this.colors.selFill;
       ctx.lineWidth = 1;
       ctx.fillRect(a.x, a.y, b.x - a.x, b.y - a.y);
       ctx.strokeRect(a.x, a.y, b.x - a.x, b.y - a.y);
@@ -554,7 +611,7 @@ class Editor {
     const step = GRID * this.view.scale;
     if (step < 6) return;
     const ox = this.view.x % step, oy = this.view.y % step;
-    ctx.strokeStyle = '#262b36'; ctx.lineWidth = 1;
+    ctx.strokeStyle = this.colors.grid; ctx.lineWidth = 1;
     ctx.beginPath();
     for (let x = ox; x < W; x += step) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
     for (let y = oy; y < H; y += step) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
@@ -562,15 +619,16 @@ class Editor {
     // gros points tous les 5 pas
     const big = step * 5;
     const bx = this.view.x % big, by = this.view.y % big;
-    ctx.fillStyle = '#39414f';
+    ctx.fillStyle = this.colors.gridDot;
     for (let x = bx; x < W; x += big)
       for (let y = by; y < H; y += big) { ctx.fillRect(x - 1, y - 1, 2, 2); }
   }
 
   _drawWire(w, selected, lw) {
     const ctx = this.ctx;
-    ctx.strokeStyle = selected ? '#4aa3ff' : '#d7e0ee';
-    ctx.lineWidth = selected ? lw * 1.4 : lw;
+    const hovered = this.hoverId === w.id && !selected;
+    ctx.strokeStyle = selected ? this.colors.sel : hovered ? this.colors.hover : this.colors.wire;
+    ctx.lineWidth = selected || hovered ? lw * 1.4 : lw;
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.beginPath();
     ctx.moveTo(w.points[0].x, w.points[0].y);
@@ -581,7 +639,7 @@ class Editor {
   _drawJunctions(lw) {
     const ctx = this.ctx;
     const dots = computeJunctions(this.components, this.wires, SYMBOLS);
-    ctx.fillStyle = '#d7e0ee';
+    ctx.fillStyle = this.colors.junction;
     for (const j of dots) {
       ctx.beginPath();
       ctx.arc(j.x, j.y, lw * 1.8, 0, Math.PI * 2);
@@ -599,13 +657,13 @@ class Editor {
     for (const [net, p] of Object.entries(r.netSample || {})) {
       const v = r.netV[net];
       if (v === undefined) continue;
-      this._badge(fmtVolt(v), p.x, p.y - 14, '#0e2a1a', '#5ce08a');
+      this._badge(fmtVolt(v), p.x, p.y - 14, this.colors.badgeVbg, this.colors.badgeV);
     }
     // Courants des composants
     for (const c of this.components) {
       const i = r.compI[c.id];
       if (i === undefined) continue;
-      this._badge(fmtAmp(i), c.x, c.y + SYMBOLS[c.type].bbox.h / 2 + 14, '#2a200e', '#ffb454');
+      this._badge(fmtAmp(i), c.x, c.y + SYMBOLS[c.type].bbox.h / 2 + 14, this.colors.badgeIbg, this.colors.badgeI);
     }
   }
 
@@ -630,13 +688,15 @@ class Editor {
     ctx.translate(c.x, c.y);
     ctx.rotate((c.rot * Math.PI) / 180);
 
-    ctx.strokeStyle = selected ? '#4aa3ff' : '#e8edf5';
-    ctx.fillStyle = selected ? '#4aa3ff' : '#e8edf5';
+    const hovered = this.hoverId === c.id && !selected;
+    const col = selected ? this.colors.sel : hovered ? this.colors.hover : this.colors.comp;
+    ctx.strokeStyle = col;
+    ctx.fillStyle = col;
     ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     sym.draw(ctx, c);
 
     // terminaux
-    ctx.fillStyle = '#5a6678';
+    ctx.fillStyle = this.colors.term;
     for (const t of sym.terminals) circle(ctx, t.x, t.y, 2 / this.view.scale + 1, true);
 
     ctx.restore();
@@ -644,7 +704,7 @@ class Editor {
     // étiquette (redressée, hors rotation)
     if (c.label || c.value) {
       ctx.save();
-      ctx.fillStyle = selected ? '#7fb8ff' : '#9fb0c8';
+      ctx.fillStyle = selected ? this.colors.labelSel : this.colors.label;
       ctx.font = `${11}px sans-serif`;
       ctx.textAlign = 'center';
       const txt = [c.label, c.value].filter(Boolean).join(' ');
@@ -657,7 +717,7 @@ class Editor {
     // poignée de sélection
     if (selected) {
       ctx.save();
-      ctx.strokeStyle = 'rgba(74,163,255,0.6)';
+      ctx.strokeStyle = this.colors.selSoft;
       ctx.lineWidth = 1 / this.view.scale;
       ctx.setLineDash([4 / this.view.scale, 3 / this.view.scale]);
       const a = (c.rot * Math.PI) / 180;
@@ -700,9 +760,9 @@ class Editor {
       acc(c.x + b.x, c.y + b.y); acc(c.x + b.x + b.w, c.y + b.y + b.h);
     }
     for (const w of this.wires) for (const p of w.points) acc(p.x, p.y);
-    const pad = 60;
+    const pad = 90;
     const w = maxX - minX || 100, h = maxY - minY || 100;
-    const scale = Math.min((this._cssW - pad) / w, (this._cssH - pad) / h, 4);
+    const scale = Math.min((this._cssW - pad) / w, (this._cssH - pad) / h, 1.6);
     this.view.scale = Math.max(0.15, scale);
     this.view.x = this._cssW / 2 - (minX + w / 2) * this.view.scale;
     this.view.y = this._cssH / 2 - (minY + h / 2) * this.view.scale;
