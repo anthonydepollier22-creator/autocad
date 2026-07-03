@@ -35,7 +35,7 @@
   <!-- Héros -->
   <header class="hero">
     <div class="hero-text">
-      <div class="hero-badge">100 % gratuit · 100 % navigateur · aucune installation</div>
+      <div class="hero-badge">100 % gratuit · 100 % navigateur · installable (PWA) · hors-ligne</div>
       <h1>Dessinez, simulez et<br /><span class="grad">visualisez en 3D</span><br />vos schémas électriques</h1>
       <p>
         ÉlectriCAD réunit un éditeur de schémas type CAO, un simulateur analogique
@@ -57,12 +57,37 @@
     </div>
     <div class="hero-visual">
       <canvas id="hero3d"></canvas>
-      <div class="hero-caption">Circuit LED — vue 3D temps réel · glissez pour tourner</div>
+      <div class="hero-caption">Carte électronique — rendu 3D temps réel · glissez pour tourner</div>
     </div>
   </header>
 
+  <!-- Comment ça marche -->
+  <section class="section steps-sec">
+    <div class="eyebrow">En trois gestes</div>
+    <h2>Comment ça marche</h2>
+    <p class="section-sub">Du schéma vide au circuit vivant, en quelques minutes.</p>
+    <div class="steps">
+      <div class="step">
+        <span class="step-n">1</span>
+        <h3>Dessine</h3>
+        <p>Choisis parmi 47 symboles (CEI &amp; NF C 15-100), pose-les sur la grille magnétique et câble en orthogonal.</p>
+      </div>
+      <div class="step">
+        <span class="step-n">2</span>
+        <h3>Simule</h3>
+        <p>Continu, transitoire, Bode ou logique : tensions, courants et chronogrammes s’affichent sur le schéma — et le courant s’anime le long des fils.</p>
+      </div>
+      <div class="step">
+        <span class="step-n">3</span>
+        <h3>Visualise &amp; partage</h3>
+        <p>Bascule en 3D, exporte en PNG / SVG / PDF, génère la nomenclature, ou partage un lien qui lance la simulation tout seul.</p>
+      </div>
+    </div>
+  </section>
+
   <!-- Fonctionnalités -->
   <section class="section" id="fonctions">
+    <div class="eyebrow">Fonctionnalités</div>
     <h2>Un véritable atelier d’électronique</h2>
     <p class="section-sub">Tout ce qu’il faut pour concevoir, comprendre et présenter un circuit.</p>
     <div class="features">
@@ -101,6 +126,7 @@
 
   <!-- Exemples -->
   <section class="section alt" id="exemples">
+    <div class="eyebrow">Bibliothèque</div>
     <h2>Des schémas réalisés, prêts à explorer</h2>
     <p class="section-sub">Chaque exemple s’ouvre dans l’éditeur, prêt à simuler — validé numériquement.</p>
     <div class="gallery" id="gallery"></div>
@@ -108,6 +134,7 @@
 
   <!-- Vitrine 3D -->
   <section class="section" id="trois-d">
+    <div class="eyebrow">Moteur 3D intégré</div>
     <h2>Vos composants, en trois dimensions</h2>
     <p class="section-sub">Un moteur 3D maison, sans aucune dépendance. Glissez pour manipuler.</p>
     <div class="showcase">
@@ -128,8 +155,30 @@
   </section>
 
   <footer class="footer">
-    <span>⚡ ÉlectriCAD — éditeur &amp; simulateur de schémas électriques open source</span>
-    <span>Fonctionne hors-ligne une fois chargé · Vos schémas restent sur votre machine</span>
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="index.html">
+          <span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M13.5 2 5 14h5l-1.5 8L17 10h-5z"/></svg></span>
+          <span class="brand-text">Électri<b>CAD</b></span>
+        </a>
+        <p>Éditeur, simulateur et visualisation 3D de schémas électriques — open source, sans dépendance, dans le navigateur.</p>
+      </div>
+      <div class="foot-col">
+        <h4>Application</h4>
+        <a href="app.html">Ouvrir l’éditeur</a>
+        <a href="app.html?modal=examples">Bibliothèque d’exemples</a>
+        <a href="app.html?ex=led&amp;3d=1">Vue 3D (démo)</a>
+      </div>
+      <div class="foot-col">
+        <h4>Démos en un clic</h4>
+        <a href="app.html?ex=tableau&amp;sim=dc">Tableau NF C 15-100</a>
+        <a href="app.html?ex=lowpass&amp;sim=bode">Filtre RC (Bode)</a>
+        <a href="app.html?ex=counter&amp;sim=logic">Compteur 2 bits</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      Fonctionne hors-ligne une fois chargé · Vos schémas restent sur votre machine · Installable comme application
+    </div>
   </footer>
 
   <script src="js/symbols.js"></script>

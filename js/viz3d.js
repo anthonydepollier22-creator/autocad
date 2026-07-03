@@ -22,7 +22,8 @@ class Viz3D {
     this.target = opts.target || [0, 0, 0];
     this.fov = opts.fov || 42 * Math.PI / 180;
     this.autoRotate = opts.autoRotate !== false;
-    this.light = this._norm([0.45, 1, 0.3]);
+    this.light = this._norm([0.45, 1, 0.3]);       // lumière principale (chaude, en haut)
+    this.light2 = this._norm([-0.6, 0.25, -0.75]); // lumière d'appoint (froide, latérale)
     this.bg = opts.bg || null;             // null = transparent
     this._raf = null;
     this._drag = null;
@@ -147,10 +148,10 @@ class Viz3D {
         [b[0] - a[0], b[1] - a[1], b[2] - a[2]],
         [c[0] - a[0], c[1] - a[1], c[2] - a[2]]
       ));
-      let d = n[0] * this.light[0] + n[1] * this.light[1] + n[2] * this.light[2];
-      d = Math.abs(d); // faces vues des deux côtés
-      const k = 0.42 + 0.58 * d;
-      out.push({ z: zsum / face.pts.length, layer: face.layer, proj, col: `rgb(${face.color[0] * k | 0},${face.color[1] * k | 0},${face.color[2] * k | 0})` });
+      const d1 = Math.abs(n[0] * this.light[0] + n[1] * this.light[1] + n[2] * this.light[2]);
+      const d2 = Math.abs(n[0] * this.light2[0] + n[1] * this.light2[1] + n[2] * this.light2[2]);
+      const k = Math.min(1.04, 0.36 + 0.52 * d1 + 0.2 * d2);
+      out.push({ z: zsum / face.pts.length, layer: face.layer, proj, col: `rgb(${Math.min(255, face.color[0] * k) | 0},${Math.min(255, face.color[1] * k) | 0},${Math.min(255, face.color[2] * k) | 0})` });
     }
     out.sort((p, q) => (p.layer !== q.layer ? p.layer - q.layer : q.z - p.z));
     for (const fce of out) {
