@@ -626,6 +626,12 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('btn-3d')) {
     document.getElementById('btn-3d').addEventListener('click', open3D);
     document.getElementById('btn-3d-close').addEventListener('click', close3D);
+    document.getElementById('btn-3d-photo').addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = document.getElementById('canvas3d').toDataURL('image/png');
+      a.download = (editor.meta.title || 'carte') + '-3d.png';
+      a.click();
+    });
     window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !view3d.hidden) close3D(); }, true);
     window.addEventListener('resize', () => { if (!view3d.hidden && viz3d) viz3d.resize(); });
   }
@@ -690,6 +696,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (params.get('modal') === 'examples') openModal();
   if (params.get('3d') === '1' && document.getElementById('btn-3d')) open3D();
+  // ?sim=dc|logic|trans|bode : lance l'analyse au chargement
+  const simParam = params.get('sim');
+  if (simParam) {
+    showTab('sim');
+    if (simParam === 'dc') runSim();
+    else {
+      const btn = { logic: 'btn-logic', trans: 'btn-trans', bode: 'btn-bode' }[simParam];
+      if (btn) document.getElementById(btn).click();
+    }
+  }
   editor.onChange();
 
   // Glisser-déposer un fichier JSON

@@ -485,6 +485,55 @@ const SYMBOLS = {
     },
   },
 
+  seven_seg: {
+    name: 'Afficheur 7 segments', category: 'Logique', prefix: 'AFF',
+    terminals: [{ x: -2 * U, y: -30 }, { x: -2 * U, y: -10 }, { x: -2 * U, y: 10 }, { x: -2 * U, y: 30 }],
+    bbox: { x: -40, y: -40, w: 76, h: 80 },
+    draw(ctx, c) {
+      ctx.strokeRect(-30, -38, 64, 76);
+      for (const y of [-30, -10, 10, 30]) line(ctx, -40, y, -30, y);
+      // segments : a b c d e f g
+      const seg = {
+        a: [-4, -28, 16, -28], b: [18, -26, 18, -2], c: [18, 2, 18, 26],
+        d: [-4, 28, 16, 28], e: [-6, 2, -6, 26], f: [-6, -26, -6, -2], g: [-4, 0, 16, 0],
+      };
+      const lit = c && c.__digit !== undefined ? (SEG7[c.__digit & 15] || '') : '';
+      ctx.save();
+      for (const k in seg) {
+        const s = seg[k];
+        if (lit.includes(k)) {
+          ctx.save(); ctx.strokeStyle = '#5ce08a'; ctx.lineWidth = 4.5;
+          line(ctx, s[0], s[1], s[2], s[3]); ctx.restore();
+        } else {
+          ctx.save(); ctx.globalAlpha = 0.25; line(ctx, s[0], s[1], s[2], s[3]); ctx.restore();
+        }
+      }
+      ctx.restore();
+    },
+  },
+  dff: {
+    name: 'Bascule D', category: 'Logique', prefix: 'U',
+    terminals: [{ x: -2 * U, y: -U }, { x: -2 * U, y: U }, { x: 2 * U, y: -U }, { x: 2 * U, y: U }],
+    bbox: { x: -40, y: -28, w: 80, h: 56 },
+    draw(ctx) {
+      ctx.strokeRect(-26, -26, 52, 52);
+      line(ctx, -40, -20, -26, -20); // D
+      line(ctx, -40, 20, -26, 20);   // CLK
+      line(ctx, 26, -20, 40, -20);   // Q
+      line(ctx, 26, 20, 40, 20);     // /Q
+      poly(ctx, [[-26, 14], [-18, 20], [-26, 26]]); // triangle horloge
+      ctx.save();
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.font = '11px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText('D', -21, -19);
+      ctx.textAlign = 'right';
+      ctx.fillText('Q', 21, -19);
+      ctx.fillText('Q', 21, 21);
+      ctx.restore();
+      line(ctx, 13, 14, 21, 14); // barre du /Q
+    },
+  },
+
   // ----- Domestique — norme française NF C 15-100 --------------------------
   breaker: {
     name: 'Disjoncteur', category: 'Domestique (NF)', prefix: 'Q',
@@ -581,6 +630,10 @@ function orBody(ctx) {
   ctx.quadraticCurveTo(8, -18, -20, -20);
   ctx.stroke();
 }
+
+// Segments allumés par chiffre (0-9, A-F) pour l'afficheur 7 segments
+const SEG7 = ['abcdef', 'bc', 'abdeg', 'abcdg', 'bcfg', 'acdfg', 'acdefg', 'abc',
+  'abcdefg', 'abcdfg', 'abcefg', 'cdefg', 'adef', 'bcdeg', 'adefg', 'aefg'];
 
 // Lettre centrée pour les appareils de mesure (M/V/A/Ω)
 function meterLetter(ctx, ch) {

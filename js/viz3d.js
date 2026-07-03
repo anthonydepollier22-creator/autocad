@@ -327,6 +327,11 @@ const BUILDERS3D = {
     }
   },
   clock: (v, c) => { v.box(c.x, 0, c.y, 40, 12, 28, C3D.metal, -(c.rot || 0)); },
+  dff: (v, c) => BUILDERS3D._dip(v, c),
+  seven_seg: (v, c) => {
+    v.box(c.x, 0, c.y, 64, 16, 76, C3D.dark, -(c.rot || 0));
+    v.box(c.x, 16, c.y, 50, 2, 62, '#3a1010', -(c.rot || 0));
+  },
   logic_in: (v, c) => { v.box(c.x, 0, c.y, 24, 10, 24, c.high ? '#2f9e57' : C3D.dark, -(c.rot || 0)); },
   logic_out: (v, c) => {
     v.cyl(c.x, 0, c.y, 8, 8, c.__on ? '#2f9e57' : C3D.dark);

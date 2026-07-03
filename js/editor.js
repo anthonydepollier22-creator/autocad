@@ -567,6 +567,7 @@ class Editor {
     }
 
     // Superposition de simulation
+    if (this.simMode && this.simFlows) this._drawFlows(lw);
     if (this.simMode && this.simResult && this.simResult.ok) this._drawSim(lw);
 
     // Fil en cours
@@ -793,12 +794,52 @@ class Editor {
   runSim() {
     this.simResult = simulateDC(this.components, this.wires, SYMBOLS);
     this.simMode = true;
+    // Répartition du courant dans les fils -> animation de flux
+    this.simFlows = this.simResult.ok
+      ? computeWireFlows(this.components, this.wires, SYMBOLS, this.simResult)
+      : null;
+    this._startFlowLoop();
     this.render(); this._emit();
     return this.simResult;
   }
   clearSim() {
-    this.simMode = false; this.simResult = null;
+    this.simMode = false; this.simResult = null; this.simFlows = null;
     this.render(); this._emit();
+  }
+
+  _startFlowLoop() {
+    if (typeof requestAnimationFrame === 'undefined') return;
+    if (this._flowRaf) return;
+    const loop = () => {
+      if (!this.simMode || !this.simFlows) { this._flowRaf = null; return; }
+      this.render();
+      this._flowRaf = requestAnimationFrame(loop);
+    };
+    this._flowRaf = requestAnimationFrame(loop);
+  }
+
+  // Points lumineux qui circulent le long des fils (sens et vitesse ∝ courant)
+  _drawFlows(lw) {
+    const ctx = this.ctx;
+    const now = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+    ctx.fillStyle = '#ffcf6a';
+    for (const e of this.simFlows) {
+      const I = e.I;
+      if (Math.abs(I) < 1e-6) continue; // masque le bruit numérique (gmin)
+      const ax = I > 0 ? e.a.x : e.b.x, ay = I > 0 ? e.a.y : e.b.y;
+      const bx = I > 0 ? e.b.x : e.a.x, by = I > 0 ? e.b.y : e.a.y;
+      const len = Math.hypot(bx - ax, by - ay);
+      if (len < 4) continue;
+      const speed = 26 + 90 * Math.min(1, Math.abs(I) / 0.05);
+      const spacing = 30;
+      const off = (now * speed) % spacing;
+      for (let d = off; d <= len; d += spacing) {
+        const t = d / len;
+        ctx.beginPath();
+        ctx.arc(ax + (bx - ax) * t, ay + (by - ay) * t, lw * 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   }
 
   // --- Export SVG / impression -------------------------------------------

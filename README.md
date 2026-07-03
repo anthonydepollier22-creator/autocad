@@ -28,6 +28,23 @@ Rotation à la souris, zoom à la molette. Le moteur 3D est écrit maison
 Catégorie « Domestique (NF) » : **disjoncteur** (fermé par défaut, ouvrable au
 double-clic), **interrupteur différentiel 30 mA**, **prise 2P+T**, **va-et-vient**
 (3 bornes, bascule L1/L2) et **sonnerie** — tous pris en compte par la simulation.
+L'exemple **« Tableau électrique (NF C 15-100) »** câble une installation complète
+(arrivée 230 V → différentiel → 3 disjoncteurs divisionnaires → circuits) avec
+coupure sélective vérifiée par les tests.
+
+## ⚡ Animation du courant
+
+Après une simulation continue, des **points lumineux circulent le long des fils**
+dans le **sens réel du courant**, à une vitesse proportionnelle à son intensité.
+La répartition par segment est résolue physiquement (loi des nœuds sur le graphe
+des fils, injections aux bornes des composants).
+
+## 🔁 Logique séquentielle
+
+**Bascule D** (déclenchement au front montant, sorties Q et Q̄) et **afficheur
+7 segments** (4 bits → chiffre 0-F). Exemples fournis : *Diviseur de fréquence*
+(Q à f/2, la brique des compteurs) et *Afficheur 7 segments*.
+Le paramètre `&sim=dc|trans|bode|logic` lance l'analyse au chargement.
 
 ## ✨ Fonctionnalités
 

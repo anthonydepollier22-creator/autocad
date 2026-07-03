@@ -409,6 +409,107 @@ function runERC(components, wires, symbols) {
   return issues;
 }
 
+// ---- Répartition du courant dans les fils (pour l'animation de flux) ------
+// Chaque segment de fil est traité comme une résistance ; on injecte aux
+// bornes des composants les courants issus de la simulation (KCL), puis on
+// résout le potentiel du graphe : le courant de chaque segment en découle.
+function computeWireFlows(components, wires, symbols, res) {
+  if (!res || !res.ok) return [];
+  const nodes = new Map();
+  const keyOf = (x, y) => Math.round(x) + ',' + Math.round(y);
+  const addNode = (x, y) => {
+    const k = keyOf(x, y);
+    if (!nodes.has(k)) nodes.set(k, { x: Math.round(x), y: Math.round(y) });
+    return k;
+  };
+  for (const w of wires) for (const p of w.points) addNode(p.x, p.y);
+  const termKeys = {};
+  for (const c of components) termKeys[c.id] = worldTerminals(c, symbols).map((t) => addNode(t.x, t.y));
+
+  // Arêtes : segments découpés à chaque nœud posé dessus
+  const keys = [...nodes.keys()];
+  const pos = (k) => nodes.get(k);
+  const edges = [];
+  for (const w of wires) {
+    for (let i = 0; i < w.points.length - 1; i++) {
+      const a = { x: Math.round(w.points[i].x), y: Math.round(w.points[i].y) };
+      const b = { x: Math.round(w.points[i + 1].x), y: Math.round(w.points[i + 1].y) };
+      const on = keys.filter((k) => { const p = pos(k); return _onSeg(p.x, p.y, a, b); });
+      on.sort((k1, k2) => {
+        const p1 = pos(k1), p2 = pos(k2);
+        return Math.hypot(p1.x - a.x, p1.y - a.y) - Math.hypot(p2.x - a.x, p2.y - a.y);
+      });
+      for (let j = 0; j < on.length - 1; j++) if (on[j] !== on[j + 1]) edges.push([on[j], on[j + 1]]);
+    }
+  }
+  if (!edges.length) return [];
+
+  // Injections : courant sortant de chaque borne de composant vers le fil
+  const inj = {};
+  const add = (k, v) => { inj[k] = (inj[k] || 0) + v; };
+  const nl = buildNets(components, wires, symbols);
+  const V = res.netV || {};
+  for (const c of components) {
+    const tk = termKeys[c.id];
+    if (c.type === 'transistor_npn' || c.type === 'transistor_pnp') {
+      const nets = nl.terminalNet[c.id];
+      const pol = c.type === 'transistor_npn' ? 1 : -1;
+      const Vb = V[nets[0]] || 0, Vc = V[nets[1]] || 0, Ve = V[nets[2]] || 0;
+      const bf = parseValue(c.value, 100);
+      const Vbe = pol * (Vb - Ve), Vbc = pol * (Vb - Vc);
+      const Icc = BJT_IS * (Math.exp(Math.min(Vbe / VT, 40)) - 1);
+      const Ice = BJT_IS * (Math.exp(Math.min(Vbc / VT, 40)) - 1);
+      const Ib = pol * (Icc / bf + Ice / BJT_BR), Ic2 = pol * (Icc - Ice * (1 + 1 / BJT_BR));
+      add(tk[0], -Ib); add(tk[1], -Ic2); add(tk[2], Ib + Ic2);
+      continue;
+    }
+    const ii = res.compI[c.id];
+    if (ii === undefined) continue;
+    if (c.type === 'current_source') { add(tk[0], ii); add(tk[1], -ii); }
+    else if (['dc_source', 'battery', 'battery2', 'ac_source', 'ammeter'].includes(c.type)) { add(tk[0], -ii); add(tk[1], ii); }
+    else if (c.type === 'vcc') { add(tk[0], -ii); }
+    else if (c.type === 'sw_vv') { add(tk[0], -ii); add(tk[c.closed ? 2 : 1], ii); }
+    else if (tk.length >= 2) { add(tk[0], -ii); add(tk[1], ii); }
+  }
+
+  // Résolution par composante connexe du graphe de fils
+  const adj = {};
+  edges.forEach(([a, b]) => { (adj[a] = adj[a] || []).push(b); (adj[b] = adj[b] || []).push(a); });
+  const seen = new Set();
+  const flows = [];
+  for (const start of Object.keys(adj)) {
+    if (seen.has(start)) continue;
+    const comp = []; const stack = [start]; seen.add(start);
+    while (stack.length) {
+      const k = stack.pop(); comp.push(k);
+      for (const nb of adj[k]) if (!seen.has(nb)) { seen.add(nb); stack.push(nb); }
+    }
+    const idx = {}; comp.forEach((k, i) => { idx[k] = i; });
+    const n = comp.length;
+    if (n < 2) continue;
+    const G = Array.from({ length: n }, () => new Array(n).fill(0));
+    const rhs = new Array(n).fill(0);
+    const compEdges = [];
+    for (const [ka, kb] of edges) {
+      if (idx[ka] === undefined || idx[kb] === undefined) continue;
+      const pa = pos(ka), pb = pos(kb);
+      const g = 1 / Math.max(Math.hypot(pa.x - pb.x, pa.y - pb.y), 1);
+      const i = idx[ka], j = idx[kb];
+      G[i][i] += g; G[j][j] += g; G[i][j] -= g; G[j][i] -= g;
+      compEdges.push([ka, kb, g]);
+    }
+    for (const k of comp) rhs[idx[k]] = inj[k] || 0;
+    for (let j = 0; j < n; j++) G[0][j] = 0;
+    G[0][0] = 1; rhs[0] = 0; // référence
+    const x = solveLinear(G, rhs);
+    if (!x) continue;
+    for (const [ka, kb, g] of compEdges) {
+      flows.push({ a: pos(ka), b: pos(kb), I: (x[idx[ka]] - x[idx[kb]]) * g });
+    }
+  }
+  return flows;
+}
+
 // ---- Mise en forme tension / courant --------------------------------------
 function fmtVolt(v) { return _fmtSI(v, 'V'); }
 function fmtAmp(a) { return _fmtSI(a, 'A'); }
