@@ -481,6 +481,9 @@ class Editor {
       if (k === 'v') this.setTool('select');
       if (k === 'w') this.setTool('wire');
       if (k === 'h') this.setTool('pan');
+      if (e.key === '+' || e.key === '=') this.zoomBy(1.2);
+      if (e.key === '-') this.zoomBy(1 / 1.2);
+      if (e.key === '0') this.zoomFit();
     }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); this.redo(); }

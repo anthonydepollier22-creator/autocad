@@ -13,6 +13,8 @@
       location.replace('app.html' + location.search);
     }
   </script>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="stylesheet" href="css/landing.css" />
 </head>
 <body>
@@ -47,9 +49,9 @@
         <a class="btn-ghost" href="#exemples">Voir les exemples</a>
       </div>
       <div class="hero-stats">
-        <div><b>45+</b><span>symboles<br />dont normes NF</span></div>
+        <div><b>47</b><span>symboles<br />dont normes NF</span></div>
         <div><b>4</b><span>types<br />d’analyses</span></div>
-        <div><b>8</b><span>circuits<br />d’exemple</span></div>
+        <div><b>12</b><span>circuits<br />d’exemple</span></div>
         <div><b>3D</b><span>vue carte<br />interactive</span></div>
       </div>
     </div>
@@ -135,5 +137,10 @@
   <script src="js/examples.js"></script>
   <script src="js/viz3d.js"></script>
   <script src="js/landing.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+    }
+  </script>
 </body>
 </html>

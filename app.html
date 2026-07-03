@@ -6,6 +6,8 @@
   <meta name="theme-color" content="#12151c" />
   <title>ÉlectriCAD — Éditeur de schémas électriques</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231668c4'/%3E%3Cpath d='M18 4L8 18h6l-2 10L22 13h-6z' fill='%23ffd75e'/%3E%3C/svg%3E" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -159,6 +161,7 @@
           <button id="btn-sim2" class="btn-sim">▶ Continu (DC)</button>
           <button id="btn-erc" title="Vérification des règles électriques">ERC</button>
           <button id="btn-sim-stop" title="Effacer l'affichage">■</button>
+          <button id="btn-scope-png" title="Exporter le graphique en PNG">📷</button>
         </div>
         <div class="sim-trans">
           <label>f (Hz)<input type="number" id="trans-f" value="50" min="0" step="10" /></label>
@@ -210,5 +213,10 @@
   <script src="js/examples.js"></script>
   <script src="js/editor.js"></script>
   <script src="js/ui.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
+    }
+  </script>
 </body>
 </html>

@@ -291,6 +291,13 @@ document.addEventListener('DOMContentLoaded', () => {
     simResults.innerHTML = '';
     scope.style.display = 'none';
   });
+  document.getElementById('btn-scope-png').addEventListener('click', () => {
+    if (scope.style.display === 'none') { showToast('Lance d’abord une analyse Transitoire, Bode ou Logique.'); return; }
+    const a = document.createElement('a');
+    a.href = scope.toDataURL('image/png');
+    a.download = (editor.meta.title || 'graphique') + '.png';
+    a.click();
+  });
 
   // Analyse transitoire (oscilloscope)
   document.getElementById('btn-trans').addEventListener('click', () => {
