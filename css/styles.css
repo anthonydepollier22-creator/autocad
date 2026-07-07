@@ -362,6 +362,8 @@ a.brand { text-decoration: none; color: inherit; }
 .badge.sim-bode { background: rgba(255, 180, 84, 0.14); color: var(--amber); }
 .badge.sim-logic { background: rgba(192, 139, 255, 0.16); color: #b18aec; }
 body.light .badge.sim-logic { color: #7a45c9; }
+.badge.sim-plan { background: rgba(106, 215, 208, 0.14); color: #6ad7d0; }
+body.light .badge.sim-plan { color: #0f7a74; }
 
 /* ---------- Toast ---------- */
 .toast {

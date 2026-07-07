@@ -333,6 +333,80 @@ const BUILDERS3D = {
     v.box(c.x, 0, c.y, 64, 16, 76, C3D.dark, -(c.rot || 0));
     v.box(c.x, 16, c.y, 50, 2, 62, '#3a1010', -(c.rot || 0));
   },
+  // ----- Plan de maison ----------------------------------------------------
+  door: (v, c) => {
+    const rot = -(c.rot || 0);
+    const off = rotY([-36, 0, -36], rot);
+    v.box(c.x + off[0], 0, c.y + off[2], 7, 86, 70, '#b9895c', rot); // vantail ouvert
+  },
+  window_a: (v, c) => {
+    const rot = -(c.rot || 0);
+    v.box(c.x, 26, c.y, 84, 44, 6, '#a8cce6', rot);   // vitrage
+    v.box(c.x, 24, c.y, 84, 3, 10, '#f4f1ea', rot);   // appui
+    v.box(c.x, 68, c.y, 84, 3, 10, '#f4f1ea', rot);   // linteau
+  },
+  bed: (v, c) => {
+    const rot = -(c.rot || 0);
+    v.box(c.x, 0, c.y, 116, 16, 156, '#8a6f4d', rot);          // sommier
+    v.box(c.x, 16, c.y, 108, 10, 148, '#ece8dd', rot);         // matelas
+    const p1 = rotY([-26, 0, -54], rot), p2 = rotY([26, 0, -54], rot);
+    v.box(c.x + p1[0], 26, c.y + p1[2], 42, 7, 26, '#f7f4ee', rot);
+    v.box(c.x + p2[0], 26, c.y + p2[2], 42, 7, 26, '#f7f4ee', rot);
+    const d = rotY([0, 0, 30], rot);
+    v.box(c.x + d[0], 25, c.y + d[2], 110, 3, 88, '#5a7ba6', rot); // couette
+  },
+  sofa: (v, c) => {
+    const rot = -(c.rot || 0);
+    v.box(c.x, 0, c.y, 156, 24, 76, '#5a7ba6', rot);
+    const bk = rotY([0, 0, -30], rot);
+    v.box(c.x + bk[0], 24, c.y + bk[2], 156, 24, 16, '#4d6b94', rot); // dossier
+    for (const s of [-1, 1]) {
+      const ar = rotY([s * 70, 0, 6], rot);
+      v.box(c.x + ar[0], 24, c.y + ar[2], 16, 12, 60, '#4d6b94', rot); // accoudoirs
+    }
+  },
+  table: (v, c) => {
+    const rot = -(c.rot || 0);
+    v.box(c.x, 26, c.y, 116, 5, 76, '#a9825a', rot);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      const lg = rotY([sx * 50, 0, sz * 30], rot);
+      v.box(c.x + lg[0], 0, c.y + lg[2], 7, 26, 7, '#7d5f42', rot);
+    }
+  },
+  counter: (v, c) => {
+    const rot = -(c.rot || 0);
+    v.box(c.x, 0, c.y, 176, 32, 56, '#e8eaee', rot);          // caisson
+    v.box(c.x, 32, c.y, 180, 4, 60, '#8b939e', rot);          // plan de travail
+    const sk = rotY([-50, 0, 0], rot);
+    v.box(c.x + sk[0], 36, c.y + sk[2], 40, 2, 34, '#c3cad2', rot); // évier
+    const tp = rotY([-50, 0, -14], rot);
+    v.cyl(c.x + tp[0], 36, c.y + tp[2], 2.5, 12, '#aeb6bf');  // robinet
+  },
+  wardrobe: (v, c) => {
+    const rot = -(c.rot || 0);
+    v.box(c.x, 0, c.y, 116, 88, 46, '#a9825a', rot);
+    v.box(c.x, 30, c.y, 118, 1.5, 47, '#7d5f42', rot);
+  },
+  panel_house: (v, c) => {
+    const rot = -(c.rot || 0);
+    v.box(c.x, 34, c.y, 66, 46, 12, C3D.module, rot);
+    v.box(c.x, 44, c.y, 54, 10, 13, '#2f3844', rot); // rangée de disjoncteurs
+  },
+  gtl: (v, c) => {
+    const rot = -(c.rot || 0);
+    v.box(c.x, 0, c.y, 36, 90, 14, '#f0f2f5', rot);
+    v.box(c.x, 20, c.y, 38, 2, 15, '#c3cad2', rot);
+    v.box(c.x, 62, c.y, 38, 2, 15, '#c3cad2', rot);
+  },
+  socket_wall: (v, c) => { v.box(c.x, 10, c.y, 16, 15, 9, C3D.module, -(c.rot || 0)); },
+  switch_sa: (v, c) => { v.box(c.x, 38, c.y, 16, 16, 9, C3D.module, -(c.rot || 0)); },
+  switch_vv_wall: (v, c) => { v.box(c.x, 38, c.y, 16, 16, 9, C3D.module, -(c.rot || 0)); },
+  dcl: (v, c) => {
+    v.cyl(c.x, 84, c.y, 13, 4, '#f4f1ea');
+    v.cyl(c.x, 74, c.y, 4.5, 10, '#ffd75e'); // suspension + ampoule
+  },
+  wall_light: (v, c) => { v.box(c.x, 52, c.y, 18, 12, 9, '#ffd75e', -(c.rot || 0)); },
+  jbox: (v, c) => { v.box(c.x, 70, c.y, 14, 9, 9, '#d8dade', -(c.rot || 0)); },
   logic_in: (v, c) => { v.box(c.x, 0, c.y, 24, 10, 24, c.high ? '#2f9e57' : C3D.dark, -(c.rot || 0)); },
   logic_out: (v, c) => {
     v.cyl(c.x, 0, c.y, 8, 8, c.__on ? '#2f9e57' : C3D.dark);
@@ -359,26 +433,57 @@ for (const g of ['gate_and', 'gate_or', 'gate_not', 'gate_nand', 'gate_nor', 'ga
 // Construit la carte complète ; renvoie le rayon englobant (pour cadrer la caméra)
 function buildBoard(viz, components, wires, symbols) {
   viz.clear();
+  const walls = wires.filter((w) => w.kind === 'wall');
+  const conduits = wires.filter((w) => w.kind === 'conduit');
+  const elec = wires.filter((w) => !w.kind || w.kind === 'wire');
+  const houseMode = walls.length > 0; // plan de maison -> sol + murs extrudés
+
   // Bornes du circuit
   let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
   const acc = (x, z) => { minX = Math.min(minX, x); minZ = Math.min(minZ, z); maxX = Math.max(maxX, x); maxZ = Math.max(maxZ, z); };
   for (const c of components) { const b = symbols[c.type].bbox; acc(c.x + b.x, c.y + b.y); acc(c.x + b.x + b.w, c.y + b.y + b.h); }
   for (const w of wires) for (const p of w.points) acc(p.x, p.y);
   if (!isFinite(minX)) { minX = -140; minZ = -100; maxX = 140; maxZ = 100; }
-  const pad = 46;
+  const pad = houseMode ? 30 : 46;
   minX -= pad; minZ -= pad; maxX += pad; maxZ += pad;
   const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
   const W = maxX - minX, D = maxZ - minZ;
 
-  // Carte (PCB) — calque de fond, peint avant tout le reste
+  // Sol : PCB vert (schéma) ou dalle parquet (maison) — calque de fond
   viz.setLayer(0);
-  viz.box(cx, -8, cz, W, 8, D, C3D.pcb);
-  for (const [ix, iz] of [[minX + 14, minZ + 14], [maxX - 14, minZ + 14], [minX + 14, maxZ - 14], [maxX - 14, maxZ - 14]]) {
-    viz.cyl(ix, 0.1, iz, 5, 0.8, '#0e4227');
+  viz.box(cx, -8, cz, W, 8, D, houseMode ? '#c8ad85' : C3D.pcb);
+  if (houseMode) {
+    // lames de parquet
+    for (let x = minX + 40; x < maxX; x += 40) viz.box(x, 0.05, cz, 1, 0.4, D, '#b89a72');
+  } else {
+    for (const [ix, iz] of [[minX + 14, minZ + 14], [maxX - 14, minZ + 14], [minX + 14, maxZ - 14], [maxX - 14, maxZ - 14]]) {
+      viz.cyl(ix, 0.1, iz, 5, 0.8, '#0e4227');
+    }
   }
   viz.setLayer(1);
-  // Pistes (fils du schéma)
-  for (const w of wires) {
+
+  // Murs extrudés
+  for (const w of walls) {
+    for (let i = 0; i < w.points.length - 1; i++) {
+      const a = w.points[i], b = w.points[i + 1];
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (len < 1) continue;
+      const ang = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+      viz.box((a.x + b.x) / 2, 0, (a.y + b.y) / 2, len + 10, 92, 10, '#ece7dc', -ang);
+    }
+  }
+  // Goulottes / chemins de câbles : profilés blancs en plinthe
+  for (const w of conduits) {
+    for (let i = 0; i < w.points.length - 1; i++) {
+      const a = w.points[i], b = w.points[i + 1];
+      const len = Math.hypot(b.x - a.x, b.y - a.y);
+      if (len < 1) continue;
+      const ang = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+      viz.box((a.x + b.x) / 2, 2, (a.y + b.y) / 2, len + 6, 9, 9, '#e4e8ee', -ang);
+    }
+  }
+  // Pistes (fils du schéma électronique)
+  for (const w of elec) {
     for (let i = 0; i < w.points.length - 1; i++) {
       _traceSeg(viz, w.points[i], w.points[i + 1]);
     }
@@ -390,12 +495,14 @@ function buildBoard(viz, components, wires, symbols) {
       viz.cyl(j.x, 0.3, j.y, 6, 2, C3D.pad, { seg: 10 });
     }
   }
-  // Pastilles aux bornes + composants
+  // Pastilles aux bornes + composants (pas de pastilles pour le plan maison)
   for (const c of components) {
     const sym = symbols[c.type];
     const a = ((c.rot || 0) * Math.PI) / 180, cos = Math.cos(a), sin = Math.sin(a);
-    for (const t of sym.terminals) {
-      viz.cyl(c.x + t.x * cos - t.y * sin, 0.2, c.y + t.x * sin + t.y * cos, 5, 1.8, C3D.pad, { seg: 10 });
+    if (!sym.plan) {
+      for (const t of sym.terminals) {
+        viz.cyl(c.x + t.x * cos - t.y * sin, 0.2, c.y + t.x * sin + t.y * cos, 5, 1.8, C3D.pad, { seg: 10 });
+      }
     }
     (BUILDERS3D[c.type] || ((v, cc) => v.box(cc.x, 0, cc.y, 30, 14, 22, C3D.dark, -(cc.rot || 0))))(viz, c);
   }

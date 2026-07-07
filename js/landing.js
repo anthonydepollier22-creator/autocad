@@ -126,10 +126,14 @@ function drawSchematicThumb(cv, data) {
   ctx.strokeStyle = '#c3cddd'; ctx.fillStyle = '#c3cddd';
   ctx.lineWidth = 1.7 / s; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   for (const w of data.wires) {
+    ctx.lineWidth = (w.kind === 'wall' ? 7 : w.kind === 'conduit' ? 3.5 : 1.7) / s;
+    ctx.globalAlpha = w.kind === 'conduit' ? 0.55 : 1;
     ctx.beginPath();
     w.points.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
     ctx.stroke();
+    ctx.globalAlpha = 1;
   }
+  ctx.lineWidth = 1.7 / s;
   for (const j of computeJunctions(data.components, data.wires, SYMBOLS)) {
     ctx.beginPath(); ctx.arc(j.x, j.y, 3 / s, 0, Math.PI * 2); ctx.fill();
   }

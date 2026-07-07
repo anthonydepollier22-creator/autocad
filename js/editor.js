@@ -211,7 +211,7 @@ class Editor {
       }
       const w = this.wires.find((x) => x.id === id);
       if (w) {
-        const n = { id: this.uid(), points: w.points.map((p) => ({ x: p.x + GRID * 2, y: p.y + GRID * 2 })) };
+        const n = { id: this.uid(), kind: w.kind, points: w.points.map((p) => ({ x: p.x + GRID * 2, y: p.y + GRID * 2 })) };
         this.wires.push(n); newSel.add(n.id);
       }
     }
@@ -249,9 +249,9 @@ class Editor {
     return null;
   }
   hitWire(wx, wy) {
-    const thr = 6 / this.view.scale;
     for (let i = this.wires.length - 1; i >= 0; i--) {
       const w = this.wires[i];
+      const thr = (w.kind ? 8 : 6) / this.view.scale + (w.kind ? 4 : 0);
       for (let j = 0; j < w.points.length - 1; j++) {
         if (this._distSeg(wx, wy, w.points[j], w.points[j + 1]) < thr) return w;
       }
@@ -310,7 +310,7 @@ class Editor {
       return;
     }
 
-    if (this.tool === 'wire') {
+    if (this.tool === 'wire' || this.tool === 'wall' || this.tool === 'conduit') {
       const sp = this.snapForWire(w.x, w.y);
       if (!this.wireDraft) {
         this.wireDraft = { points: [{ x: sp.x, y: sp.y }] };
@@ -318,7 +318,7 @@ class Editor {
         const last = this.wireDraft.points[this.wireDraft.points.length - 1];
         const route = this.wireRoute(last, { x: sp.x, y: sp.y });
         for (let i = 1; i < route.length; i++) this.wireDraft.points.push(route[i]);
-        if (sp.onTerm) this._finishWire();
+        if (sp.onTerm && this.tool === 'wire') this._finishWire();
       }
       this.render();
       return;
@@ -397,7 +397,7 @@ class Editor {
       this.hoverId = null;
     }
 
-    if (this.tool === 'wire' || this.tool === 'place') this.render();
+    if (this.tool === 'wire' || this.tool === 'wall' || this.tool === 'conduit' || this.tool === 'place') this.render();
     this._emit();
   }
 
@@ -463,7 +463,10 @@ class Editor {
 
   _finishWire() {
     if (this.wireDraft && this.wireDraft.points.length >= 2) {
-      this.wires.push({ id: this.uid(), points: this.wireDraft.points });
+      const w = { id: this.uid(), points: this.wireDraft.points };
+      if (this.tool === 'wall') w.kind = 'wall';
+      else if (this.tool === 'conduit') w.kind = 'conduit';
+      this.wires.push(w);
       this.wireDraft = null;
       this.pushHistory();
     } else {
@@ -481,6 +484,8 @@ class Editor {
       if (k === 'v') this.setTool('select');
       if (k === 'w') this.setTool('wire');
       if (k === 'h') this.setTool('pan');
+      if (k === 'm') this.setTool('wall');
+      if (k === 'g') this.setTool('conduit');
       if (e.key === '+' || e.key === '=') this.zoomBy(1.2);
       if (e.key === '-') this.zoomBy(1 / 1.2);
       if (e.key === '0') this.zoomFit();
@@ -504,7 +509,7 @@ class Editor {
       this.selection.clear();
       this.render(); this._emit();
     }
-    if (e.key === 'Shift' && this.tool === 'wire') { this.wireVertFirst = true; this.render(); }
+    if (e.key === 'Shift' && (this.tool === 'wire' || this.tool === 'wall' || this.tool === 'conduit')) { this.wireVertFirst = true; this.render(); }
   }
 
   setTheme(name) {
@@ -517,7 +522,7 @@ class Editor {
     this.placeType = placeType;
     this.wireDraft = null;
     if (tool !== 'select') this.selection.clear();
-    const cursors = { select: 'default', wire: 'crosshair', pan: 'grab', place: 'copy' };
+    const cursors = { select: 'default', wire: 'crosshair', wall: 'crosshair', conduit: 'crosshair', pan: 'grab', place: 'copy' };
     this.canvas.style.cursor = cursors[tool] || 'default';
     this.render(); this._emit();
   }
@@ -560,7 +565,7 @@ class Editor {
     this._drawJunctions(lw);
 
     // Mode fil : matérialise toutes les bornes connectables
-    if (this.tool === 'wire') {
+    if (this.tool === 'wire' || this.tool === 'conduit') {
       ctx.strokeStyle = this.colors.draft;
       ctx.lineWidth = 1 / this.view.scale;
       ctx.globalAlpha = 0.55;
@@ -635,13 +640,32 @@ class Editor {
   _drawWire(w, selected, lw) {
     const ctx = this.ctx;
     const hovered = this.hoverId === w.id && !selected;
-    ctx.strokeStyle = selected ? this.colors.sel : hovered ? this.colors.hover : this.colors.wire;
-    ctx.lineWidth = selected || hovered ? lw * 1.4 : lw;
+    const col = selected ? this.colors.sel : hovered ? this.colors.hover : this.colors.wire;
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(w.points[0].x, w.points[0].y);
-    for (let i = 1; i < w.points.length; i++) ctx.lineTo(w.points[i].x, w.points[i].y);
-    ctx.stroke();
+    const path = () => {
+      ctx.beginPath();
+      ctx.moveTo(w.points[0].x, w.points[0].y);
+      for (let i = 1; i < w.points.length; i++) ctx.lineTo(w.points[i].x, w.points[i].y);
+      ctx.stroke();
+    };
+    if (w.kind === 'wall') {
+      // Mur : trait épais plein
+      ctx.strokeStyle = selected || hovered ? col : this.colors.comp;
+      ctx.lineWidth = 9;
+      path();
+    } else if (w.kind === 'conduit') {
+      // Goulotte / chemin de câbles : double ligne (tube creux)
+      ctx.strokeStyle = selected || hovered ? col : this.colors.label;
+      ctx.lineWidth = 8;
+      path();
+      ctx.strokeStyle = this.colors.bg;
+      ctx.lineWidth = 4.5;
+      path();
+    } else {
+      ctx.strokeStyle = col;
+      ctx.lineWidth = selected || hovered ? lw * 1.4 : lw;
+      path();
+    }
   }
 
   _drawJunctions(lw) {

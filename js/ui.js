@@ -29,6 +29,8 @@ const ICONS = {
   magnet: '<svg viewBox="0 0 24 24"><path d="M6.5 3.5v8a5.5 5.5 0 0 0 11 0v-8"/><path d="M6.5 3.5H10V8H6.5zM14 3.5h3.5V8H14z"/></svg>',
   sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/></svg>',
   cube: '<svg viewBox="0 0 24 24"><path d="M12 2.8l8 4.6v9.2l-8 4.6-8-4.6V7.4z"/><path d="M12 12l8-4.6M12 12L4 7.4M12 12v9.2"/></svg>',
+  wall: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 9.7h18M3 14.3h18M9 5v4.7M15 5v4.7M6 9.7v4.6M12 9.7v4.6M18 9.7v4.6M9 14.3V19M15 14.3V19"/></svg>',
+  conduit: '<svg viewBox="0 0 24 24"><path d="M3 17v-7h8V5h10"/><path d="M6.5 20v-6.5H14V8.5h7"/></svg>',
   moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>',
 };
 
@@ -552,10 +554,14 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.strokeStyle = col; ctx.fillStyle = col;
     ctx.lineWidth = 1.6 / s; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     for (const w of data.wires) {
+      ctx.lineWidth = (w.kind === 'wall' ? 7 : w.kind === 'conduit' ? 3.5 : 1.6) / s;
+      ctx.globalAlpha = w.kind === 'conduit' ? 0.55 : 1;
       ctx.beginPath();
       w.points.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
       ctx.stroke();
+      ctx.globalAlpha = 1;
     }
+    ctx.lineWidth = 1.6 / s;
     for (const j of computeJunctions(data.components, data.wires, SYMBOLS)) {
       ctx.beginPath(); ctx.arc(j.x, j.y, 3 / s, 0, Math.PI * 2); ctx.fill();
     }
@@ -591,9 +597,17 @@ document.addEventListener('DOMContentLoaded', () => {
         !confirm('Remplacer le schéma actuel par « ' + ex.name + ' » ?')) return;
     editor.load(getExampleData(ex.id));
     closeModal();
-    showTab('sim');
-    showToast(`<b>${ex.name}</b> chargé — lance l'analyse « ${ex.simLabel} » dans le panneau Simulation.`);
-    const btn = document.getElementById(SIM_TAB_BTN[ex.sim] || 'btn-sim2');
+    let btnId;
+    if (ex.sim === 'plan') {
+      showTab('bom'); // le métré de l'installation
+      showToast(`<b>${ex.name}</b> chargé — clique <b>3D</b> pour visiter la maison en volume !`);
+      btnId = 'btn-3d';
+    } else {
+      showTab('sim');
+      showToast(`<b>${ex.name}</b> chargé — lance l'analyse « ${ex.simLabel} » dans le panneau Simulation.`);
+      btnId = SIM_TAB_BTN[ex.sim] || 'btn-sim2';
+    }
+    const btn = document.getElementById(btnId);
     if (btn) { btn.style.outline = '2px solid var(--accent)'; setTimeout(() => { btn.style.outline = ''; }, 2600); }
   }
 
@@ -644,7 +658,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const statTool = document.getElementById('stat-tool');
-  const TOOL_NAMES = { select: 'Sélection', wire: 'Fil', pan: 'Panoramique', place: 'Placement' };
+  const TOOL_NAMES = { select: 'Sélection', wire: 'Fil', wall: 'Mur', conduit: 'Goulotte', pan: 'Panoramique', place: 'Placement' };
   const emptyState = document.getElementById('empty-state');
 
   const statCoord = document.getElementById('stat-coord');

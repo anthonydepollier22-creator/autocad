@@ -83,6 +83,7 @@ function collectElements(components, wires, symbols) {
   for (const c of components) {
     const t = tn[c.id];
     if (typeof DIGITAL_TYPES !== 'undefined' && DIGITAL_TYPES.has(c.type)) continue; // composants numériques : hors analogique
+    if (symbols[c.type] && symbols[c.type].plan) continue; // symboles de plan (maison) : hors simulation
     if (UNSUPPORTED.has(c.type)) { warnings.push(`${c.label || c.type} ignoré (modèle non disponible)`); continue; }
     if (c.type in DEFAULT_R) {
       E.R.push({ a: t[0], b: t[1], R: Math.max(parseValue(c.value, DEFAULT_R[c.type]), 1e-6), comp: c });
@@ -387,6 +388,7 @@ function runERC(components, wires, symbols) {
   const ENDPOINT = new Set(['ground', 'vcc', 'antenna', 'junction']);
   for (const c of components) {
     if (ENDPOINT.has(c.type) || (typeof DIGITAL_TYPES !== 'undefined' && DIGITAL_TYPES.has(c.type))) continue;
+    if (symbols[c.type] && symbols[c.type].plan) continue;
     terminalNet[c.id].forEach((net, i) => {
       if ((deg[net] || 0) <= 1) issues.push({ level: 'err', msg: `${c.label || c.type} : broche ${i + 1} non connectée`, compId: c.id });
     });
@@ -415,6 +417,7 @@ function runERC(components, wires, symbols) {
 // résout le potentiel du graphe : le courant de chaque segment en découle.
 function computeWireFlows(components, wires, symbols, res) {
   if (!res || !res.ok) return [];
+  wires = wires.filter((w) => !w.kind || w.kind === 'wire');
   const nodes = new Map();
   const keyOf = (x, y) => Math.round(x) + ',' + Math.round(y);
   const addNode = (x, y) => {

@@ -32,6 +32,21 @@ L'exemple **« Tableau électrique (NF C 15-100) »** câble une installation co
 (arrivée 230 V → différentiel → 3 disjoncteurs divisionnaires → circuits) avec
 coupure sélective vérifiée par les tests.
 
+## 🏠 Plan de maison & implantation électrique
+
+Dessine une **maison complète** et implante l'installation dedans :
+
+- Outils **Mur** (M) et **Goulotte / chemin de câbles** (G) au tracé orthogonal ;
+- **Architecture** : portes (avec débattement), fenêtres — **mobilier** : lit,
+  canapé, table, plan de travail avec évier, armoire ;
+- **Implantation NF C 15-100** : **GTL**, **tableau électrique**, prises murales
+  2P+T, interrupteurs SA / va-et-vient, points lumineux **DCL**, appliques,
+  boîtes de dérivation — le tout compté dans la **nomenclature (métré)** ;
+- La **vue 3D devient la maison en volume** : murs extrudés, sol parquet,
+  goulottes en plinthe, meubles et appareillage 3D ;
+- Exemple fourni : **« Maison T2 — implantation élec. »** (`?ex=maison`),
+  murs/goulottes exclus de la simulation et de l'ERC (aucun faux positif).
+
 ## ⚡ Animation du courant
 
 Après une simulation continue, des **points lumineux circulent le long des fils**

@@ -631,6 +631,161 @@ function orBody(ctx) {
   ctx.stroke();
 }
 
+// ----- Plan de maison : architecture, mobilier, implantation électrique ----
+// Ces symboles (plan: true) sont ignorés par la simulation et l'ERC.
+Object.assign(SYMBOLS, {
+  door: {
+    name: 'Porte', category: 'Architecture', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -44, y: -76, w: 88, h: 82 },
+    draw(ctx) {
+      line(ctx, -40, 0, 40, 0);          // seuil
+      line(ctx, -40, 0, -40, -72);       // vantail
+      ctx.beginPath();
+      ctx.arc(-40, 0, 72, -Math.PI / 2, -Math.PI / 13); // débattement
+      ctx.stroke();
+    },
+  },
+  window_a: {
+    name: 'Fenêtre', category: 'Architecture', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -44, y: -8, w: 88, h: 16 },
+    draw(ctx) {
+      line(ctx, -40, -6, 40, -6);
+      line(ctx, -40, 0, 40, 0);
+      line(ctx, -40, 6, 40, 6);
+      line(ctx, -40, -6, -40, 6);
+      line(ctx, 40, -6, 40, 6);
+    },
+  },
+
+  bed: {
+    name: 'Lit', category: 'Mobilier', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -60, y: -80, w: 120, h: 160 },
+    draw(ctx) {
+      ctx.strokeRect(-60, -80, 120, 160);
+      ctx.strokeRect(-48, -68, 44, 28);  // oreillers
+      ctx.strokeRect(4, -68, 44, 28);
+      line(ctx, -60, -28, 60, -28);      // drap
+    },
+  },
+  sofa: {
+    name: 'Canapé', category: 'Mobilier', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -80, y: -40, w: 160, h: 80 },
+    draw(ctx) {
+      ctx.strokeRect(-80, -40, 160, 80);
+      line(ctx, -80, -16, 80, -16);      // dossier
+      line(ctx, -56, -16, -56, 40);      // accoudoirs -> coussins
+      line(ctx, 0, -16, 0, 40);
+      line(ctx, 56, -16, 56, 40);
+    },
+  },
+  table: {
+    name: 'Table', category: 'Mobilier', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -60, y: -40, w: 120, h: 80 },
+    draw(ctx) {
+      ctx.strokeRect(-60, -40, 120, 80);
+      ctx.strokeRect(-50, -30, 100, 60);
+    },
+  },
+  counter: {
+    name: 'Plan de travail + évier', category: 'Mobilier', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -90, y: -30, w: 180, h: 60 },
+    draw(ctx) {
+      ctx.strokeRect(-90, -30, 180, 60);
+      ctx.strokeRect(-70, -18, 40, 36);  // cuve
+      circle(ctx, 40, 0, 16);            // plaque / bac rond
+      circle(ctx, 40, 0, 8);
+      line(ctx, -50, -24, -50, -18);     // robinet
+    },
+  },
+  wardrobe: {
+    name: 'Armoire', category: 'Mobilier', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -60, y: -25, w: 120, h: 50 },
+    draw(ctx) {
+      ctx.strokeRect(-60, -25, 120, 50);
+      line(ctx, -60, -25, 60, 25);
+      line(ctx, -60, 25, 60, -25);
+    },
+  },
+
+  panel_house: {
+    name: 'Tableau électrique', category: 'Implantation élec.', prefix: 'TB', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -36, y: -26, w: 72, h: 52 },
+    draw(ctx) {
+      ctx.strokeRect(-36, -26, 72, 52);
+      for (let r = 0; r < 2; r++)
+        for (let i = 0; i < 4; i++) ctx.strokeRect(-30 + i * 16, -18 + r * 24, 12, 14);
+    },
+  },
+  gtl: {
+    name: 'GTL (gaine technique)', category: 'Implantation élec.', prefix: 'GTL', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -20, y: -60, w: 40, h: 120 },
+    draw(ctx) {
+      ctx.strokeRect(-20, -60, 40, 120);
+      line(ctx, -20, -30, 20, -50);
+      line(ctx, -20, 10, 20, -10);
+      line(ctx, -20, 50, 20, 30);
+    },
+  },
+  socket_wall: {
+    name: 'Prise murale 2P+T', category: 'Implantation élec.', prefix: 'PC', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -12, y: -24, w: 24, h: 34 },
+    draw(ctx) {
+      circle(ctx, 0, 0, 9);
+      line(ctx, 0, -9, 0, -18);
+      line(ctx, -7, -18, 7, -18);
+    },
+  },
+  switch_sa: {
+    name: 'Interrupteur (SA)', category: 'Implantation élec.', prefix: 'SW', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -12, y: -22, w: 26, h: 30 },
+    draw(ctx) {
+      circle(ctx, 0, 0, 6);
+      line(ctx, 4, -4, 13, -13);
+      line(ctx, 9, -16, 16, -9);
+    },
+  },
+  switch_vv_wall: {
+    name: 'Va-et-vient (mural)', category: 'Implantation élec.', prefix: 'SW', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -12, y: -24, w: 28, h: 32 },
+    draw(ctx) {
+      circle(ctx, 0, 0, 6);
+      line(ctx, 4, -4, 15, -15);
+      line(ctx, 8, -17, 15, -10);
+      line(ctx, 12, -21, 19, -14);
+    },
+  },
+  dcl: {
+    name: 'Point lumineux (DCL)', category: 'Implantation élec.', prefix: 'DCL', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -14, y: -14, w: 28, h: 28 },
+    draw(ctx) {
+      circle(ctx, 0, 0, 11);
+      line(ctx, -8, -8, 8, 8);
+      line(ctx, -8, 8, 8, -8);
+    },
+  },
+  wall_light: {
+    name: 'Applique murale', category: 'Implantation élec.', prefix: 'AP', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -14, y: -12, w: 28, h: 18 },
+    draw(ctx) {
+      ctx.beginPath();
+      ctx.arc(0, -4, 11, 0, Math.PI); // demi-cercle contre mur
+      ctx.stroke();
+      line(ctx, -11, -4, 11, -4);
+      line(ctx, -5, 1, 5, 11 - 20);
+      line(ctx, -5, 11 - 20, 5, 1);
+    },
+  },
+  jbox: {
+    name: 'Boîte de dérivation', category: 'Implantation élec.', prefix: 'BD', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -10, y: -10, w: 20, h: 20 },
+    draw(ctx) {
+      circle(ctx, 0, 0, 8);
+      dot(ctx, 0, 0, 3);
+    },
+  },
+});
+SYMBOLS.__order = Object.keys(SYMBOLS).filter((k) => !k.startsWith('__'));
+
 // Segments allumés par chiffre (0-9, A-F) pour l'afficheur 7 segments
 const SEG7 = ['abcdef', 'bc', 'abdeg', 'abcdg', 'bcfg', 'acdfg', 'acdefg', 'abc',
   'abcdefg', 'abcdfg', 'abcefg', 'cdefg', 'adef', 'bcdeg', 'adefg', 'aefg'];

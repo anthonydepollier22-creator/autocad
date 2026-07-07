@@ -31,9 +31,16 @@ function _onSeg(px, py, a, b) {
 
 const _key = (x, y) => x + ',' + y;
 
+// Seuls les fils électriques comptent pour la connectivité
+// (les murs et goulottes du plan de maison sont décoratifs).
+function _elecWires(wires) {
+  return wires.filter((w) => !w.kind || w.kind === 'wire');
+}
+
 // Construit les nets : renvoie { netIdOf(key), terminalNet (compId -> [netId]),
 // nets (liste d'ids), netKeys (netId -> [keys]) }
 function buildNets(components, wires, symbols) {
+  wires = _elecWires(wires);
   const parent = {};
   const find = (k) => {
     if (parent[k] === undefined) parent[k] = k;
@@ -100,6 +107,7 @@ function buildNets(components, wires, symbols) {
 
 // Points de jonction à dessiner (≥3 conducteurs, ou T sur un fil)
 function computeJunctions(components, wires, symbols) {
+  wires = _elecWires(wires);
   const wireEnd = {}; // key -> nb de segments incidents
   const term = {};    // key -> nb de terminaux
   const add = (m, k) => { m[k] = (m[k] || 0) + 1; };
@@ -147,7 +155,7 @@ function buildBOM(components, symbols) {
   const groups = {};
   for (const c of components) {
     const sym = symbols[c.type];
-    if (!sym || sym.category === 'Connexions') continue; // on ignore masse/nœud/VCC...
+    if (!sym || sym.category === 'Connexions' || sym.noBom) continue; // masse/nœud/mobilier...
     const key = c.type + '|' + (c.value || '');
     if (!groups[key]) groups[key] = { type: c.type, name: sym.name, value: c.value || '', refs: [] };
     groups[key].refs.push(c.label || '?');
