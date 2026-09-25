@@ -203,6 +203,14 @@ void main() {
 // en heure légale (France, heure d'hiver / d'été)
 const GL3D_SEASONS = { hiver: { decl: -23.4, noon: 12.75 }, ete: { decl: 23.4, noon: 14.0 } };
 
+// Direction du soleil (vecteur unitaire, +x = est, +y = zénith, +z = sud) à 46° N
+function gl3dSunVector(season, h) {
+  const lat = (46 * Math.PI) / 180, d = (season.decl * Math.PI) / 180, H = ((h - season.noon) * 15 * Math.PI) / 180;
+  const up = Math.sin(lat) * Math.sin(d) + Math.cos(lat) * Math.cos(d) * Math.cos(H);
+  const east = -Math.cos(d) * Math.sin(H), north = Math.cos(lat) * Math.sin(d) - Math.sin(lat) * Math.cos(d) * Math.cos(H);
+  return [east, up, -north];
+}
+
 class GL3D extends Viz3D {
   static supported() {
     if (GL3D._ok === undefined) {
@@ -310,12 +318,11 @@ class GL3D extends Viz3D {
     this.time = h;
     let s;
     if (this.season) {
-      // soleil dans le repère est / nord / zénith, puis en 3D : +x = est, +z = sud
-      const lat = (46 * Math.PI) / 180, d = (this.season.decl * Math.PI) / 180, H = ((h - this.season.noon) * 15 * Math.PI) / 180;
-      const up = Math.sin(lat) * Math.sin(d) + Math.cos(lat) * Math.cos(d) * Math.cos(H);
-      const east = -Math.cos(d) * Math.sin(H), north = Math.cos(lat) * Math.sin(d) - Math.sin(lat) * Math.cos(d) * Math.cos(H);
-      s = Math.asin(Math.max(-1, Math.min(1, up))); // hauteur (rad) : mêmes seuils que ci-dessous
-      this.sunDir = _v3.norm([east, Math.max(up, -0.2), -north]);
+      const v = gl3dSunVector(this.season, h);
+      // hauteur (rad) mise à l'échelle des seuils ci-dessous : lumière dorée sous ~10°,
+      // plein jour au-dessus (le soleil d'hiver, 20° à midi, n'est pas un crépuscule)
+      s = Math.asin(Math.max(-1, Math.min(1, v[1]))) * 1.6;
+      this.sunDir = _v3.norm([v[0], Math.max(v[1], -0.2), v[2]]);
     } else {
       const t = (h - 6) / 12;
       s = Math.sin(Math.PI * t);
@@ -532,7 +539,7 @@ class GL3D extends Viz3D {
       gl.depthMask(true);
     }
     // 5. Courant animé
-    if (this.flows.length || (this.sparks && this.sparks.length)) this._drawFlows(VP, H, cam);
+    if (this.flows.length || (this.sparks && this.sparks.length) || (this.markers && this.markers.length)) this._drawFlows(VP, H, cam);
     gl.disable(gl.BLEND);
     gl.bindVertexArray(null);
   }
@@ -558,6 +565,8 @@ class GL3D extends Viz3D {
       }
       if (out.length > 7 * 6000) break;
     }
+    // Repères fixes (course du soleil…)
+    for (const m of this.markers || []) out.push(m.x, m.y, m.z, m.color[0], m.color[1], m.color[2], m.size);
     // Étincelles (défaut provoqué) : gerbe de points qui retombent et s'éteignent
     if (this.sparks && this.sparks.length) {
       const alive = [];

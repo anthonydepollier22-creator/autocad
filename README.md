@@ -257,6 +257,10 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   terrain, **éclairage extérieur crépusculaire** (applique près de la porte, bornes le
   long de l'allée, qui s'allument à la tombée de la nuit) — les lampes n'éclairent
   jamais le dessous du toit ;
+- **Soleil** (en vue Extérieur) : la course du soleil d'hiver puis d'été se dessine en
+  arc au-dessus de la maison (une perle par heure, midi solaire marqué, le soleil à
+  l'heure du curseur), et la lumière suit la vraie position du soleil de la saison —
+  on voit pourquoi les panneaux regardent le sud et combien le soleil d'hiver est bas ;
 - **Journée** : 24 heures en 48 secondes, le soleil et les lampes suivent l'horloge ;
 - **Visite guidée** (en mode Visite) : la caméra parcourt toutes les pièces depuis
   l'entrée, en passant par les portes, et s'arrête dans chacune (nom de la pièce à

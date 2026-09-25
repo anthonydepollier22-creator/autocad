@@ -447,7 +447,7 @@ function initHouseUI(app) {
     sim.speed = 1;
     if (day.saved) dayRestoreStates(day.saved);
     day.saved = null;
-    if (viz && viz.setSeason) viz.setSeason(null);
+    if (viz && viz.setSeason) viz.setSeason(v3.sunpath && v3.walls === 'roof' ? v3.sunpath : null);
     if (day.prevTime !== null) { v3.time = day.prevTime; daySetTime3D(day.prevTime); day.prevTime = null; }
     editor.autosave();
     if (completed && day.acc) {
@@ -825,7 +825,31 @@ function initHouseUI(app) {
   // ---- Vue 3D ---------------------------------------------------------------
   const view3d = $('view3d'), cv3 = $('canvas3d'), tip = $('v3-tip'), map = $('v3-map'), hud = $('v3-hud');
   let viz = null;
-  const v3 = { walls: 'full', xray: false, time: 15, energy: false, level: 'all', cut: null, cutAxis: 'x', circuit: null, fault: false, faultKind: 'short' };
+  const v3 = { walls: 'full', xray: false, time: 15, energy: false, level: 'all', cut: null, cutAxis: 'x', circuit: null, fault: false, faultKind: 'short', sunpath: null };
+  // Course du soleil (vue Extérieur) : arc des positions du soleil sur la journée de la saison choisie
+  const hhmmSun = (h) => { const m = Math.round(h * 60); return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; };
+  function sunpathUi() {
+    const b = $('v3-sunpath'), ok = !!(viz && viz.setSeason) && v3.walls === 'roof' && hasPlan();
+    b.hidden = !ok;
+    b.textContent = v3.sunpath ? `Soleil : ${DAY_SEASONS[v3.sunpath].label.toLowerCase()}` : 'Soleil';
+    b.classList.toggle('on', !!v3.sunpath);
+    b.setAttribute('aria-pressed', v3.sunpath ? 'true' : 'false');
+    if (!viz) return;
+    const S = v3.sunpath && ok ? GL3D_SEASONS[v3.sunpath] : null, bo = viz.bounds;
+    viz.markers = [];
+    if (!S || !bo) return;
+    const cx = (bo.minX + bo.maxX) / 2, cz = (bo.minZ + bo.maxZ) / 2, R = Math.max(bo.maxX - bo.minX, bo.maxZ - bo.minZ) * 1.35; // au-delà du jardin
+    const at = (h, size, col) => { const v = gl3dSunVector(S, h); if (v[1] > -0.01) viz.markers.push({ x: cx + v[0] * R, y: Math.max(0, v[1]) * R, z: cz + v[2] * R, color: col, size }); };
+    for (let h = 0; h < 24; h += 0.2) at(h, 7, [0.6, 0.45, 0.2]);
+    for (let h = 0; h < 24; h++) at(h, 14, [0.95, 0.72, 0.3]);
+    at(S.noon, 20, [1, 0.8, 0.35]);
+    at(v3.time, 40, [1, 0.88, 0.45]); // le soleil à l'heure affichée
+  }
+  function sunpathToast() {
+    const S = GL3D_SEASONS[v3.sunpath], lat = (46 * Math.PI) / 180, d = (S.decl * Math.PI) / 180;
+    const H0 = (Math.acos(-Math.tan(lat) * Math.tan(d)) * 180) / Math.PI / 15, alt = 90 - 46 + S.decl;
+    showToast(`${DAY_SEASONS[v3.sunpath].label} (46° N) : lever ${hhmmSun(S.noon - H0)}, coucher ${hhmmSun(S.noon + H0)}, ${String(alt.toFixed(1)).replace('.', ',')}° au sud à ${hhmmSun(S.noon)}. Les panneaux regardent le sud.`, 5200);
+  }
   // Mode « Défaut » : un clic sur un point du circuit y provoque le défaut choisi
   function setFaultMode(on) {
     v3.fault = on;
@@ -975,6 +999,7 @@ function initHouseUI(app) {
     levelSeg();
     circuitSelect();
     build3D(true);
+    sunpathUi();
     viz.start();
     $('view3d-title').textContent = house ? 'Vue 3D de la maison' : 'Vue 3D de la carte';
     $('v3-house-controls').hidden = !house;
@@ -1052,7 +1077,16 @@ function initHouseUI(app) {
     v3.walls = b.dataset.w;
     document.querySelectorAll('#v3-walls button').forEach((x) => x.classList.toggle('on', x === b));
     build3D(false);
+    if (v3.sunpath && v3.walls !== 'roof' && !day.saved && viz.setSeason) viz.setSeason(null); // hors Extérieur : soleil habituel
+    else if (v3.sunpath && v3.walls === 'roof' && viz.setSeason) viz.setSeason(v3.sunpath);
+    sunpathUi();
   }));
+  $('v3-sunpath').addEventListener('click', () => {
+    v3.sunpath = v3.sunpath === null ? 'hiver' : v3.sunpath === 'hiver' ? 'ete' : null;
+    if (viz.setSeason && !day.saved) viz.setSeason(v3.sunpath);
+    sunpathUi();
+    if (v3.sunpath) sunpathToast();
+  });
   $('v3-tour').addEventListener('click', () => (tour.on ? tourStop() : tourStart()));
   $('v3-energy').addEventListener('click', () => {
     v3.energy = !v3.energy;
@@ -1117,6 +1151,7 @@ function initHouseUI(app) {
     $('v3-time-lbl').textContent = String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
     $('v3-time-ico').textContent = v3.time > 6.5 && v3.time < 19.5 ? '☀' : '☾';
     if (viz && viz.setTime) viz.setTime(v3.time);
+    if (v3.sunpath) sunpathUi();
   });
 
   function onPick(id) {
