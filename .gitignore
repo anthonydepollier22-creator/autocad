@@ -1,0 +1,8 @@
+
+# Applications empaquetées : dépendances, copies du site et builds
+desktop/node_modules/
+desktop/www/
+desktop/dist/
+mobile/node_modules/
+mobile/www/
+mobile/android/

@@ -1,0 +1,104 @@
+{
+  "name": "electricad",
+  "productName": "ElectriCAD",
+  "version": "1.0.0",
+  "description": "Éditeur, simulateur et visualisation 3D de schémas et d’installations électriques",
+  "author": "ÉlectriCAD",
+  "license": "MIT",
+  "homepage": "https://anthonydepollier22-creator.github.io/autocad/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anthonydepollier22-creator/autocad.git"
+  },
+  "private": true,
+  "main": "main.js",
+  "desktopName": "electricad.desktop",
+  "scripts": {
+    "web": "node ../tools/copy-web.js www",
+    "start": "npm run web && electron .",
+    "dist": "npm run web && electron-builder --publish never"
+  },
+  "devDependencies": {
+    "electron": "^44.4.5",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "fr.electricad.app",
+    "productName": "ElectriCAD",
+    "copyright": "ÉlectriCAD — licence MIT",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "www/**/*",
+      "build/icon.png"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "artifactName": "ElectriCAD-Windows-Setup.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "installerLanguages": [
+        "fr_FR"
+      ],
+      "language": "1036"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon-mac.png",
+      "category": "public.app-category.education",
+      "identity": "-",
+      "artifactName": "ElectriCAD-macOS-${arch}.${ext}",
+      "hardenedRuntime": false
+    },
+    "dmg": {
+      "title": "ÉlectriCAD"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Education",
+      "maintainer": "ÉlectriCAD",
+      "synopsis": "Schémas et installations électriques, simulation et 3D",
+      "artifactName": "ElectriCAD-Linux.${ext}",
+      "syncDesktopName": true
+    },
+    "publish": null
+  }
+}

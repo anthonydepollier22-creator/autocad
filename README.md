@@ -1,7 +1,8 @@
 # ⚡ ÉlectriCAD
 
-Une application web de type **AutoCAD** dédiée au dessin de **schémas électriques**.
-Aucune installation, aucun serveur : il suffit d'ouvrir `index.html` dans un navigateur.
+Une application de type **AutoCAD** dédiée au dessin de **schémas électriques**.
+Dans le navigateur (rien à installer) ou en **application à télécharger** pour
+Windows, macOS, Linux et Android — entièrement hors ligne.
 
 ![ÉlectriCAD](https://img.shields.io/badge/HTML5-Canvas-blue) ![Licence](https://img.shields.io/badge/licence-MIT-green)
 
@@ -18,6 +19,56 @@ Liens directs : `app.html?ex=divider` (charge un exemple : `led`, `lowpass`, `bj
 `halfadder`, `maison`, `maison-t3`, `maison-t5`…), `&theme=light` force le thème clair,
 `&3d=1` ouvre la vue 3D, `&tab=norm` le rapport NF C 15-100, `&tab=install` le tableau
 simulé, `app.html?houses=1` la fenêtre « Nouvelle maison ».
+
+## 📦 Applications à télécharger
+
+Page de téléchargement : https://anthonydepollier22-creator.github.io/autocad/#telecharger
+(elle reconnaît votre système et propose le bon fichier).
+
+| Système | Fichier (dernière version) |
+|---|---|
+| Windows 10 / 11 | [ElectriCAD-Windows-Setup.exe](https://github.com/anthonydepollier22-creator/autocad/releases/latest/download/ElectriCAD-Windows-Setup.exe) |
+| macOS 12+, puce Apple | [ElectriCAD-macOS-arm64.dmg](https://github.com/anthonydepollier22-creator/autocad/releases/latest/download/ElectriCAD-macOS-arm64.dmg) |
+| macOS 12+, Intel | [ElectriCAD-macOS-x64.dmg](https://github.com/anthonydepollier22-creator/autocad/releases/latest/download/ElectriCAD-macOS-x64.dmg) |
+| Linux 64 bits | [ElectriCAD-Linux.AppImage](https://github.com/anthonydepollier22-creator/autocad/releases/latest/download/ElectriCAD-Linux.AppImage) · [ElectriCAD-Linux.deb](https://github.com/anthonydepollier22-creator/autocad/releases/latest/download/ElectriCAD-Linux.deb) |
+| Android 7+ | [ElectriCAD-Android.apk](https://github.com/anthonydepollier22-creator/autocad/releases/latest/download/ElectriCAD-Android.apk) |
+| iPhone, iPad, Chromebook | application web : Safari → *Partager* → *Sur l’écran d’accueil* (ou « Installer » dans Chrome / Edge) |
+
+- **Bureau (Electron)** : menus Fichier / Édition / Affichage / Aide, raccourcis
+  (`Ctrl+S`, `Ctrl+O`, `F3` pour la 3D…), boîtes « Enregistrer sous » du système,
+  impression, une seule fenêtre à la fois, et **« Rechercher une mise à jour »**
+  (vérifiée aussi au démarrage).
+- **Android (Capacitor)** : l'éditeur s'ouvre directement, en tactile — pincer pour
+  zoomer, deux doigts pour déplacer, tiroirs pour la palette et les propriétés,
+  joystick pour la visite 3D.
+- **Première ouverture** : les applications ne sont pas signées par un certificat
+  payant. Windows : *Informations complémentaires* → *Exécuter quand même* ; macOS :
+  Réglages Système → Confidentialité et sécurité → *Ouvrir quand même* ; Android :
+  autoriser les applications inconnues pour le navigateur.
+
+### Publier une nouvelle version
+
+1. Augmenter `version` dans `desktop/package.json` (par exemple `1.0.0` → `1.1.0`).
+2. Pousser : le workflow **Applications à télécharger** (`.github/workflows/apps.yml`)
+   lance les tests, construit Windows, macOS (2 puces), Linux et Android sur GitHub
+   Actions, puis publie la release `v1.1.0` avec ses 6 fichiers. Les liens
+   `releases/latest/download/…` du site pointent aussitôt vers elle.
+
+Il peut aussi être lancé à la main (onglet *Actions* → *Run workflow*) ; avec la même
+version, les fichiers de la release existante sont remplacés.
+
+En local :
+
+```bash
+cd desktop && npm ci && npm start        # lancer l'application de bureau
+cd desktop && npm run dist               # construire l'installateur du système courant
+cd mobile && npm ci && npm run web && npx cap add android && npm run icons && npx cap sync
+cd mobile/android && ./gradlew assembleDebug   # APK (JDK 21 + SDK Android)
+```
+
+L'APK est signé avec `mobile/debug.keystore` (clé de débogage publique, gardée
+stable pour que chaque version s'installe par-dessus la précédente) : il convient à
+une diffusion directe, pas au Play Store.
 
 ## 🏠 Types de maison — générés, meublés, implantés, câblés
 
@@ -275,7 +326,12 @@ python3 -m http.server 8000
 .
 ├── index.html         # Site vitrine (héros 3D, galerie, maison, composants 3D)
 ├── app.html           # Éditeur (barre d'outils, palette, plan, propriétés)
-├── sw.js, manifest.webmanifest  # Application installable (PWA, hors ligne)
+├── sw.js, manifest.webmanifest  # Application installable (PWA, hors ligne, raccourcis)
+├── screenshots/       # Captures de la fiche d'installation (PWA)
+├── desktop/           # Application de bureau Electron (main.js, icônes, electron-builder)
+├── mobile/            # Application Android Capacitor (config, icônes, clé de signature)
+├── tools/copy-web.js  # Copie le site dans desktop/www ou mobile/www
+├── .github/workflows/ # deploy.yml (GitHub Pages), apps.yml (applications + release)
 ├── css/
 │   ├── styles.css     # Éditeur — thèmes sombre et clair
 │   └── landing.css    # Site vitrine

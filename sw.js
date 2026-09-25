@@ -4,14 +4,14 @@
  * toujours quand on est en ligne, et l'application reste utilisable hors-ligne.
  */
 
-const CACHE = 'electricad-v3';
+const CACHE = 'electricad-v4';
 const ASSETS = [
   'index.html', 'app.html',
   'css/styles.css', 'css/landing.css',
   'js/symbols.js', 'js/netlist.js', 'js/plan.js', 'js/simulate.js', 'js/digital.js',
   'js/svg.js', 'js/viz3d.js', 'js/gl3d.js', 'js/examples.js', 'js/houses.js', 'js/install.js',
   'js/editor.js', 'js/house-ui.js', 'js/ui.js', 'js/landing.js',
-  'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png',
+  'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
 ];
 
 self.addEventListener('install', (e) => {
@@ -29,7 +29,8 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
+  // Seulement les fichiers du site (pas l'API GitHub ni les téléchargements)
+  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {

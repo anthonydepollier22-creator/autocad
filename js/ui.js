@@ -33,6 +33,9 @@ const ICONS = {
   conduit: '<svg viewBox="0 0 24 24"><path d="M3 17v-7h8V5h10"/><path d="M6.5 20v-6.5H14V8.5h7"/></svg>',
   moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>',
   house: '<svg viewBox="0 0 24 24"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/></svg>',
+  components: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>',
+  panel: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14.5 4v16"/><path d="M17 8.5h1.5M17 12h1.5"/></svg>',
+  download: '<svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg>',
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -41,6 +44,41 @@ document.addEventListener('DOMContentLoaded', () => {
     const svg = ICONS[b.dataset.icon];
     if (svg) b.insertAdjacentHTML('afterbegin', svg);
   });
+
+  // --- Écrans étroits : palette et panneau en tiroirs ------------------------
+  const narrow = () => window.matchMedia('(max-width: 900px)').matches;
+  const backdrop = document.getElementById('drawer-backdrop');
+  function setDrawer(side) {
+    document.body.classList.toggle('show-left', side === 'left');
+    document.body.classList.toggle('show-right', side === 'right');
+    document.getElementById('btn-drawer-left').setAttribute('aria-expanded', side === 'left' ? 'true' : 'false');
+    document.getElementById('btn-drawer-right').setAttribute('aria-expanded', side === 'right' ? 'true' : 'false');
+    backdrop.hidden = !side;
+  }
+  document.getElementById('btn-drawer-left').addEventListener('click', () => setDrawer(document.body.classList.contains('show-left') ? null : 'left'));
+  document.getElementById('btn-drawer-right').addEventListener('click', () => setDrawer(document.body.classList.contains('show-right') ? null : 'right'));
+  backdrop.addEventListener('click', () => setDrawer(null));
+  const topbarH = () => document.documentElement.style.setProperty('--topbar-h', document.querySelector('.topbar').offsetHeight + 'px');
+  topbarH();
+  window.addEventListener('resize', () => { topbarH(); if (!narrow()) setDrawer(null); });
+
+  // --- Installation comme application (PWA) ----------------------------------
+  let installEvt = null;
+  const installBtn = document.getElementById('btn-install');
+  const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    installEvt = e;
+    if (!standalone) installBtn.hidden = false;
+  });
+  installBtn.addEventListener('click', async () => {
+    if (!installEvt) return;
+    installEvt.prompt();
+    const choice = await installEvt.userChoice.catch(() => null);
+    if (choice && choice.outcome === 'accepted') installBtn.hidden = true;
+    installEvt = null;
+  });
+  window.addEventListener('appinstalled', () => { installBtn.hidden = true; });
 
   const canvas = document.getElementById('canvas');
   const editor = new Editor(canvas);
@@ -91,6 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setActiveTool(null);
         document.querySelectorAll('.sym-btn').forEach((b) => b.classList.remove('active'));
         btn.classList.add('active');
+        if (narrow()) { setDrawer(null); showToast(`Touche le plan pour poser : <b>${SYMBOLS[key].name}</b>`, 2200); }
       });
       grid.appendChild(btn);
     }

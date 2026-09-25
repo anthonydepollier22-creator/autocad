@@ -133,7 +133,7 @@ class Editor {
 
   // Point accroché : terminal proche sinon grille
   snapForWire(wx, wy) {
-    const thr = 12 / this.view.scale;
+    const thr = (this._coarse ? 24 : 12) / this.view.scale;
     let best = null, bd = thr;
     for (const p of this.snapTargets()) {
       const d = Math.hypot(p.x - wx, p.y - wy);
@@ -256,7 +256,7 @@ class Editor {
   hitWire(wx, wy) {
     for (let i = this.wires.length - 1; i >= 0; i--) {
       const w = this.wires[i];
-      const thr = (w.kind ? 8 : 6) / this.view.scale + (w.kind ? 4 : 0);
+      const thr = (w.kind ? 8 : 6) * (this._coarse ? 2 : 1) / this.view.scale + (w.kind ? 4 : 0);
       for (let j = 0; j < w.points.length - 1; j++) {
         if (this._distSeg(wx, wy, w.points[j], w.points[j + 1]) < thr) return w;
       }
@@ -279,16 +279,77 @@ class Editor {
   }
 
   // --- Gestion souris -----------------------------------------------------
+  // Événements « pointer » : souris, doigt et stylet. Au doigt : pincer pour
+  // zoomer, glisser à deux doigts pour déplacer la vue, double-tap = double-clic.
   _bindEvents() {
     const cv = this.canvas;
-    cv.addEventListener('mousedown', (e) => this._down(e));
-    window.addEventListener('mousemove', (e) => this._move(e));
-    window.addEventListener('mouseup', (e) => this._up(e));
+    cv.style.touchAction = 'none';
+    this._touches = new Map();
+    cv.addEventListener('pointerdown', (e) => {
+      this._coarse = e.pointerType !== 'mouse';
+      this._touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this._touches.size === 2) { this._startPinch(); return; }
+      if (this._touches.size > 2 || this._pinch) return;
+      try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+      this._down(e);
+    });
+    window.addEventListener('pointermove', (e) => {
+      if (this._touches.has(e.pointerId)) this._touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (this._pinch) { if (this._touches.size >= 2) this._movePinch(); return; }
+      this._move(e);
+    });
+    const end = (e) => {
+      const mine = this._touches.delete(e.pointerId);
+      if (this._pinch) { if (!this._touches.size) this._pinch = null; return; }
+      this._up(e);
+      if (mine && e.type === 'pointerup' && e.pointerType !== 'mouse') this._tap(e);
+    };
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
     cv.addEventListener('wheel', (e) => this._wheel(e), { passive: false });
     cv.addEventListener('contextmenu', (e) => e.preventDefault());
-    cv.addEventListener('dblclick', (e) => this._dblclick(e));
+    cv.addEventListener('dblclick', (e) => {
+      if (performance.now() - (this._tapDblAt || 0) < 700) return; // déjà traité par le double-tap
+      this._dblclick(e);
+    });
     window.addEventListener('resize', () => this.resize());
     window.addEventListener('keydown', (e) => this._key(e));
+  }
+
+  // Deux doigts : le geste en cours (déplacement, rectangle) est abandonné
+  _startPinch() {
+    if (this.dragging) {
+      const base = this.dragging.snapshot;
+      for (const c of this.components) if (base[c.id]) { c.x = base[c.id].x; c.y = base[c.id].y; }
+      for (const w of this.wires) if (base[w.id]) w.points = base[w.id].map((p) => ({ ...p }));
+      this.dragging = null;
+    }
+    this.marquee = null; this.panning = null;
+    const [a, b] = [...this._touches.values()];
+    const r = this.canvas.getBoundingClientRect();
+    const mid = { x: (a.x + b.x) / 2 - r.left, y: (a.y + b.y) / 2 - r.top };
+    this._pinch = { d0: Math.hypot(a.x - b.x, a.y - b.y) || 1, scale0: this.view.scale, world: this.screenToWorld(mid.x, mid.y) };
+    this.render();
+  }
+  _movePinch() {
+    const [a, b] = [...this._touches.values()];
+    const r = this.canvas.getBoundingClientRect();
+    const mid = { x: (a.x + b.x) / 2 - r.left, y: (a.y + b.y) / 2 - r.top };
+    const p = this._pinch;
+    this.view.scale = Math.max(0.15, Math.min(8, p.scale0 * Math.hypot(a.x - b.x, a.y - b.y) / p.d0));
+    this.view.x = mid.x - p.world.x * this.view.scale;
+    this.view.y = mid.y - p.world.y * this.view.scale;
+    this.render(); this._emit();
+  }
+  // Double-tap au doigt (le navigateur n'émet pas toujours dblclick en tactile)
+  _tap(e) {
+    const now = performance.now(), last = this._lastTap;
+    this._lastTap = { t: now, x: e.clientX, y: e.clientY };
+    if (last && now - last.t < 320 && Math.hypot(e.clientX - last.x, e.clientY - last.y) < 30) {
+      this._lastTap = null;
+      this._tapDblAt = now;
+      this._dblclick(e);
+    }
   }
 
   _evtPos(e) {

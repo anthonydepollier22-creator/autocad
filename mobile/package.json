@@ -1,0 +1,20 @@
+{
+  "name": "electricad-mobile",
+  "version": "1.0.0",
+  "description": "ÉlectriCAD pour Android (Capacitor)",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "web": "node ../tools/copy-web.js www --entry app",
+    "icons": "capacitor-assets generate --android --iconBackgroundColor \"#1f72d6\" --iconBackgroundColorDark \"#1f72d6\" --splashBackgroundColor \"#12151c\" --splashBackgroundColorDark \"#12151c\"",
+    "sync": "npm run web && cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/core": "^8.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.2"
+  }
+}

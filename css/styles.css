@@ -69,9 +69,11 @@ kbd {
 /* ---------- En-tête ---------- */
 .topbar {
   display: flex; align-items: center; gap: 14px;
-  padding: 8px 14px; background: var(--surface);
+  padding: 8px 14px; padding-top: max(8px, env(safe-area-inset-top));
+  padding-left: max(14px, env(safe-area-inset-left)); padding-right: max(14px, env(safe-area-inset-right));
+  background: var(--surface);
   border-bottom: 1px solid var(--border); flex: 0 0 auto;
-  overflow-x: auto; overflow-y: hidden;
+  overflow: hidden;
 }
 .brand { display: flex; align-items: center; gap: 9px; white-space: nowrap; padding-right: 2px; }
 .brand-mark {
@@ -84,7 +86,16 @@ kbd {
 .brand-text { font-size: 15.5px; font-weight: 400; letter-spacing: 0.01em; }
 .brand-text b { font-weight: 750; }
 
-.toolbar { display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; }
+.toolbar {
+  display: flex; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0;
+  overflow-x: auto; scrollbar-width: none; /* défile au doigt sans chevaucher la droite */
+}
+.toolbar::-webkit-scrollbar { display: none; }
+.toolbar > * { flex: 0 0 auto; }
+.icon-btn.drawer-btn { display: none; }
+.btn-install { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
+.btn-install[hidden] { display: none; }
+button, a, input, label { touch-action: manipulation; }
 .topbar-right { display: flex; align-items: center; gap: 4px; margin-left: auto; }
 .group { display: flex; gap: 2px; }
 .sep { width: 1px; height: 22px; background: var(--border); flex: 0 0 auto; }
@@ -671,3 +682,46 @@ body.light .chip.on { color: #9a6206; }
 .house-opts { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 12px 22px 0; font-size: 12.5px; color: var(--muted); font-weight: 600; }
 .house-card .ex-thumb { height: 130px; }
 .v3-hud[hidden], .v3-tip[hidden], .v3-map[hidden], .v3-walkhelp[hidden] { display: none; }
+
+/* ---------- Écrans étroits et tactiles : panneaux en tiroirs ---------- */
+.drawer-backdrop { display: none; }
+@media (max-width: 900px) {
+  .icon-btn.drawer-btn { display: inline-flex; }
+  .brand-text { display: none; }
+  .topbar { gap: 8px; padding-left: max(8px, env(safe-area-inset-left)); padding-right: max(8px, env(safe-area-inset-right)); }
+  .sidebar.left, .sidebar.right {
+    position: fixed; top: var(--topbar-h, 49px); bottom: 0; z-index: 30;
+    width: min(330px, 88vw); flex-basis: auto; box-shadow: var(--shadow);
+    transition: transform 0.22s ease-out, visibility 0.22s;
+    visibility: hidden;
+  }
+  .sidebar.left { left: 0; transform: translateX(-104%); }
+  .sidebar.right { right: 0; transform: translateX(104%); }
+  body.show-left .sidebar.left, body.show-right .sidebar.right { transform: none; visibility: visible; }
+  .drawer-backdrop {
+    display: block; position: fixed; inset: var(--topbar-h, 49px) 0 0 0; z-index: 29;
+    background: rgba(6, 8, 12, 0.45); opacity: 0; pointer-events: none; transition: opacity 0.22s;
+  }
+  body.show-left .drawer-backdrop, body.show-right .drawer-backdrop { opacity: 1; pointer-events: auto; }
+  .statusbar { gap: 12px; padding-bottom: max(5px, env(safe-area-inset-bottom)); }
+  #stat-coord, #stat-zoom { display: none; }
+  .view3d-hint { display: none; }
+  .v3-controls { gap: 6px; }
+  .seg button { padding: 0 7px; }
+  .v3-walkhelp { white-space: normal; text-align: center; width: calc(100% - 28px); }
+  .es-card { margin: 0 16px; padding: 24px 20px 20px; }
+}
+/* Visite 3D au doigt : joystick virtuel, mini-carte en haut à droite */
+.v3-stick {
+  position: absolute; left: 22px; bottom: 22px; width: 120px; height: 120px; border-radius: 50%;
+  background: color-mix(in srgb, var(--surface) 55%, transparent); border: 1px solid var(--border-strong);
+  backdrop-filter: blur(6px); touch-action: none; z-index: 6;
+}
+.v3-stick[hidden] { display: none; }
+.v3-stick i {
+  position: absolute; left: 50%; top: 50%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%;
+  background: var(--accent); opacity: 0.85; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+.view3d.touch.walking .v3-map { left: auto; right: 14px; bottom: 22px; width: 150px; height: 102px; }
+.view3d.touch .v3-walkhelp { display: none; }
+.view3d.touch.walking .v3-hud { display: none; }

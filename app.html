@@ -2,7 +2,11 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ÉlectriCAD" />
   <meta name="theme-color" content="#12151c" />
   <title>ÉlectriCAD — Éditeur de schémas électriques</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231668c4'/%3E%3Cpath d='M18 4L8 18h6l-2 10L22 13h-6z' fill='%23ffd75e'/%3E%3C/svg%3E" />
@@ -13,6 +17,7 @@
 <body>
   <!-- En-tête -->
   <header class="topbar">
+    <button id="btn-drawer-left" class="icon-btn drawer-btn" data-icon="components" title="Composants" aria-label="Afficher les composants" aria-expanded="false"></button>
     <a class="brand" href="index.html" title="Accueil ÉlectriCAD">
       <span class="brand-mark" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M13.5 2 5 14h5l-1.5 8L17 10h-5z"/></svg>
@@ -68,10 +73,13 @@
       <button id="tgl-grid" class="icon-btn toggle active" data-icon="grid" title="Afficher la grille"></button>
       <div class="sep"></div>
       <button id="btn-theme" class="icon-btn" data-icon="sun" title="Thème clair / sombre"></button>
+      <button id="btn-install" class="text-btn btn-install" data-icon="download" title="Installer ÉlectriCAD comme une application" hidden><span>Installer</span></button>
+      <button id="btn-drawer-right" class="icon-btn drawer-btn" data-icon="panel" title="Panneau latéral" aria-label="Afficher le panneau latéral" aria-expanded="false"></button>
     </div>
   </header>
 
   <div class="main">
+    <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
     <!-- Palette de composants -->
     <aside class="sidebar left">
       <div class="side-head">Composants</div>
@@ -129,6 +137,7 @@
         <div id="v3-hud" class="v3-hud" hidden></div>
         <div id="v3-tip" class="v3-tip" hidden></div>
         <canvas id="v3-map" class="v3-map" width="220" height="150" hidden></canvas>
+        <div id="v3-stick" class="v3-stick" hidden aria-hidden="true"><i></i></div>
         <div id="v3-walkhelp" class="v3-walkhelp" hidden>
           <kbd>Z</kbd><kbd>Q</kbd><kbd>S</kbd><kbd>D</kbd> ou flèches : marcher · glisser : regarder · <kbd>Maj</kbd> : courir · clic : interrupteurs, appareils · <kbd>Échap</kbd> : sortir
         </div>

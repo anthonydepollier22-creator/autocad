@@ -115,7 +115,10 @@ class Viz3D {
 
   // ---- Caméra ----
   fit(radius) {
-    this.dist = Math.max(radius, 60) / Math.tan(this.fov / 2) * 1.25;
+    // Écran en portrait (téléphone) : c'est l'angle horizontal qui limite
+    const r = this.canvas.getBoundingClientRect();
+    const aspect = r.width && r.height ? Math.min(1, r.width / r.height) : 1;
+    this.dist = Math.max(radius, 60) / (Math.tan(this.fov / 2) * aspect) * 1.25;
     this.baseDist = this.dist;
   }
   _orbitCam() {
@@ -173,15 +176,17 @@ class Viz3D {
   update(dt) {
     if (this.mode === 'walk' && this.walk) {
       const w = this.walk, k = this.keys;
-      const f = (k.z || k.w || k.arrowup ? 1 : 0) - (k.s || k.arrowdown ? 1 : 0);
-      const r = (k.d ? 1 : 0) - (k.q || k.a ? 1 : 0);
+      let f = (k.z || k.w || k.arrowup ? 1 : 0) - (k.s || k.arrowdown ? 1 : 0);
+      let r = (k.d ? 1 : 0) - (k.q || k.a ? 1 : 0);
       const turn = (k.arrowright ? 1 : 0) - (k.arrowleft ? 1 : 0);
       w.yaw -= turn * dt * 1.8;
-      const speed = k.shift ? 320 : 170;
+      let speed = k.shift ? 320 : 170;
+      // joystick tactile : direction et intensité analogiques
+      if (this.stick) { f = -this.stick.y; r = this.stick.x; speed = 60 + 220 * Math.min(1, Math.hypot(f, r)); }
       const fx = -Math.sin(w.yaw), fz = -Math.cos(w.yaw), rx = Math.cos(w.yaw), rz = -Math.sin(w.yaw);
       let tx = fx * f + rx * r, tz = fz * f + rz * r;
       const l = Math.hypot(tx, tz);
-      if (l > 0) { tx = (tx / l) * speed; tz = (tz / l) * speed; }
+      if (l > 0.05) { tx = (tx / l) * speed; tz = (tz / l) * speed; } else { tx = 0; tz = 0; }
       const a = Math.min(1, dt * 9);
       w.vx += (tx - w.vx) * a; w.vz += (tz - w.vz) * a;
       const p = collideCircle(this.scene, w.x + w.vx * dt, w.z + w.vz * dt, HOUSE3D.RADIUS);

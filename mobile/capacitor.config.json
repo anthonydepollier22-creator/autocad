@@ -1,0 +1,10 @@
+{
+  "appId": "fr.electricad.app",
+  "appName": "ÉlectriCAD",
+  "webDir": "www",
+  "backgroundColor": "#12151c",
+  "android": {
+    "backgroundColor": "#12151c",
+    "allowMixedContent": false
+  }
+}

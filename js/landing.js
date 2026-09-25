@@ -1,6 +1,6 @@
 /*
  * landing.js — Animation du site vitrine : héros 3D, galerie d'exemples,
- * vitrine de composants 3D interactifs.
+ * vitrine de composants 3D interactifs, applications à télécharger.
  */
 
 // Carte de démonstration du héros : une carte dense et décorative
@@ -34,6 +34,8 @@ const DEMO_BOARD = {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+  initDownloads();
+
   // --- Héros : carte de démonstration 3D, rotation automatique -------------
   const heroCanvas = document.getElementById('hero3d');
   if (heroCanvas) {
@@ -196,4 +198,150 @@ function drawSchematicThumb(cv, data) {
     ctx.save(); ctx.translate(c.x, c.y); ctx.rotate((c.rot * Math.PI) / 180);
     SYMBOLS[c.type].draw(ctx, c); ctx.restore();
   }
+}
+
+// ---------------------------------------------------------------------------
+// Applications à télécharger : système détecté, tailles et version de la
+// dernière release GitHub, installation de l'application web (PWA).
+// ---------------------------------------------------------------------------
+const RELEASES_API = 'https://api.github.com/repos/anthonydepollier22-creator/autocad/releases/latest';
+
+function detectOS() {
+  const ua = navigator.userAgent;
+  const plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+  if (/Android/i.test(ua)) return 'android';
+  // iPadOS se présente comme un Mac, mais tactile
+  if (/iPhone|iPad|iPod/.test(ua) || (/Mac/.test(plat) && navigator.maxTouchPoints > 1)) return 'ios';
+  if (/CrOS/.test(ua) || /Chrome OS/i.test(plat)) return 'web';
+  if (/Win/i.test(plat) || /Windows/.test(ua)) return 'windows';
+  if (/Mac/i.test(plat) || /Mac OS X/.test(ua)) return 'mac';
+  if (/Linux|X11/i.test(plat + ' ' + ua)) return 'linux';
+  return 'web';
+}
+
+// Mac à puce Apple ou Intel : Chrome et Edge le disent, sinon on regarde le GPU
+async function detectMacArch() {
+  try {
+    if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+      const { architecture } = await navigator.userAgentData.getHighEntropyValues(['architecture']);
+      if (architecture) return architecture === 'arm' ? 'arm64' : 'x64';
+    }
+  } catch (e) { /* information refusée */ }
+  try {
+    const gl = document.createElement('canvas').getContext('webgl');
+    if (gl) {
+      const ext = gl.getExtension('WEBGL_debug_renderer_info');
+      const gpu = String(gl.getParameter(ext ? ext.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
+      const lose = gl.getExtension('WEBGL_lose_context');
+      if (lose) lose.loseContext();
+      if (/Intel|AMD|Radeon|NVIDIA/i.test(gpu)) return 'x64';
+    }
+  } catch (e) { /* ignoré */ }
+  return 'arm64'; // Safari masque le GPU : la plupart des Mac récents ont une puce Apple
+}
+
+function fmtSize(bytes) {
+  const mo = bytes / 1048576;
+  return mo.toLocaleString('fr-FR', { maximumFractionDigits: mo < 10 ? 1 : 0 }) + ' Mo';
+}
+
+function initDownloads() {
+  const sec = document.getElementById('telecharger');
+  if (window.Capacitor) document.documentElement.classList.add('in-app');
+  if (!sec || document.documentElement.classList.contains('in-app')) return;
+  const os = detectOS();
+  const cardOf = (key) => sec.querySelector(`.dl-card[data-os="${key}"]`);
+
+  // Carte « Votre appareil » et bouton du héros
+  const mine = cardOf(os);
+  if (mine) {
+    mine.classList.add('is-you');
+    const tag = document.createElement('span');
+    tag.className = 'dl-you';
+    tag.textContent = 'Votre appareil';
+    mine.prepend(tag);
+  }
+  const heroLabel = document.querySelector('#hero-dl span');
+  if (heroLabel) {
+    heroLabel.textContent = {
+      windows: 'Télécharger pour Windows', mac: 'Télécharger pour Mac', linux: 'Télécharger pour Linux',
+      android: 'Télécharger pour Android', ios: /iPhone|iPod/.test(navigator.userAgent) ? 'Installer sur l’iPhone' : 'Installer sur l’iPad',
+      web: 'Installer l’application',
+    }[os];
+  }
+  // Les liens vers la section font ressortir la carte concernée
+  document.querySelectorAll('a[href="#telecharger"]').forEach((a) => {
+    a.addEventListener('click', () => {
+      const card = a.dataset.osLink ? cardOf(a.dataset.osLink) : mine;
+      if (!card) return;
+      card.classList.remove('flash');
+      setTimeout(() => card.classList.add('flash'), 450);
+    });
+  });
+  sec.addEventListener('animationend', (e) => e.target.classList.remove('flash'));
+
+  // Mac : le bon processeur en premier
+  if (os === 'mac') {
+    detectMacArch().then((arch) => {
+      const btns = [...cardOf('mac').querySelectorAll('.dl-btn')];
+      btns.forEach((b) => b.classList.toggle('alt', b.dataset.arch !== arch));
+      const rec = btns.find((b) => b.dataset.arch === arch);
+      if (rec) rec.parentElement.prepend(rec);
+    });
+  }
+
+  // Version et tailles depuis la dernière release (les liens directs marchent sans)
+  const version = document.getElementById('dl-version');
+  const files = sec.querySelectorAll('.dl-btn[data-file]');
+  const setPending = (b) => {
+    b.classList.add('pending');
+    b.setAttribute('aria-disabled', 'true');
+    b.querySelector('[data-meta]').textContent = 'bientôt';
+  };
+  if ('fetch' in window) {
+    fetch(RELEASES_API, { headers: { Accept: 'application/vnd.github+json' } })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((rel) => {
+        const assets = new Map((rel.assets || []).map((a) => [a.name, a]));
+        files.forEach((b) => {
+          const a = assets.get(b.dataset.file);
+          const meta = b.querySelector('[data-meta]');
+          if (a) meta.textContent = `${meta.textContent} · ${fmtSize(a.size)}`;
+          else setPending(b);
+        });
+        const v = String(rel.tag_name || '').replace(/^v/, '');
+        const date = rel.published_at ? new Date(rel.published_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+        version.textContent = `Version ${v}` + (date ? ` · publiée le ${date}` : '');
+      })
+      .catch((status) => {
+        if (status !== 404) return; // hors ligne ou quota atteint : on garde les liens
+        files.forEach(setPending);
+        version.innerHTML = '<span class="dl-wait">Première version en cours de publication</span> — l’application web fonctionne déjà';
+      });
+  }
+
+  // Application web installable (Chrome, Edge, Android)
+  const pwaBtn = document.getElementById('dl-pwa');
+  const pwaNote = document.getElementById('dl-pwa-note');
+  const installed = () => {
+    pwaBtn.hidden = true;
+    pwaNote.textContent = 'Installée ✓ — ÉlectriCAD est dans vos applications.';
+  };
+  let installEvt = null;
+  if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) installed();
+  else if (os === 'ios') pwaNote.textContent = 'Sur iPhone et iPad : Safari → Partager → Sur l’écran d’accueil.';
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    installEvt = e;
+    pwaBtn.hidden = false;
+    pwaNote.textContent = 'Une fenêtre à part, avec son icône, utilisable hors ligne.';
+  });
+  pwaBtn.addEventListener('click', async () => {
+    if (!installEvt) return;
+    installEvt.prompt();
+    const { outcome } = await installEvt.userChoice;
+    installEvt = null;
+    if (outcome === 'accepted') installed();
+  });
+  window.addEventListener('appinstalled', installed);
 }

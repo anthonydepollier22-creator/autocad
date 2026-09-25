@@ -403,14 +403,39 @@ function initHouseUI(app) {
   function setViewButtons(v) {
     document.querySelectorAll('#v3-view button').forEach((b) => b.classList.toggle('on', b.dataset.v === v));
   }
+  const touch = window.matchMedia('(pointer: coarse)').matches;
+  view3d.classList.toggle('touch', touch);
   function updateHint() {
     const walking = viz && viz.mode === 'walk';
     $('view3d-hint').textContent = walking ? 'Visite : ZQSD ou flèches · glisser pour regarder' : 'Glisser : tourner · clic droit : déplacer · molette : zoom · clic : interrupteurs et appareils';
+    if (touch) $('v3-walkhelp').textContent = 'Joystick : marcher · glisser : regarder · touche un interrupteur ou un appareil pour le basculer';
     $('v3-walkhelp').hidden = !walking;
+    $('v3-stick').hidden = !(walking && touch);
     map.hidden = !walking;
     view3d.classList.toggle('walking', walking);
   }
+  // Joystick virtuel (visite au doigt)
+  const stick = $('v3-stick'), knob = stick.querySelector('i');
+  let stickId = null;
+  const stickMove = (e) => {
+    const r = stick.getBoundingClientRect();
+    let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2);
+    const max = r.width / 2 - 14, l = Math.hypot(dx, dy);
+    if (l > max) { dx = (dx / l) * max; dy = (dy / l) * max; }
+    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    if (viz) viz.stick = { x: dx / max, y: dy / max };
+  };
+  stick.addEventListener('pointerdown', (e) => { stickId = e.pointerId; stick.setPointerCapture(e.pointerId); stickMove(e); e.stopPropagation(); });
+  stick.addEventListener('pointermove', (e) => { if (e.pointerId === stickId) stickMove(e); });
+  const stickEnd = (e) => {
+    if (e.pointerId !== stickId) return;
+    stickId = null; knob.style.transform = '';
+    if (viz) viz.stick = null;
+  };
+  stick.addEventListener('pointerup', stickEnd);
+  stick.addEventListener('pointercancel', stickEnd);
   function enterWalk() {
+    if (touch) showToast('Joystick : marcher · glisser : regarder · touche un interrupteur ou un appareil pour le basculer.', 4200);
     viz.enterWalk();
     build3D(false);
     setViewButtons('walk');

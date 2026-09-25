@@ -13,6 +13,10 @@
       location.replace('app.html' + location.search);
     }
   </script>
+  <script>
+    // Déjà dans l'application (bureau ou Android) : pas de section « Télécharger »
+    if (/Electron\//.test(navigator.userAgent) || window.Capacitor) document.documentElement.classList.add('in-app');
+  </script>
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="stylesheet" href="css/landing.css" />
@@ -29,6 +33,7 @@
       <a href="#maison">Maison</a>
       <a href="#exemples">Exemples</a>
       <a href="#trois-d">3D</a>
+      <a class="dl-only" href="#telecharger">Télécharger</a>
       <a class="nav-cta" href="app.html">Ouvrir l’éditeur</a>
     </div>
   </nav>
@@ -36,7 +41,7 @@
   <!-- Héros -->
   <header class="hero">
     <div class="hero-text">
-      <div class="hero-badge">100 % gratuit · 100 % navigateur · installable (PWA) · hors-ligne</div>
+      <div class="hero-badge">100 % gratuit · Web, Windows, macOS, Linux, Android · hors ligne</div>
       <h1>Dessinez, simulez et<br /><span class="grad">visualisez en 3D</span><br />vos schémas électriques</h1>
       <p>
         ÉlectriCAD réunit un éditeur de schémas type CAO, un simulateur analogique
@@ -47,7 +52,11 @@
           <svg viewBox="0 0 24 24"><path d="M7.5 4.5l12 7.5-12 7.5z"/></svg>
           Démarrer un schéma
         </a>
-        <a class="btn-ghost" href="#exemples">Voir les exemples</a>
+        <a class="btn-ghost dl-only" id="hero-dl" href="#telecharger">
+          <svg viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
+          <span>Télécharger l’application</span>
+        </a>
+        <a class="btn-ghost in-app-only" href="#exemples">Voir les exemples</a>
       </div>
       <div class="hero-stats">
         <div><b>83</b><span>symboles<br />dont normes NF</span></div>
@@ -174,6 +183,94 @@
     </div>
   </section>
 
+  <!-- Applications à télécharger -->
+  <section class="section dl-sec dl-only" id="telecharger">
+    <div class="eyebrow">Applications</div>
+    <h2>ÉlectriCAD sur tous vos appareils</h2>
+    <p class="section-sub">Gratuit, sans compte et <b>entièrement hors ligne</b> : vos schémas restent sur votre machine.</p>
+    <div class="dl-grid">
+      <article class="dl-card" data-os="windows">
+        <div class="dl-head">
+          <span class="dl-ico"><svg viewBox="0 0 24 24"><path d="M3 5.6l7.4-1v7H3zM11.6 4.4L21 3.1v8.5h-9.4zM3 12.4h7.4v7L3 18.4zM11.6 12.4H21v8.5l-9.4-1.3z"/></svg></span>
+          <div><h3>Windows</h3><p>Windows 10 et 11 · 64 bits</p></div>
+        </div>
+        <div class="dl-actions">
+          <a class="dl-btn" data-file="ElectriCAD-Windows-Setup.exe" href="https://github.com/anthonydepollier22-creator/autocad/releases/latest/download/ElectriCAD-Windows-Setup.exe"><svg class="dl-arrow" viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg><span>Télécharger</span><small data-meta>.exe</small></a>
+        </div>
+        <p class="dl-note">Installateur avec raccourcis sur le Bureau et dans le menu Démarrer.</p>
+      </article>
+      <article class="dl-card" data-os="mac">
+        <div class="dl-head">
+          <span class="dl-ico"><svg viewBox="0 0 24 24"><path d="M16.37 12.73c-.02-2.3 1.88-3.4 1.96-3.46-1.07-1.56-2.73-1.77-3.32-1.8-1.41-.14-2.76.83-3.47.83-.72 0-1.82-.81-2.99-.79-1.54.02-2.96.9-3.75 2.27-1.6 2.78-.41 6.89 1.15 9.14.76 1.1 1.67 2.34 2.86 2.3 1.15-.05 1.58-.74 2.97-.74s1.78.74 2.99.72c1.24-.02 2.02-1.12 2.77-2.23.87-1.28 1.23-2.52 1.25-2.58-.03-.01-2.4-.92-2.42-3.66zM14.1 6c.63-.77 1.06-1.83.94-2.9-.91.04-2.02.61-2.67 1.37-.58.67-1.1 1.76-.96 2.8 1.02.08 2.05-.51 2.69-1.27z"/></svg></span>
+          <div><h3>macOS</h3><p>macOS 12 ou plus récent</p></div>
+        </div>
+        <div class="dl-actions">
+          <a class="dl-btn" data-file="ElectriCAD-macOS-arm64.dmg" data-arch="arm64" href="https://github.com/anthonydepollier22-creator/autocad/releases/latest/download/ElectriCAD-macOS-arm64.dmg"><svg class="dl-arrow" viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg><span>Puce Apple <em>M1, M2, M3…</em></span><small data-meta>.dmg</small></a>
+          <a class="dl-btn alt" data-file="ElectriCAD-macOS-x64.dmg" data-arch="x64" href="https://github.com/anthonydepollier22-creator/autocad/releases/latest/download/ElectriCAD-macOS-x64.dmg"><svg class="dl-arrow" viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg><span>Processeur Intel</span><small data-meta>.dmg</small></a>
+        </div>
+        <p class="dl-note">Ouvrez le .dmg et glissez ÉlectriCAD dans Applications.</p>
+      </article>
+      <article class="dl-card" data-os="linux">
+        <div class="dl-head">
+          <span class="dl-ico"><svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm2.2 5.3L6 9.5l2.5 2.5L6 14.5l1.2 1.2 3.7-3.7zM12.5 14.6v1.7H18v-1.7z"/></svg></span>
+          <div><h3>Linux</h3><p>64 bits · Ubuntu, Debian, Fedora…</p></div>
+        </div>
+        <div class="dl-actions">
+          <a class="dl-btn" data-file="ElectriCAD-Linux.AppImage" href="https://github.com/anthonydepollier22-creator/autocad/releases/latest/download/ElectriCAD-Linux.AppImage"><svg class="dl-arrow" viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg><span>AppImage</span><small data-meta>.AppImage</small></a>
+          <a class="dl-btn alt" data-file="ElectriCAD-Linux.deb" href="https://github.com/anthonydepollier22-creator/autocad/releases/latest/download/ElectriCAD-Linux.deb"><svg class="dl-arrow" viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg><span>Debian, Ubuntu</span><small data-meta>.deb</small></a>
+        </div>
+        <p class="dl-note">AppImage : toutes distributions — rendez le fichier exécutable, puis double-cliquez.</p>
+      </article>
+      <article class="dl-card" data-os="android">
+        <div class="dl-head">
+          <span class="dl-ico"><svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M7 10.2h10v7.4a1.4 1.4 0 0 1-1.4 1.4H15v2.3a1.2 1.2 0 0 1-2.4 0V19h-1.2v2.3a1.2 1.2 0 0 1-2.4 0V19h-.6A1.4 1.4 0 0 1 7 17.6zM4.8 10.2A1.2 1.2 0 0 1 6 11.4v4.4a1.2 1.2 0 0 1-2.4 0v-4.4a1.2 1.2 0 0 1 1.2-1.2zm14.4 0a1.2 1.2 0 0 1 1.2 1.2v4.4a1.2 1.2 0 0 1-2.4 0v-4.4a1.2 1.2 0 0 1 1.2-1.2zM7 9.3a5 5 0 0 1 10 0zm2.6-2.5a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5zm4.8 0a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5zM8.4 2.6l.6-.35 1.3 2.2-.6.35zm7.2 0l-.6-.35-1.3 2.2.6.35z"/></svg></span>
+          <div><h3>Android</h3><p>Téléphones et tablettes · Android 7 ou plus</p></div>
+        </div>
+        <div class="dl-actions">
+          <a class="dl-btn" data-file="ElectriCAD-Android.apk" href="https://github.com/anthonydepollier22-creator/autocad/releases/latest/download/ElectriCAD-Android.apk"><svg class="dl-arrow" viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg><span>Télécharger l’APK</span><small data-meta>.apk</small></a>
+        </div>
+        <p class="dl-note">Autorisez l’installation d’applications inconnues, puis ouvrez le fichier.</p>
+      </article>
+      <article class="dl-card" data-os="ios">
+        <div class="dl-head">
+          <span class="dl-ico"><svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M7.5 2h9A2.5 2.5 0 0 1 19 4.5v15a2.5 2.5 0 0 1-2.5 2.5h-9A2.5 2.5 0 0 1 5 19.5v-15A2.5 2.5 0 0 1 7.5 2zM7 5v12.5h10V5zm5 13.4a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/></svg></span>
+          <div><h3>iPhone et iPad</h3><p>Application web, sur l’écran d’accueil</p></div>
+        </div>
+        <ol class="dl-steps">
+          <li><span>Ouvrez ce site dans <b>Safari</b></span></li>
+          <li><span>Touchez <b>Partager</b> <svg class="dl-share" viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4M6 11H5v10h14V11h-1"/></svg></span></li>
+          <li><span>Choisissez <b>Sur l’écran d’accueil</b></span></li>
+        </ol>
+      </article>
+      <article class="dl-card" data-os="web">
+        <div class="dl-head">
+          <span class="dl-ico"><svg viewBox="0 0 24 24"><path fill-rule="evenodd" d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm0 5.2V18h16V9.2zM5.4 5.9a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8zm2.8 0a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8z"/></svg></span>
+          <div><h3>Navigateur</h3><p>Chrome, Edge, Firefox, Safari · rien à installer</p></div>
+        </div>
+        <div class="dl-actions">
+          <button class="dl-btn" id="dl-pwa" type="button" hidden><svg class="dl-arrow" viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg><span>Installer l’application web</span><small>PWA</small></button>
+          <a class="dl-btn alt" id="dl-open" href="app.html"><svg class="dl-arrow dl-play" viewBox="0 0 24 24"><path d="M7.5 4.5l12 7.5-12 7.5z"/></svg><span>Ouvrir dans le navigateur</span><small>app.html</small></a>
+        </div>
+        <p class="dl-note" id="dl-pwa-note">Chrome et Edge : icône « Installer » dans la barre d’adresse.</p>
+      </article>
+    </div>
+    <p class="dl-meta" id="dl-meta">
+      <span id="dl-version">Dernière version</span> ·
+      <a href="https://github.com/anthonydepollier22-creator/autocad/releases">Toutes les versions</a> ·
+      <a href="https://github.com/anthonydepollier22-creator/autocad">Code source</a>
+    </p>
+    <details class="dl-help">
+      <summary>Un message de sécurité à la première ouverture&nbsp;?</summary>
+      <p class="dl-help-lead">C’est normal : les applications ne sont pas signées avec un certificat payant. Le code source est public.</p>
+      <div class="dl-help-grid">
+        <div><h4>Windows</h4><p>« Windows a protégé votre ordinateur » → <b>Informations complémentaires</b> → <b>Exécuter quand même</b>.</p></div>
+        <div><h4>macOS</h4><p>Réglages Système → Confidentialité et sécurité → <b>Ouvrir quand même</b>. En dernier recours : <code>xattr -cr /Applications/ElectriCAD.app</code></p></div>
+        <div><h4>Linux</h4><p>Propriétés du fichier → <b>Autoriser l’exécution</b>, ou <code>chmod +x ElectriCAD-Linux.AppImage</code>. Le .deb s’installe avec <code>sudo apt install ./ElectriCAD-Linux.deb</code>.</p></div>
+        <div><h4>Android</h4><p>Réglages → Sécurité → <b>Installer des applications inconnues</b> : autorisez votre navigateur, puis ouvrez l’APK.</p></div>
+      </div>
+    </details>
+  </section>
+
   <!-- Appel final -->
   <section class="cta-final">
     <h2>Prêt à dessiner votre premier circuit&nbsp;?</h2>
@@ -199,6 +296,14 @@
         <a href="app.html?houses=1">Nouvelle maison</a>
         <a href="app.html?ex=led&amp;3d=1">Vue 3D (démo)</a>
       </div>
+      <div class="foot-col dl-only">
+        <h4>Télécharger</h4>
+        <a href="#telecharger" data-os-link="windows">Windows</a>
+        <a href="#telecharger" data-os-link="mac">macOS</a>
+        <a href="#telecharger" data-os-link="linux">Linux</a>
+        <a href="#telecharger" data-os-link="android">Android</a>
+        <a href="https://github.com/anthonydepollier22-creator/autocad/releases">Toutes les versions</a>
+      </div>
       <div class="foot-col">
         <h4>Démos en un clic</h4>
         <a href="app.html?ex=maison-t3&amp;tab=install">Tableau simulé d’un T3</a>
@@ -208,7 +313,7 @@
       </div>
     </div>
     <div class="foot-bottom">
-      Fonctionne hors-ligne une fois chargé · Vos schémas restent sur votre machine · Installable comme application
+      Fonctionne hors ligne · Vos schémas restent sur votre machine · Web, Windows, macOS, Linux et Android
     </div>
   </footer>
 

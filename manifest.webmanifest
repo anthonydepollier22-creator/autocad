@@ -1,16 +1,48 @@
 {
-  "name": "ÉlectriCAD — Schémas électriques",
+  "name": "ÉlectriCAD — Schémas et installations électriques",
   "short_name": "ÉlectriCAD",
-  "description": "Éditeur, simulateur et visualisation 3D de schémas électriques, dans le navigateur.",
+  "description": "Éditeur, simulateur et visualisation 3D de schémas et d’installations électriques. Fonctionne hors ligne.",
   "start_url": "app.html",
   "scope": ".",
   "display": "standalone",
-  "orientation": "landscape",
+  "orientation": "any",
   "background_color": "#12151c",
   "theme_color": "#12151c",
   "lang": "fr",
+  "dir": "ltr",
+  "categories": ["education", "productivity", "utilities"],
   "icons": [
-    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nouvelle maison",
+      "short_name": "Maison",
+      "description": "Générer une maison meublée, câblée et conforme NF C 15-100",
+      "url": "app.html?houses=1",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Bibliothèque d’exemples",
+      "short_name": "Exemples",
+      "description": "Ouvrir un schéma prêt à simuler",
+      "url": "app.html?modal=examples",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Visite 3D de la maison T5",
+      "short_name": "Visite 3D",
+      "description": "Maison T5 en 3D : ombres, jour et nuit, rayons X",
+      "url": "app.html?ex=maison-t5&3d=1",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
+  "screenshots": [
+    { "src": "screenshots/editeur-large.png", "sizes": "1280x800", "type": "image/png", "form_factor": "wide", "label": "Plan d’une maison T5 avec son installation électrique" },
+    { "src": "screenshots/visite-3d-large.png", "sizes": "1280x800", "type": "image/png", "form_factor": "wide", "label": "Visite 3D de la maison, lumières allumées" },
+    { "src": "screenshots/editeur-mobile.png", "sizes": "824x1830", "type": "image/png", "form_factor": "narrow", "label": "L’éditeur sur téléphone" },
+    { "src": "screenshots/visite-3d-mobile.png", "sizes": "824x1830", "type": "image/png", "form_factor": "narrow", "label": "La maison en 3D sur téléphone" }
   ]
 }
