@@ -119,26 +119,26 @@
               <button data-v="top" title="Vue de dessus">Dessus</button>
               <button data-v="walk" title="Visiter la maison à hauteur d'yeux">Visite</button>
             </div>
-            <div class="seg" id="v3-walls" role="group" aria-label="Murs">
+            <div class="seg" id="v3-walls" role="group" aria-label="Murs (M)">
               <button data-w="full" class="on" title="Murs pleine hauteur (2,50 m)">Murs</button>
               <button data-w="cut" title="Murs coupés à 1,15 m">Coupés</button>
               <button data-w="low" title="Plan au sol">Plan</button>
               <button data-w="roof" title="Toiture, terrasse, jardin : la maison vue de l'extérieur">Extérieur</button>
             </div>
-            <button id="v3-sunpath" class="chip" aria-pressed="false" hidden title="Course du soleil au-dessus de la maison : hiver, puis été (clics successifs)">Soleil</button>
+            <button id="v3-sunpath" class="chip" aria-pressed="false" hidden title="Course du soleil au-dessus de la maison : hiver, puis été (clics successifs) (O)">Soleil</button>
             <div class="seg" id="v3-level" role="group" aria-label="Niveau" hidden></div>
-            <button id="v3-xray" class="chip" aria-pressed="false" title="Rayons X : câbles de chaque circuit et courant qui circule">Rayons X</button>
+            <button id="v3-xray" class="chip" aria-pressed="false" title="Rayons X : câbles de chaque circuit et courant qui circule (X)">Rayons X</button>
             <select id="v3-circuit" class="chip v3-select" hidden aria-label="Circuit affiché en rayons X" title="Isoler un circuit : son câble et ses points ressortent, les autres s'estompent"></select>
-            <button id="v3-fault" class="chip" aria-pressed="false" title="Défauts : clique un appareil, une prise ou une lampe pour y provoquer un court-circuit ou une fuite à la terre">Défaut</button>
+            <button id="v3-fault" class="chip" aria-pressed="false" title="Défauts : clique un appareil, une prise ou une lampe pour y provoquer un court-circuit ou une fuite à la terre (F)">Défaut</button>
             <div class="seg" id="v3-fault-kind" role="group" aria-label="Type de défaut" hidden>
               <button data-k="short" class="on" title="Court-circuit : le disjoncteur du circuit déclenche (magnétique)">Court-circuit</button>
               <button data-k="leak" title="Fuite à la terre : l'interrupteur différentiel 30 mA déclenche">Fuite à la terre</button>
             </div>
             <button id="v3-repair" class="chip" hidden title="Supprimer tous les défauts et réarmer les protections">Réparer</button>
-            <button id="v3-tour" class="chip" aria-pressed="false" hidden title="Visite guidée : toutes les pièces, en passant par les portes">▶ Visite guidée</button>
-            <button id="v3-energy" class="chip" aria-pressed="false" title="Énergie : chaque pièce teintée selon la puissance qu'elle consomme">Énergie</button>
-            <button id="v3-day" class="chip" aria-pressed="false" title="Journée type : 24 heures en 48 secondes — soleil, lumières, appareils, chauffage">Journée</button>
-            <button id="v3-cut-btn" class="chip" aria-pressed="false" title="Coupe : trancher la maison par un plan vertical et la regarder de profil">Coupe</button>
+            <button id="v3-tour" class="chip" aria-pressed="false" hidden title="Visite guidée : toutes les pièces, en passant par les portes (G)">▶ Visite guidée</button>
+            <button id="v3-energy" class="chip" aria-pressed="false" title="Énergie : chaque pièce teintée selon la puissance qu'elle consomme (E)">Énergie</button>
+            <button id="v3-day" class="chip" aria-pressed="false" title="Journée type : 24 heures en 48 secondes — soleil, lumières, appareils, chauffage (J)">Journée</button>
+            <button id="v3-cut-btn" class="chip" aria-pressed="false" title="Coupe : trancher la maison par un plan vertical et la regarder de profil (C)">Coupe</button>
             <label class="v3-time" id="v3-cut-wrap" hidden title="Position du plan de coupe">
               <span aria-hidden="true">◧</span>
               <input type="range" id="v3-cut" min="0" max="1000" step="1" value="500" aria-label="Position du plan de coupe" />
@@ -150,9 +150,9 @@
               <b id="v3-time-lbl" class="num">15:00</b>
             </label>
           </div>
-          <button id="btn-3d-video" class="icon-btn" data-icon="video" title="Vidéo 360° (.webm) : un tour complet de la maison, à partager" aria-pressed="false"></button>
+          <button id="btn-3d-video" class="icon-btn" data-icon="video" title="Vidéo 360° (.webm) : un tour complet de la maison, à partager (V)" aria-pressed="false"></button>
           <button id="btn-3d-glb" class="icon-btn" data-icon="cube" title="Exporter le modèle 3D (.glb) : Blender, visionneuse 3D, SketchUp…"></button>
-          <button id="btn-3d-photo" class="icon-btn" data-icon="image" title="Exporter la vue en PNG"></button>
+          <button id="btn-3d-photo" class="icon-btn" data-icon="image" title="Exporter la vue en PNG (P)"></button>
           <button id="btn-3d-close" class="icon-btn" title="Fermer (Échap)">✕</button>
         </div>
         <div id="v3-labels" class="v3-labels" hidden aria-hidden="true"></div>

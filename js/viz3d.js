@@ -233,6 +233,11 @@ class Viz3D {
         if (st) this._walkStairs(w, st, nx, nz);
         else { const p = collideCircle(this.scene, nx, nz, HOUSE3D.RADIUS); w.x = p.x; w.z = p.z; }
       }
+      // pièce où l'on entre (nom affiché par l'interface)
+      if (this.onRoom && !this.guided && this.scene && this.scene.rooms && typeof roomAt === 'function') {
+        const r = w.stair ? -2 : roomAt(this.scene.rooms, w.x, w.z);
+        if (r !== w.room) { const first = w.room === undefined; w.room = r; if (r >= 0 && !first) this.onRoom(r); }
+      }
       // hauteur des yeux lissée (marches, changement de niveau)
       const yT = this._walkOff().dy + (w.lift || 0);
       w.ey = w.ey === undefined || this.guided ? yT : w.ey + (yT - w.ey) * Math.min(1, dt * 14);

@@ -980,14 +980,21 @@ function initHouseUI(app) {
       if (day.saved && viz.setSeason) viz.setSeason(day.season);
       viz.onPick = onPick;
       viz.onHover = onHover;
-      // Visite : changement de niveau par l'escalier
+      // Visite : changement de niveau par l'escalier, pièce où l'on entre
       let levelTimer = 0;
+      const caption = (text, ms) => {
+        if (tour.on) return;
+        tourCaption(text);
+        clearTimeout(levelTimer);
+        levelTimer = setTimeout(() => { if (!tour.on) tourCaption(''); }, ms);
+      };
       viz.onLevel = (i) => {
         const lv = levels();
-        if (!lv || !lv[i] || tour.on) return;
-        tourCaption(lv[i].name);
-        clearTimeout(levelTimer);
-        levelTimer = setTimeout(() => { if (!tour.on) tourCaption(''); }, 1800);
+        if (lv && lv[i]) caption(lv[i].name, 1800);
+      };
+      viz.onRoom = (i) => {
+        const info = viz.scene && viz.scene.rooms, room = info && info.rooms[i];
+        if (room && room.name) caption(room.name + (room.area ? ` · ${String(room.area.toFixed(1)).replace('.', ',')} m²` : ''), 1500);
       };
       if (!viz.webgl) $('v3-time-wrap').hidden = true;
     }
@@ -1314,11 +1321,28 @@ function initHouseUI(app) {
       if (viz.mode === 'walk') leaveWalk(); else close3D();
       return;
     }
-    if (e.target.tagName === 'INPUT') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
     if (viz.keyDown(e)) e.preventDefault();
+    else if (!e.ctrlKey && !e.metaKey && !e.altKey && shortcut3D(e.key)) e.preventDefault();
     // le plan est masqué : ses raccourcis (supprimer, pivoter, outils…) ne doivent pas agir
     e.stopPropagation();
   }, true);
+  // Raccourcis de la vue 3D (hors touches de déplacement de la visite)
+  function shortcut3D(key) {
+    const vis = (el) => el && !el.hidden && el.offsetParent !== null;
+    const press = (sel) => { const el = document.querySelector(sel); if (!vis(el)) return false; el.click(); return true; };
+    const k = key.toLowerCase();
+    const map = { x: '#v3-xray', c: '#v3-cut-btn', e: '#v3-energy', j: '#v3-day', f: '#v3-fault', g: '#v3-tour', v: '#btn-3d-video', p: '#btn-3d-photo', o: '#v3-sunpath', 1: '#v3-view [data-v="orbit"]', 2: '#v3-view [data-v="top"]', 3: '#v3-view [data-v="walk"]' };
+    if (map[k]) return press(map[k]);
+    if (k === 'm') { // murs : pleins → coupés → plan → extérieur
+      const bs = [...document.querySelectorAll('#v3-walls button')];
+      if (!bs.length || !vis(bs[0])) return false;
+      const i = bs.findIndex((b) => b.classList.contains('on'));
+      bs[(i + 1) % bs.length].click();
+      return true;
+    }
+    return false;
+  }
   window.addEventListener('keyup', (e) => { if (viz) viz.keyUp(e); }, true);
   window.addEventListener('blur', () => { if (viz) viz.keys = {}; });
   window.addEventListener('resize', () => { if (!view3d.hidden && viz) viz.resize(); });

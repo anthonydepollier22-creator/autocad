@@ -449,7 +449,11 @@ python3 -m http.server 8000
 | `Double-clic` (outil Fil) | Terminer un fil |
 | `Double-clic` (interrupteur) | Ouvrir / fermer l'interrupteur |
 | `Double-clic` (appareil du plan) | Mettre en marche / arrêter (four, radiateur, TV…) |
-| `Z` `Q` `S` `D` / flèches (vue 3D, Visite) | Marcher dans la maison (`Maj` : courir) |
+| `Z` `Q` `S` `D` / flèches (vue 3D, Visite) | Marcher dans la maison (`Maj` : courir) ; le nom de la pièce s'affiche en y entrant |
+| `1` `2` `3` (vue 3D) | Ensemble / Dessus / Visite |
+| `M` (vue 3D) | Murs : pleins → coupés → plan → extérieur |
+| `X` `C` `E` `J` `F` (vue 3D) | Rayons X, Coupe, Énergie, Journée, Défaut |
+| `G` `O` `P` `V` (vue 3D) | Visite guidée, course du Soleil, Photo, Vidéo 360° |
 | `Échap` | Annuler l'action en cours / outil Sélection |
 
 ## 🗂️ Structure du projet
