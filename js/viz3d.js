@@ -1225,8 +1225,9 @@ function _buildRoof(viz, ex, pvKwc) {
     viz.scene.pv = { want, placed: n, capacity: nu * nr };
     const vAt = (hd) => vB - hd, yOn = (hd) => eaveY + hd * t; // pan sud : de vB vers le faîtage
     viz.obj = 'pv';
+    const perRow = n ? Math.ceil(n / Math.ceil(n / nu)) : 0; // rangées équilibrées
     for (let k = 0; k < n; k++) {
-      const row = Math.floor(k / nu), inRow = Math.min(nu, n - row * nu), col = k % nu;
+      const row = Math.floor(k / perRow), inRow = Math.min(perRow, n - row * perRow), col = k % perRow;
       const rowW = inRow * (pw + gap) - gap, ua = (u0 + u1) / 2 - rowW / 2 + col * (pw + gap), ub = ua + pw;
       const h0 = hd0 + row * (ph + gap), h1 = h0 + ph;
       const q = (a, b, c0, c1, lift, col) => viz.poly([P(a, vAt(c0), yOn(c0) + lift), P(b, vAt(c0), yOn(c0) + lift), P(b, vAt(c1), yOn(c1) + lift), P(a, vAt(c1), yOn(c1) + lift)], col);
