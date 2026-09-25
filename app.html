@@ -130,6 +130,11 @@
             <button id="v3-tour" class="chip" aria-pressed="false" hidden title="Visite guidée : toutes les pièces, en passant par les portes">▶ Visite guidée</button>
             <button id="v3-energy" class="chip" aria-pressed="false" title="Énergie : chaque pièce teintée selon la puissance qu'elle consomme">Énergie</button>
             <button id="v3-day" class="chip" aria-pressed="false" title="Journée type : 24 heures en 48 secondes — soleil, lumières, appareils, chauffage">Journée</button>
+            <button id="v3-cut-btn" class="chip" aria-pressed="false" title="Coupe : trancher la maison par un plan vertical et la regarder de profil">Coupe</button>
+            <label class="v3-time" id="v3-cut-wrap" hidden title="Position du plan de coupe">
+              <span aria-hidden="true">◧</span>
+              <input type="range" id="v3-cut" min="0" max="1000" step="1" value="500" aria-label="Position du plan de coupe" />
+            </label>
             <label class="v3-time" id="v3-time-wrap" title="Heure du jour : soleil, ombres, éclairage">
               <span id="v3-time-ico" aria-hidden="true">☀</span>
               <input type="range" id="v3-time" min="0" max="24" step="0.25" value="15" aria-label="Heure du jour" />

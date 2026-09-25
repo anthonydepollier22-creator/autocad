@@ -484,6 +484,24 @@ r = run(`(function(){
 check('Visite : on monte l’escalier jusqu’à l’étage (yeux à 2,80 + 1,62 m)', r.top[0] > 250 && r.top[1] && r.up[0] === 1 && !r.up[1] && Math.abs(r.up[2] - 442) <= 3, JSON.stringify(r.up));
 check('Visite : on redescend par la trémie jusqu’au rez-de-chaussée', r.mid[1] === true && r.end[0] === 0 && !r.end[1] && r.end[2] === 0 && r.seen === '1,0', r.seen);
 
+r = run(`(function(){
+  var d = buildHouse('r1'), lv = d.meta.levels, viz = new Viz3D(__cv, { interactive: false });
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { walls: 'full', levels: lv, level: 'all', ground: true });
+  var b = viz.bounds, cx = (b.minX + b.maxX) / 2;
+  viz.setCut(cx);
+  var caps = viz.faces.filter(function(f){ return f.cap; });
+  var onPlane = caps.every(function(f){ return f.pts.every(function(p){ return Math.abs(p[0] - cx) < 1e-6; }); });
+  var up = caps.some(function(f){ return Math.min.apply(null, f.pts.map(function(p){ return p[1]; })) >= lv[1].dy - 24 - 1e-6; });
+  var slabs = caps.filter(function(f){ return f.pts.every(function(p){ return p[1] <= 0.01; }); }).length;
+  // reconstruction (changement de vue) : la coupe reste
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { walls: 'cut', levels: lv, level: 'all', ground: true, keepCamera: true });
+  var kept = viz.faces.filter(function(f){ return f.cap; }).length, cutH = Math.max.apply(null, viz.faces.filter(function(f){ return f.cap; }).map(function(f){ return Math.max.apply(null, f.pts.map(function(p){ return p[1]; })); }));
+  viz.setCut(null);
+  return [caps.length, onPlane, up, slabs, kept, cutH, viz.faces.filter(function(f){ return f.cap; }).length];
+})()`);
+check('Vue en coupe : murs et dalles tranchés remplis, sur le plan de coupe, aux deux niveaux', r[0] >= 6 && r[1] && r[2] && r[3] >= 1, `${r[0]} faces de coupe`);
+check('Vue en coupe : conservée quand la vue change (murs coupés : 1,15 m), retirée ensuite', r[4] > 0 && Math.abs(r[5] - (280 + 115)) < 1e-6 && r[6] === 0, `${r[4]} faces, ${r[5]} cm`);
+
 // ---------------------------------------------------------------------------
 group('Soleil selon la saison (46° N)');
 r = run(`(function(){

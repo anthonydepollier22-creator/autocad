@@ -241,12 +241,18 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   l'entrée, en passant par les portes, et s'arrête dans chacune (nom de la pièce à
   l'écran) — dans une maison à étage, elle finit par monter l'escalier et visiter
   l'étage ; une touche de déplacement rend la main ;
+- **Coupe** : un plan vertical tranche la maison (curseur pour le déplacer d'un pignon
+  à l'autre) et la caméra se place de profil ; murs et planchers coupés sont remplis
+  en gris foncé comme sur une coupe d'architecte — avec la toiture, on obtient une
+  maison de poupée, et la maison à étage montre ses deux niveaux l'un sur l'autre ;
 - **Énergie** : le sol de chaque pièce se teinte selon la puissance qu'elle consomme
   (échelle 0 → 4 kW), avec une étiquette en watts au-dessus de chaque pièce ;
 - **Export du modèle 3D** en glTF binaire (`.glb`, validé par l'outil officiel Khronos) :
   s'ouvre dans Blender, la visionneuse 3D de Windows, Aperçu, SketchUp ou un moteur de jeu.
 
 ![Extérieur : toiture, terrasse, jardin](docs/screenshot-exterieur.png)
+
+![Vue en coupe de la maison à étage, le soir](docs/screenshot-coupe.png)
 
 ![Rayons X](docs/screenshot-rayons-x.png)
 
@@ -467,7 +473,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-97 vérifications sans dépendance : valeurs numériques de chaque simulation
+99 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
@@ -477,8 +483,8 @@ calculée à la main** (ΔU = 2·ρ·L·I/S, temps de déclenchement thermique, 
 magnétique, différentiel, disjoncteur de branchement, énergie, va-et-vient), la 3D
 (lumières par pièce, rayons X, collisions de la visite), **la maison à étage**
 (montée de 3 m, circuits par niveau, étage posé à 2,80 m, trémie, filtre par niveau,
-montée et descente de l'escalier en visite, visite guidée jusqu'à l'étage), la course
-du soleil selon la saison
+montée et descente de l'escalier en visite, visite guidée jusqu'à l'étage), la vue en
+coupe, la course du soleil selon la saison
 et les exports SVG. Le déploiement GitHub Pages **exécute ces tests d'abord** : une
 régression bloque la mise en ligne.
 

@@ -38,6 +38,7 @@ class Viz3D {
     this.lights = [];
     this.flows = [];
     this.scene = null;
+    this.cutX = null; // vue en coupe : plan vertical x = cutX (la partie au-delà disparaît)
     this.obj = null; this.em = 0; this.alpha = 1;
     this.onPick = null; this.onHover = null;
     this._raf = null;
@@ -57,7 +58,7 @@ class Viz3D {
     if (o) pts = pts.map((p) => [p[0] + o.dx, p[1] + o.dy, p[2]]);
     this.faces.push({
       pts, color: this._rgb(color), layer: this._layer === undefined ? 1 : this._layer,
-      obj: this.obj, em: this.em, alpha: this.alpha, dx: o ? o.dx : 0,
+      obj: this.obj, em: this.em, alpha: this.alpha, dx: o ? o.dx : 0, cap: !!this.capping,
     });
   }
   addLight(l) {
@@ -171,6 +172,13 @@ class Viz3D {
       if (name === 'top') { this.pitch = 1.53; this.yaw = 0; this.dist = (this.baseDist || this.dist) * 0.95; }
       else { this.pitch = 0.78; this.yaw = -0.55; this.dist = this.baseDist || this.dist; }
     }, 800);
+  }
+
+  // ---- Vue en coupe ----
+  setCut(x) {
+    this.cutX = x === null || x === undefined ? null : x;
+    _buildCaps(this, this.cutX);
+    this.dirty = true;
   }
 
   // ---- Visite à la première personne ----
@@ -301,7 +309,13 @@ class Viz3D {
     const f = (H / 2) / Math.tan(cam.fov / 2);
     const near = 8;
     const out = [];
+    const cut = this.cutX;
     for (const face of this.faces) {
+      if (cut !== null && !face.cap) { // vue en coupe (le terrain reste)
+        let cx = 0, cy = 0;
+        for (const p of face.pts) { cx += p[0]; cy += p[1]; }
+        if (cy / face.pts.length > -10.5 && cx / face.pts.length > cut) continue;
+      }
       let zsum = 0; const proj = [];
       let ok = true;
       for (const p of face.pts) {
@@ -1067,6 +1081,7 @@ function buildBoard(viz, components, wires, symbols, opts) {
   }
   _buildHouse(viz, components, walls, conduits, symbols, opts, { minX, minZ, maxX, maxZ, cx, cz, W, D, levels, levelOf });
   viz.off = null;
+  if (viz.cutX !== null && viz.cutX !== undefined) _buildCaps(viz, viz.cutX); // vue en coupe active
   return Math.max(W, D) / 2 + 40 + (levels ? 90 : 0);
 }
 
@@ -1168,6 +1183,8 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
     viz.poly([[b.minX - g, -11, b.minZ - g], [b.maxX + g, -11, b.minZ - g], [b.maxX + g, -11, b.maxZ + g], [b.minX - g, -11, b.maxZ + g]], '#8ea56d');
   }
   viz.box(b.cx, -10, b.cz, b.W, 10, b.D, '#b3a792');
+  scene.slabs = [{ x0: b.cx - b.W / 2, x1: b.cx + b.W / 2, z0: b.cz - b.D / 2, z1: b.cz + b.D / 2, y0: -10, y1: 0, lvl: 0 }];
+  scene.cutOff = lv ? lv.map((L) => (L.dx || L.dy ? { dx: L.dx || 0, dy: L.dy || 0 } : null)) : [null];
   if (info) {
     viz.setLayer(0.5);
     const labX = (room) => { const l = components.find((c) => c.id === room.id); return l ? l.x : 0; };
@@ -1200,7 +1217,10 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
       const x0 = Math.min(...xs) - 10, x1 = Math.max(...xs) + 10, z0 = Math.min(...zs) - 10, z1 = Math.max(...zs) + 10;
       at(L.x0);
       viz.setLayer(0.4);
-      for (const r of _cutRects([{ x: x0, y: z0, w: x1 - x0, h: z1 - z0 }], holes)) viz.box(r.x + r.w / 2, -24, r.y + r.h / 2, r.w, 24, r.h, '#d8d2c6');
+      for (const r of _cutRects([{ x: x0, y: z0, w: x1 - x0, h: z1 - z0 }], holes)) {
+        viz.box(r.x + r.w / 2, -24, r.y + r.h / 2, r.w, 24, r.h, '#d8d2c6');
+        scene.slabs.push({ x0: r.x, x1: r.x + r.w, z0: r.y, z1: r.y + r.h, y0: -24, y1: 0, lvl: k });
+      }
       viz.off = null;
     });
   }
@@ -1212,7 +1232,8 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
   viz.obj = 'wall';
   for (const w of scene.walls) {
     const mx = (w.a.x + w.b.x) / 2;
-    if (!shown(mx)) continue;
+    w.lvl = levelOf(mx); w.hidden = !shown(mx);
+    if (w.hidden) continue;
     at(mx);
     const dx = w.b.x - w.a.x, dz = w.b.y - w.a.y, len = Math.hypot(dx, dz);
     const ux = dx / len, uz = dz / len, ang = (Math.atan2(dz, dx) * 180) / Math.PI;
@@ -1223,6 +1244,7 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
       if (off < w.t / 2 + 4 && t > -30 && t < len + 30) ops.push([Math.max(0, t - 40), Math.min(len, t + 40)]);
     }
     ops.sort((p, q) => p[0] - q[0]);
+    w.ops = ops; // ouvertures (vue en coupe)
     const piece = (s0, s1, y0, h) => {
       if (s1 - s0 < 0.5 || h <= 0) return;
       const e0 = s0 <= 0 ? w.t / 2 : 0, e1 = s1 >= len ? w.t / 2 : 0;
@@ -1782,6 +1804,41 @@ function _dSeg(px, py, a, b) {
   t = Math.max(0, Math.min(1, t));
   return Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy));
 }
+// Vue en coupe : remplit les murs et les dalles tranchés par le plan x = cx
+// (sinon on verrait l'intérieur creux des boîtes). Reconstruit à chaque
+// déplacement du plan ; les faces « cap » ne sont jamais coupées.
+const CAP_COLOR = '#30353d';
+function _buildCaps(viz, cx) {
+  viz.faces = viz.faces.filter((f) => !f.cap);
+  const sc = viz.scene;
+  if (cx === null || !sc || !sc.slabs) return;
+  const H = sc.wallH, offs = sc.cutOff || [null];
+  const o0 = viz.obj, a0 = viz.alpha, e0 = viz.em, l0 = viz._layer;
+  viz.capping = true; viz.obj = 'wall'; viz.alpha = 1; viz.em = 0; viz.setLayer(1);
+  for (const w of sc.walls) {
+    if (w.hidden) continue;
+    const o = offs[w.lvl || 0] || null, px = cx - (o ? o.dx : 0);
+    const dx = w.b.x - w.a.x, dz = w.b.y - w.a.y, len = Math.hypot(dx, dz);
+    if (len < 1) continue;
+    const ux = dx / len, uz = dz / len;
+    if (Math.abs(ux) < 0.2) continue; // mur presque parallèle au plan
+    const t = (px - w.a.x) / ux; // abscisse le long du mur
+    if (t < -w.t / 2 || t > len + w.t / 2) continue;
+    const z = w.a.y + uz * t, half = w.t / 2 / Math.abs(ux);
+    const open = (w.ops || []).some(([a, b]) => t > a && t < b);
+    const spans = open ? [[0, Math.min(95, H)]].concat(H > 215 ? [[215, H]] : []) : [[0, H]];
+    viz.off = o;
+    for (const [y0, y1] of spans) viz.poly([[px, y0, z - half], [px, y0, z + half], [px, y1, z + half], [px, y1, z - half]], CAP_COLOR);
+  }
+  for (const sl of sc.slabs) {
+    const o = offs[sl.lvl || 0] || null, px = cx - (o ? o.dx : 0);
+    if (px <= sl.x0 || px >= sl.x1) continue;
+    viz.off = o;
+    viz.poly([[px, sl.y0, sl.z0], [px, sl.y0, sl.z1], [px, sl.y1, sl.z1], [px, sl.y1, sl.z0]], CAP_COLOR);
+  }
+  viz.off = null; viz.capping = false; viz.obj = o0; viz.alpha = a0; viz.em = e0; viz.setLayer(l0 === undefined ? 1 : l0);
+}
+
 // Rectangles {x, y, w, h} privés des trous {x0, x1, z0, z1} (trémies)
 function _cutRects(rects, holes) {
   let out = rects;

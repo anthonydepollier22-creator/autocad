@@ -666,7 +666,7 @@ function initHouseUI(app) {
     labelsBox.appendChild(legend);
     const place = () => {
       for (const it of items) {
-        const q = viz.project && viz.project(it.p);
+        const q = viz.project && (viz.cutX === null || it.p[0] <= viz.cutX) && viz.project(it.p);
         it.el.style.display = q ? '' : 'none';
         if (q) it.el.style.transform = `translate(${Math.round(q.x)}px, ${Math.round(q.y)}px) translate(-50%, -50%)`;
       }
@@ -680,6 +680,7 @@ function initHouseUI(app) {
       }
     };
     labelsBox.__update = update;
+    labelsBox.__place = place;
     update();
     viz.onFrame = place;
     place();
@@ -773,7 +774,19 @@ function initHouseUI(app) {
   // ---- Vue 3D ---------------------------------------------------------------
   const view3d = $('view3d'), cv3 = $('canvas3d'), tip = $('v3-tip'), map = $('v3-map'), hud = $('v3-hud');
   let viz = null;
-  const v3 = { walls: 'full', xray: false, time: 15, energy: false, level: 'all' };
+  const v3 = { walls: 'full', xray: false, time: 15, energy: false, level: 'all', cut: null };
+  // Vue en coupe : plan vertical dont la position (0 → 1) parcourt la maison d'ouest en est
+  function applyCut() {
+    if (!viz) return;
+    const b = viz.bounds;
+    viz.setCut(v3.cut === null || !b ? null : b.minX + (b.maxX - b.minX) * v3.cut);
+    if (labelsBox.__place) labelsBox.__place();
+  }
+  function setCutUi(on) {
+    $('v3-cut-btn').classList.toggle('on', on);
+    $('v3-cut-btn').setAttribute('aria-pressed', on ? 'true' : 'false');
+    $('v3-cut-wrap').hidden = !on;
+  }
   const levels = () => (hasPlan() && editor.meta.levels && editor.meta.levels.length > 1 ? editor.meta.levels : null);
   // Niveau d'un point du plan et décalage de sa géométrie en 3D
   const levelAt = (x) => {
@@ -896,6 +909,7 @@ function initHouseUI(app) {
   stick.addEventListener('pointerup', stickEnd);
   stick.addEventListener('pointercancel', stickEnd);
   function enterWalk() {
+    if (v3.cut !== null) { v3.cut = null; setCutUi(false); applyCut(); } // pas de coupe en visite
     if (touch) showToast('Joystick : marcher · glisser : regarder · touche un interrupteur ou un appareil pour le basculer.', 4200);
     viz.enterWalk();
     build3D(false);
@@ -934,6 +948,22 @@ function initHouseUI(app) {
     if (!(ensureDesign() || {}).ok) { showToast('La journée type a besoin d’un tableau : onglet Tableau → Implanter.'); return; }
     if (day.running) dayPause(); else dayStart();
   });
+  $('v3-cut-btn').addEventListener('click', () => {
+    const on = v3.cut === null;
+    if (on && viz.mode === 'walk') leaveWalk();
+    v3.cut = on ? +$('v3-cut').value / 1000 : null;
+    setCutUi(on);
+    applyCut();
+    // de profil, du côté de la coupe
+    if (on) {
+      viz.animateTo(() => {
+        viz.yaw = Math.PI / 2 - 0.5; viz.pitch = 0.36;
+        viz.dist = (viz.baseDist || viz.dist) * (levels() ? 1.2 : 0.95);
+        viz.target = [viz.target[0], levels() ? 230 : 110, viz.target[2]]; // on vise le milieu de la hauteur
+      }, 800);
+    }
+  });
+  $('v3-cut').addEventListener('input', () => { if (v3.cut !== null) { v3.cut = +$('v3-cut').value / 1000; applyCut(); } });
   $('v3-xray').addEventListener('click', () => {
     v3.xray = !v3.xray;
     $('v3-xray').classList.toggle('on', v3.xray);
@@ -1055,7 +1085,7 @@ function initHouseUI(app) {
   $('btn-3d-glb').addEventListener('click', () => {
     if (!viz) return;
     const title = editor.meta.title || (hasPlan() ? 'maison' : 'carte');
-    const glb = buildGLB(viz.faces, { name: title });
+    const glb = buildGLB(viz.faces.filter((f) => !f.cap), { name: title }); // le modèle entier, sans les faces de coupe
     download(new Blob([glb], { type: 'model/gltf-binary' }), title + ' - 3D.glb');
     showToast(`Modèle 3D exporté (${(glb.byteLength / 1048576).toFixed(1).replace('.', ',')} Mo) : s’ouvre dans Blender, la visionneuse 3D, SketchUp…`, 4200);
   });
