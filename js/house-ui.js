@@ -8,7 +8,7 @@
  *  • liaison simulation ↔ plan 2D (lampes allumées, appareils en marche).
  */
 function initHouseUI(app) {
-  const { editor, showTab, showToast, download, esc } = app;
+  const { editor, showTab, showToast, download, fileName, esc } = app;
   const $ = (s) => document.getElementById(s);
   const sim = new InstallSim();
   let design = null, designRev = null;
@@ -1093,7 +1093,7 @@ function initHouseUI(app) {
     if (viz && viz.render) viz.render();
     const a = document.createElement('a');
     a.href = cv3.toDataURL('image/png');
-    a.download = (editor.meta.title || 'vue') + '-3d.png';
+    a.download = fileName((editor.meta.title || 'vue') + '-3d.png');
     a.click();
   });
   // Clavier : visite (prioritaire sur les raccourcis de l'éditeur), Échap

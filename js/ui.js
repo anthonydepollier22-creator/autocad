@@ -245,10 +245,15 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('btn-print').addEventListener('click', () => editor.print());
 
+  // Nom de fichier sûr partout (Windows, Android, systèmes sans UTF-8) : sans accents ni caractères interdits
+  function fileName(name) {
+    return String(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[–—]/g, '-').replace(/[’']/g, ' ')
+      .replace(/[^\w .+()-]/g, '_').replace(/\s+/g, ' ').trim() || 'fichier';
+  }
   function download(blob, name) {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = name;
+    a.download = fileName(name);
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
@@ -427,7 +432,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (scope.style.display === 'none') { showToast('Lance d’abord une analyse Transitoire, Bode ou Logique.'); return; }
     const a = document.createElement('a');
     a.href = scope.toDataURL('image/png');
-    a.download = (editor.meta.title || 'graphique') + '.png';
+    a.download = fileName((editor.meta.title || 'graphique') + '.png');
     a.click();
   });
 
@@ -774,7 +779,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Maison, tableau simulé, vue 3D (house-ui.js) -------------------------
   const houseUI = initHouseUI({
-    editor, showTab, showToast, download, esc: _escHtml,
+    editor, showTab, showToast, download, fileName, esc: _escHtml,
     activeTab: () => activeTab, renderThumb: renderExThumb,
   });
   bomExtra = { html: houseUI.materialsHTML, csv: houseUI.exportMaterials };
