@@ -1286,7 +1286,32 @@ function _buildGarden(viz, components, info, ex) {
   if (gd) strip(gd.x, gd.y, sideOf(gd.x, gd.y), 300, '#77787a', '#6a6b6d');
   const onEdge = (c) => Math.min(Math.abs(c.x - ex.minX), Math.abs(c.x - ex.maxX), Math.abs(c.y - ex.minZ), Math.abs(c.y - ex.maxZ)) < 15;
   const entry = components.find((c) => c.type === 'door' && onEdge(c));
-  if (entry) strip(entry.x, entry.y, sideOf(entry.x, entry.y), 120, '#cfc6b6', '#b9ae9b');
+  if (entry) {
+    const side = sideOf(entry.x, entry.y);
+    strip(entry.x, entry.y, side, 120, '#cfc6b6', '#b9ae9b');
+    // Éclairage extérieur (crépusculaire) : applique près de la porte, bornes le long de l'allée
+    const [dx, dz] = out[side];
+    const wallX = dx ? (dx > 0 ? ex.maxX : ex.minX) : entry.x, wallZ = dz ? (dz > 0 ? ex.maxZ : ex.minZ) : entry.y;
+    const along = [dz ? 1 : 0, dx ? 1 : 0];
+    viz.setLayer(1);
+    const lx = wallX + dx * 16 + along[0] * 75, lz = wallZ + dz * 16 + along[1] * 75;
+    viz.box(lx - dx * 4, 190, lz - dz * 4, dx ? 6 : 18, 26, dx ? 18 : 6, '#2d3137');
+    const e0 = viz.em; viz.em = 0.5;
+    viz.box(lx + dx * 2, 196, lz + dz * 2, dx ? 8 : 12, 14, dx ? 12 : 8, '#fff1d6');
+    viz.em = e0;
+    viz.addLight({ x: lx + dx * 20, y: 190, z: lz + dz * 20, power: 0.55, radius: 380, color: [1, 0.82, 0.58], dusk: true });
+    const len = M - 10;
+    for (const [f, sgn] of [[0.3, 1], [0.62, -1], [0.92, 1]]) {
+      const bx = wallX + dx * (10 + f * len) + along[0] * sgn * 85, bz = wallZ + dz * (10 + f * len) + along[1] * sgn * 85;
+      viz.cyl(bx, -10, bz, 6, 72, '#2d3137', { seg: 8 });
+      const e1 = viz.em; viz.em = 0.55;
+      viz.cyl(bx, 62, bz, 8, 9, '#fff1d6', { seg: 8 });
+      viz.em = e1;
+      viz.cyl(bx, 71, bz, 10, 3, '#2d3137', { seg: 8 });
+      viz.addLight({ x: bx, y: 66, z: bz, power: 0.32, radius: 230, color: [1, 0.8, 0.55], dusk: true });
+    }
+    viz.setLayer(0.2);
+  }
 
   // Terrasse en bois devant le séjour (côté extérieur le plus proche)
   const sej = info ? info.rooms.findIndex((r) => r.type && r.type.key === 'sejour' && !r.leaked && r.sharedWith === null) : -1;

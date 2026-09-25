@@ -204,7 +204,9 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
 - **Extérieur** : toiture à deux pans en tuiles (33°, faîtage sur le grand côté,
   débords, rives, pignons, cheminée), terrasse en bois et salon de jardin devant le
   séjour, allée jusqu'à la porte d'entrée, entrée de garage, haie et arbres autour du
-  terrain — les lampes n'éclairent jamais le dessous du toit ;
+  terrain, **éclairage extérieur crépusculaire** (applique près de la porte, bornes le
+  long de l'allée, qui s'allument à la tombée de la nuit) — les lampes n'éclairent
+  jamais le dessous du toit ;
 - **Journée** : 24 heures en 48 secondes, le soleil et les lampes suivent l'horloge ;
 - **Visite guidée** (en mode Visite) : la caméra parcourt toutes les pièces depuis
   l'entrée, en passant par les portes, et s'arrête dans chacune (nom de la pièce à

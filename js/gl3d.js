@@ -462,8 +462,9 @@ class GL3D extends Viz3D {
     const ls = this.lights.slice().sort((a, b) => Math.hypot(a.x - cam.look[0], a.z - cam.look[2]) - Math.hypot(b.x - cam.look[0], b.z - cam.look[2])).slice(0, 16);
     const LP = new Float32Array(64), LC = new Float32Array(64);
     ls.forEach((l, i) => {
-      LP.set([l.x, l.y, l.z, 620], i * 4);
-      const k = 2.1 * (l.power || 1);
+      LP.set([l.x, l.y, l.z, l.radius || 620], i * 4);
+      // éclairage extérieur à interrupteur crépusculaire : il s'allume avec la nuit
+      const k = 2.1 * (l.power || 1) * (l.dusk ? Math.max(0, 1 - this.day * 1.4) : 1);
       LC.set([l.color[0] * k, l.color[1] * k, l.color[2] * k, (l.room >= 0 ? l.room + 1 : 0)], i * 4);
     });
     gl.uniform1i(P.u.uNL, ls.length);
