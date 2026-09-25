@@ -93,7 +93,14 @@ function buildDossier(o) {
       `<table class="half"><tbody><tr><td>Tarif base, abonnement ${y.kva} kVA compris</td><td class="n">${int(y.cost.base)} €/an</td><td class="n">≈ ${int(y.cost.base / 12)} €/mois</td></tr>` +
       `<tr><td>Heures creuses, abonnement compris</td><td class="n">${int(y.cost.hphc)} €/an</td><td class="n">≈ ${int(y.cost.hphc / 12)} €/mois</td></tr></tbody></table>` +
       (y.pv > 0 ? `<p>Solaire : ${int(y.pv)} kWh produits par an, ${int(y.self)} kWh consommés sur place (${Math.round((y.self / y.pv) * 100)} %), ${int(y.cost.saving)} € économisés, ${int(y.surplus)} kWh injectés sur le réseau.</p>` : '') +
-      `<p class="small">Une journée d’hiver × ${y.days.hiver} jours (octobre → avril) et une d’été × ${y.days.ete} jours (mai → septembre), journées dégagées ; tarifs réglementés 2026 indicatifs.</p></section>`;
+      `<p class="small">Une journée d’hiver × ${y.days.hiver} jours (octobre → avril) et une d’été × ${y.days.ete} jours (mai → septembre), journées dégagées ; tarifs réglementés 2026 indicatifs.</p>`;
+    const sc = typeof yearScenarios === 'function' ? yearScenarios(y) : [];
+    if (sc.length) {
+      h += '<h3>Pistes de rénovation</h3><table><thead><tr><th>Travaux</th><th class="n">Économie</th><th class="n">€ / an</th><th class="n">Coût posé</th><th class="n">Retour</th></tr></thead><tbody>' +
+        sc.map((r) => `<tr><td>${esc(r.name)}<span class="small"> — ${esc(r.note)}</span></td><td class="n">${int(r.kwh)} kWh</td><td class="n">${int(r.eur)} €</td><td class="n">${int(r.cost)} €</td><td class="n">${r.years < 40 ? Math.round(r.years) + ' ans' : '—'}</td></tr>`).join('') +
+        '</tbody></table><p class="small">Ordres de grandeur avant aides (MaPrimeRénov’, CEE).</p>';
+    }
+    h += '</section>';
   }
 
   h += '<footer>Document produit par ÉlectriCAD — calculs simplifiés à visée pédagogique : ce dossier ne remplace ni l’étude d’un électricien qualifié ni l’attestation de conformité du Consuel.</footer>';
@@ -103,7 +110,7 @@ header.cover{border:2px solid #17202c;padding:18px 20px;margin-bottom:18px}.bran
 h1{margin:6px 0 2px;font-size:24pt;line-height:1.1}.sub{margin:0 0 14px;color:#555}
 .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:0;border-top:1px solid #17202c}.kpis div{padding:6px 8px;border-bottom:1px solid #ccc}
 .kpis dt{font-size:8pt;text-transform:uppercase;letter-spacing:.08em;color:#666}.kpis dd{margin:0;font-weight:600}
-h2{font-size:15pt;margin:0 0 10px;padding-bottom:4px;border-bottom:2px solid #8a4a25}section{margin:0 0 18px}.page{break-before:page}
+h3{font-size:12pt;margin:14px 0 4px}h2{font-size:15pt;margin:0 0 10px;padding-bottom:4px;border-bottom:2px solid #8a4a25}section{margin:0 0 18px}.page{break-before:page}
 .shots{display:grid;grid-template-columns:1fr 1fr;gap:10px}.shots figure{margin:0}.shots img{width:100%;border:1px solid #ccc;border-radius:4px}.shots figcaption{font-size:9pt;color:#555}
 .svg svg{width:100%;height:auto;max-height:230mm}table{width:100%;border-collapse:collapse;font-size:9.5pt;margin:8px 0}th,td{padding:4px 6px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}
 th{font-size:8pt;text-transform:uppercase;letter-spacing:.06em;color:#555;border-bottom:1.5px solid #17202c}.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}

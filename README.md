@@ -217,8 +217,11 @@ lave-linge ≈ 1,3 kWh par lessive, lave-vaisselle ≈ 1,5 kWh).
 octobre → avril) et une d'été (× 153 jours) : consommation par usage (barre empilée),
 **facture annuelle et mensuelle abonnement compris** en tarif base et en heures creuses
 (la moins chère est signalée), part consommée en heures creuses et, avec des panneaux,
-production, autoconsommation, économies et surplus injecté. Le bilan figure aussi dans
-le dossier du projet.
+production, autoconsommation, économies et surplus injecté. **Et si l'on rénovait ?** :
+pompe à chaleur air/air (chauffage ÷ 3), isolation des combles (−25 % de chauffage),
+chauffe-eau thermodynamique (COP 2,5) — kWh et euros économisés par an, prix posé et
+temps de retour (ordres de grandeur avant aides). Le bilan et les pistes de rénovation
+figurent aussi dans le dossier du projet.
 
 ## 🧊 3D temps réel (WebGL2)
 
@@ -493,7 +496,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-107 vérifications sans dépendance : valeurs numériques de chaque simulation
+108 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

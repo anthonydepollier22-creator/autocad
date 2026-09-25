@@ -812,6 +812,8 @@ body.light .day-sec {
 .year-bill td + td { text-align: right; }
 .year-bill tr.best td { color: var(--text); font-weight: 600; }
 .year-bill small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+.year-reno-head { margin: 12px 0 0; font-size: 12px; }
+.year-reno td + td { color: var(--text); font-weight: 600; }
 .hud-day { color: #ffd479; font-weight: 600; }
 
 /* ---------- Matériel et budget (onglet Métré) ---------- */

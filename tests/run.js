@@ -356,6 +356,12 @@ r = run(`(function(){
 check('Bilan annuel : 212 jours d’hiver + 153 d’été, 6 000 à 13 000 kWh pour un T3 tout électrique', r[0] > 6000 && r[0] < 13000 && r[1] < 1e-6 && r[2] < 1e-3, Math.round(r[0]) + ' kWh/an');
 check('Bilan annuel : abonnement ajouté selon la puissance souscrite, solaire autoconsommé ≤ produit', r[3] > 100 && r[5] && r[6] && r[7] < 1e-6, `abonnement ${Math.round(r[3])} € (${r[4]} kVA)`);
 check('Énergie des appareils selon leurs cycles (cuisson + lavage < 8 kWh/j), pointe à pleine puissance', r[8] > 3 && r[8] < 8 && r[9] > 3000, `${r[8].toFixed(1)} kWh/j, pointe ${Math.round(r[9])} W`);
+r = run(`(function(){
+  var d = buildHouse('t3'), des = designInstallation(d.components, d.wires), y = simulateYear(d.components, d.wires, des, 10, 0, false);
+  var sc = yearScenarios(y), pac = sc.find(function(s){ return s.key === 'pac'; }), cet = sc.find(function(s){ return s.key === 'cet'; });
+  return [sc.length, pac && Math.abs(pac.kwh - y.cats.heat * 2 / 3) < 1e-6, cet && cet.kwh < y.cats.water, sc.every(function(s){ return s.eur > 0 && s.years > 1 && s.years < 60; })];
+})()`);
+check('Rénovation : PAC (chauffage ÷ 3), isolation, chauffe-eau thermodynamique — économies et retour', r[0] === 3 && r[1] && r[2] && r[3], r.join(' / '));
 
 // ---------------------------------------------------------------------------
 group('Extérieur et export 3D');

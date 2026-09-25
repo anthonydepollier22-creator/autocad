@@ -215,6 +215,23 @@ function simulateYear(components, wires, design, stepMin, kwc, solarShift) {
   };
 }
 
+// Rénovation : économies estimées à partir du bilan annuel (ordres de grandeur,
+// COP saisonniers et prix posés indicatifs 2026, avant aides)
+const RENO = [
+  { key: 'pac', name: 'Pompe à chaleur air/air', cat: 'heat', cut: 1 - 1 / 3, cost: 9000, note: 'multisplit, COP saisonnier 3' },
+  { key: 'iso', name: 'Isolation des combles', cat: 'heat', cut: 0.25, cost: 3000, note: '−25 % de chauffage' },
+  { key: 'cet', name: 'Chauffe-eau thermodynamique', cat: 'water', cut: 1 - 1 / 2.5, cost: 3000, note: 'COP 2,5' },
+];
+function yearScenarios(y) {
+  // prix moyen du kWh acheté avec l'option la moins chère (hors abonnement)
+  const cheaper = y.cost.hphc < y.cost.base ? y.cost.energyHphc : y.cost.energyBase;
+  const price = y.total > 0 ? cheaper / y.total : TARIF_KWH;
+  return RENO.map((r) => {
+    const kwh = (y.cats[r.cat] || 0) * r.cut, eur = kwh * price;
+    return { ...r, kwh, eur, years: eur > 1 ? r.cost / eur : Infinity };
+  }).filter((r) => r.kwh > 1);
+}
+
 // Journée complète, d'un coup (pas de 2 min) — composants restaurés à la fin
 function simulateDay(components, wires, design, season, stepMin, kwc, solarShift) {
   const step = (stepMin || 2) / 60;

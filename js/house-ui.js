@@ -655,7 +655,16 @@ function initHouseUI(app) {
         `<td class="num">${fmtInt(y.cost[k])} €/an<small>≈ ${fmtInt(y.cost[k] / 12)} €/mois</small></td></tr>`).join('') +
       `</tbody></table><p class="year-note">Abonnement ${y.kva} kVA compris (${fmtInt(y.cost.aboBase)} € en base, ${fmtInt(y.cost.aboHphc)} € en heures creuses) · ${Math.round((y.hc / Math.max(1, y.total)) * 100)} % consommés en heures creuses` +
       (y.pv > 0 ? `<br>Solaire ${pvKwc()} kWc : <b class="num">${fmtInt(y.pv)} kWh</b> produits, <b class="num">${fmtInt(y.self)} kWh</b> consommés sur place (${Math.round((y.self / y.pv) * 100)} %), <b class="num">${fmtInt(y.cost.saving)} €</b> économisés, ${fmtInt(y.surplus)} kWh injectés sur le réseau` : '') +
-      '<br>Journées dégagées, tarifs réglementés 2026 indicatifs.</p>';
+      '<br>Journées dégagées, tarifs réglementés 2026 indicatifs.</p>' + renoHTML(y);
+  }
+  // Scénarios de rénovation : économies estimées à partir du bilan annuel
+  function renoHTML(y) {
+    const sc = yearScenarios(y);
+    if (!sc.length) return '';
+    return '<p class="year-reno-head"><b>Et si l’on rénovait ?</b></p><table class="year-bill year-reno"><tbody>' +
+      sc.map((r) => `<tr><td>${esc(r.name)}<small>${esc(r.note)} · ≈ ${fmtInt(r.cost)} € posé</small></td>` +
+        `<td class="num">−${fmtInt(r.eur)} €/an<small>−${fmtInt(r.kwh)} kWh · retour ≈ ${r.years < 40 ? Math.round(r.years) + ' ans' : 'très long'}</small></td></tr>`).join('') +
+      '</tbody></table><p class="year-note">Avant aides (MaPrimeRénov’, CEE), prix posés indicatifs.</p>';
   }
 
   // ---- Vue Énergie : sol des pièces teinté selon la puissance consommée --------
