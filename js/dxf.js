@@ -147,15 +147,18 @@ function buildDXF(components, wires, symbols, meta) {
 }
 
 // Écriture R12 : coordonnées en mètres, Y vers le haut ; caractères non ASCII en \U+XXXX
-function _dxfWrite(ents, ext) {
-  const U = typeof PLAN_UNITS_PER_M !== 'undefined' ? PLAN_UNITS_PER_M : 100;
+// opt : { U : unités de dessin par unité DXF, insunits, layers : [[nom, couleur]] }
+function _dxfWrite(ents, ext, opt) {
+  opt = opt || {};
+  const U = opt.U || (typeof PLAN_UNITS_PER_M !== 'undefined' ? PLAN_UNITS_PER_M : 100);
+  const LAYERS = opt.layers || DXF_LAYERS;
   const X = (x) => +(x / U).toFixed(4), Y = (y) => +(-y / U).toFixed(4);
   const enc = (s) => String(s).replace(/[^\x20-\x7e]/g, (ch) => '\\U+' + ch.codePointAt(0).toString(16).toUpperCase().padStart(4, '0'));
   const L = [];
   const g = (code, v) => { L.push(String(code), String(v)); };
   g(0, 'SECTION'); g(2, 'HEADER');
   g(9, '$ACADVER'); g(1, 'AC1009');
-  g(9, '$INSUNITS'); g(70, 6);
+  g(9, '$INSUNITS'); g(70, opt.insunits || 6);
   g(9, '$EXTMIN'); g(10, X(ext.minX)); g(20, Y(ext.maxY)); g(30, 0);
   g(9, '$EXTMAX'); g(10, X(ext.maxX)); g(20, Y(ext.minY)); g(30, 0);
   g(0, 'ENDSEC');
@@ -163,8 +166,8 @@ function _dxfWrite(ents, ext) {
   g(0, 'TABLE'); g(2, 'LTYPE'); g(70, 1);
   g(0, 'LTYPE'); g(2, 'CONTINUOUS'); g(70, 0); g(3, 'Solid line'); g(72, 65); g(73, 0); g(40, 0);
   g(0, 'ENDTAB');
-  g(0, 'TABLE'); g(2, 'LAYER'); g(70, DXF_LAYERS.length);
-  for (const [name, color] of DXF_LAYERS) { g(0, 'LAYER'); g(2, name); g(70, 0); g(62, color); g(6, 'CONTINUOUS'); }
+  g(0, 'TABLE'); g(2, 'LAYER'); g(70, LAYERS.length);
+  for (const [name, color] of LAYERS) { g(0, 'LAYER'); g(2, name); g(70, 0); g(62, color); g(6, 'CONTINUOUS'); }
   g(0, 'ENDTAB');
   g(0, 'ENDSEC');
   g(0, 'SECTION'); g(2, 'ENTITIES');

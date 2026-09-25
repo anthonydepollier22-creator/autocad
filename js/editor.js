@@ -146,6 +146,7 @@ class Editor {
   snapshot() {
     return JSON.stringify({
       components: this.components, wires: this.wires, counters: this.counters,
+      board: (this.meta && this.meta.board) || null, // tableau personnalisé : annulable lui aussi
     });
   }
   pushHistory() {
@@ -162,6 +163,7 @@ class Editor {
     this.components = d.components;
     this.wires = d.wires;
     this.counters = d.counters || {};
+    if (this.meta) { if (d.board) this.meta.board = d.board; else delete this.meta.board; }
     this.selection.clear();
   }
   undo() {

@@ -15,7 +15,13 @@
  *      30 mA (défaut d'isolement), disjoncteur de branchement (dépassement de
  *      la puissance souscrite), compteur d'énergie.
  *
- *  • unifilarSVG(design) : schéma unifilaire du tableau.
+ *  • designInstallation(components, wires, board)
+ *      Avec un tableau personnalisé (board.js) : ses circuits, différentiels et
+ *      abonnement remplacent la répartition automatique ; les appareils du plan
+ *      gardent leurs câbles, les circuits sans appareil ont une longueur et une
+ *      puissance saisies. Sans plan, le tableau suffit.
+ *
+ *  • unifilarSVG(design) : schéma unifilaire du tableau (voir board.js).
  */
 
 const U_NOM = 230;           // V
@@ -250,24 +256,27 @@ function lightingStudy(components, wires) {
 }
 
 // ---------------------------------------------------------------------------
-function designInstallation(components, wires) {
+function designInstallation(components, wires, board) {
+  const B = board && Array.isArray(board.circuits) ? board : null; // tableau personnalisé
   const design = {
     ok: false, circuits: [], rcds: [], agcp: null, issues: [], area: 0, byDevice: {}, plugs: {},
-    installed: 0, probable: 0, cableTotal: 0, panel: null,
+    installed: 0, probable: 0, cableTotal: 0, panel: null, custom: !!B, orphans: [],
+    supply: { phases: 1, surge: !!(B && B.supply && B.supply.surge), kva: null, rows: (B && B.supply && +B.supply.rows) || 0 },
   };
   const tb = components.find((c) => c.type === 'panel_house');
-  if (!tb) { design.issues.push({ level: 'err', msg: 'Aucun tableau électrique : place-le (ou lance l’implantation automatique).' }); return design; }
-  design.panel = tb.id;
+  if (!tb && !B) { design.issues.push({ level: 'err', msg: 'Aucun tableau électrique : place-le (ou lance l’implantation automatique).' }); return design; }
+  design.panel = tb ? tb.id : null;
   const hasWalls = wires.some((w) => w.kind === 'wall');
   const info = hasWalls ? computeRooms(components, wires) : { rooms: [], owner: null };
   const roomOf = (c) => (info.owner ? roomAt(info, c.x, c.y) : -1);
   const roomName = (i) => (i >= 0 ? info.rooms[i].name : 'Hors pièce');
   const roomKey = (i) => (i >= 0 && info.rooms[i].type ? info.rooms[i].type.key : null);
   design.area = info.rooms.reduce((s, r) => s + (r.leaked || r.sharedWith !== null ? 0 : r.area || 0), 0);
+  if (B && B.supply && +B.supply.area && !design.area) design.area = +B.supply.area; // tableau sans plan : surface déclarée
 
   // Appareils alimentés par le tableau (les appareils « branchés » passent par une prise)
-  const devs = components.filter((c) => LOADS[c.type] && LOADS[c.type].cls !== 'plug' || SWITCHES_PLAN.has(c.type));
-  const net = _buildNetwork(wires, [tb, ...devs]);
+  const devs = tb ? components.filter((c) => LOADS[c.type] && LOADS[c.type].cls !== 'plug' || SWITCHES_PLAN.has(c.type)) : [];
+  const net = tb ? _buildNetwork(wires, [tb, ...devs]) : { edges: [], anchorNode: [] };
   const hasNet = net.edges.length > 0;
   const tbA = net.anchorNode[0];
   const sp = hasNet && tbA ? _shortest(net, tbA.node) : null;
@@ -331,37 +340,59 @@ function designInstallation(components, wires) {
   const add = (o) => { o.id = 'C' + (circuits.length + 1); circuits.push(o); return o; };
   const roomsLabel = (list) => [...new Set(list.map((c) => roomName(roomOf(c))))].join(', ');
 
-  // Éclairage : 8 points maximum par circuit (16 A, 1,5 mm²), commandes comprises
-  const lights = byRoom(devs.filter((c) => LOADS[c.type] && LOADS[c.type].cls === 'light'));
-  const lightGroups = chunk(lights, 8), lightNames = names('Éclairage', lightGroups);
-  const wired = new Set();
-  lightGroups.forEach((g, i) => {
-    const rooms = new Set(g.map(roomOf));
-    const sw = devs.filter((c) => SWITCHES_PLAN.has(c.type) && rooms.has(roomOf(c)) && !wired.has(c.id));
-    sw.forEach((c) => wired.add(c.id));
-    add({ kind: 'light', name: lightNames[i], In: 16, S: 1.5, devices: g.concat(sw), rooms: roomsLabel(g), points: g.length });
-  });
-  // Prises : cuisine (6 max, circuit dédié), autres pièces (8 max) — 20 A, 2,5 mm²
   const sockets = byRoom(devs.filter((c) => c.type === 'socket_wall'));
-  const kitchen = sockets.filter((c) => roomKey(roomOf(c)) === 'cuisine');
-  const others = sockets.filter((c) => roomKey(roomOf(c)) !== 'cuisine');
-  const socketGroups = chunk(others, 8), socketNames = names('Prises', socketGroups);
-  socketGroups.forEach((g, i) => add({ kind: 'socket', name: socketNames[i], In: 20, S: 2.5, devices: g, rooms: roomsLabel(g), points: g.length }));
-  chunk(kitchen, 6).forEach((g, i, all) => add({ kind: 'socket', name: 'Prises cuisine' + (all.length > 1 ? ' ' + (i + 1) : ''), In: 20, S: 2.5, devices: g, rooms: roomsLabel(g), points: g.length }));
-  // Chauffage : 4 500 W maximum par circuit (20 A, 2,5 mm²)
-  const rads = byRoom(devs.filter((c) => c.type === 'radiator'));
-  const heat = [];
-  for (const r of rads) {
-    const g = heat[heat.length - 1];
-    if (g && g.P + loadPower(r) <= 4500 && levelOf(g.list[0]) === levelOf(r)) { g.list.push(r); g.P += loadPower(r); } else heat.push({ list: [r], P: loadPower(r) });
-  }
-  const heatNames = names('Chauffage', heat.map((g) => g.list));
-  heat.forEach((g, i) => add({ kind: 'heating', name: heatNames[i], In: 20, S: 2.5, devices: g.list, rooms: roomsLabel(g.list), points: g.list.length }));
-  // Circuits spécialisés : un par appareil
-  for (const c of byRoom(devs.filter((c) => LOADS[c.type] && LOADS[c.type].cls === 'dedicated'))) {
-    const s = LOADS[c.type];
-    const same = circuits.filter((x) => x.appliance === c.type).length;
-    add({ kind: 'dedicated', appliance: c.type, name: s.circuit + (same ? ' ' + (same + 1) : ''), In: s.In, S: s.S, devices: [c], rooms: roomName(roomOf(c)), points: 1, typeA: !!s.typeA, typeF: !!s.typeF });
+  if (B) {
+    // Tableau personnalisé : ses circuits, dans son ordre ; chaque appareil du plan sur un seul circuit
+    const byId = new Map(devs.map((c) => [c.id, c]));
+    const taken = new Set();
+    for (const bc of B.circuits) {
+      const list = (bc.devices || []).map((id) => byId.get(id)).filter((c) => c && !taken.has(c.id));
+      list.forEach((c) => taken.add(c.id));
+      const pts = list.filter((c) => !SWITCHES_PLAN.has(c.type)).length;
+      circuits.push({
+        id: String(bc.id || 'C' + (circuits.length + 1)), kind: bc.kind || 'other', name: bc.name || bc.id || 'Circuit',
+        In: +bc.In || 16, S: +bc.S || 1.5, curve: bc.curve || 'C', devices: list,
+        rooms: list.length ? roomsLabel(list) : bc.rooms || '', points: list.length ? pts : Math.max(0, +bc.points || 0),
+        manual: !list.length, lengthIn: +bc.length || 0, Pin: +bc.P || 0, appliance: bc.appliance || null,
+        typeA: !!bc.typeA, typeF: !!bc.typeF, contactor: bc.contactor || null, teleruptor: !!bc.teleruptor, rcd: bc.rcd || null,
+      });
+    }
+    design.orphans = devs.filter((c) => !taken.has(c.id) && !SWITCHES_PLAN.has(c.type)).map((c) => c.id);
+    if (design.orphans.length) {
+      design.issues.push({ level: 'warn', msg: `${design.orphans.length} appareil${design.orphans.length > 1 ? 's' : ''} du plan sur aucun circuit du tableau personnalisé : « Répartir les appareils » les range.` });
+    }
+  } else {
+    // Éclairage : 8 points maximum par circuit (16 A, 1,5 mm²), commandes comprises
+    const lights = byRoom(devs.filter((c) => LOADS[c.type] && LOADS[c.type].cls === 'light'));
+    const lightGroups = chunk(lights, 8), lightNames = names('Éclairage', lightGroups);
+    const wired = new Set();
+    lightGroups.forEach((g, i) => {
+      const rooms = new Set(g.map(roomOf));
+      const sw = devs.filter((c) => SWITCHES_PLAN.has(c.type) && rooms.has(roomOf(c)) && !wired.has(c.id));
+      sw.forEach((c) => wired.add(c.id));
+      add({ kind: 'light', name: lightNames[i], In: 16, S: 1.5, devices: g.concat(sw), rooms: roomsLabel(g), points: g.length });
+    });
+    // Prises : cuisine (6 max, circuit dédié), autres pièces (8 max) — 20 A, 2,5 mm²
+    const kitchen = sockets.filter((c) => roomKey(roomOf(c)) === 'cuisine');
+    const others = sockets.filter((c) => roomKey(roomOf(c)) !== 'cuisine');
+    const socketGroups = chunk(others, 8), socketNames = names('Prises', socketGroups);
+    socketGroups.forEach((g, i) => add({ kind: 'socket', name: socketNames[i], In: 20, S: 2.5, devices: g, rooms: roomsLabel(g), points: g.length }));
+    chunk(kitchen, 6).forEach((g, i, all) => add({ kind: 'socket', name: 'Prises cuisine' + (all.length > 1 ? ' ' + (i + 1) : ''), In: 20, S: 2.5, devices: g, rooms: roomsLabel(g), points: g.length }));
+    // Chauffage : 4 500 W maximum par circuit (20 A, 2,5 mm²)
+    const rads = byRoom(devs.filter((c) => c.type === 'radiator'));
+    const heat = [];
+    for (const r of rads) {
+      const g = heat[heat.length - 1];
+      if (g && g.P + loadPower(r) <= 4500 && levelOf(g.list[0]) === levelOf(r)) { g.list.push(r); g.P += loadPower(r); } else heat.push({ list: [r], P: loadPower(r) });
+    }
+    const heatNames = names('Chauffage', heat.map((g) => g.list));
+    heat.forEach((g, i) => add({ kind: 'heating', name: heatNames[i], In: 20, S: 2.5, devices: g.list, rooms: roomsLabel(g.list), points: g.list.length }));
+    // Circuits spécialisés : un par appareil
+    for (const c of byRoom(devs.filter((c) => LOADS[c.type] && LOADS[c.type].cls === 'dedicated'))) {
+      const s = LOADS[c.type];
+      const same = circuits.filter((x) => x.appliance === c.type).length;
+      add({ kind: 'dedicated', appliance: c.type, name: s.circuit + (same ? ' ' + (same + 1) : ''), In: s.In, S: s.S, devices: [c], rooms: roomName(roomOf(c)), points: 1, typeA: !!s.typeA, typeF: !!s.typeF, contactor: c.type === 'water_heater' ? 'hc' : null });
+    }
   }
 
   // Appareils branchés : sur la prise la plus proche de la même pièce
@@ -379,6 +410,19 @@ function designInstallation(components, wires) {
 
   // Longueur de câble (arbre du circuit) et chute de tension au pire
   for (const ct of circuits) {
+    ct.limit = ct.kind === 'light' ? 3 : 5;
+    if (!ct.devices.length) {
+      // circuit sans appareil du plan : longueur et puissance saisies
+      ct.length = ct.lengthIn || 15; ct.edges = []; ct.power = ct.Pin || 0; ct.far = ct.length;
+      const I = ct.kind === 'socket' ? ct.In : ct.power / U_NOM;
+      ct.dU = (2 * RHO_CU * ct.length * I) / ct.S;
+      ct.dUpct = (ct.dU / U_NOM) * 100;
+      ct.ok = ct.dUpct <= ct.limit;
+      ct.devices = [];
+      design.cableTotal += ct.length;
+      if (!ct.ok) design.issues.push({ level: 'warn', msg: `${ct.id} ${ct.name} : chute de tension ${ct.dUpct.toFixed(1).replace('.', ',')} % > ${ct.limit} % — augmenter la section ou scinder le circuit.` });
+      continue;
+    }
     const used = new Set();
     let stubs = 0, direct = 0;
     for (const c of ct.devices) {
@@ -389,6 +433,7 @@ function designInstallation(components, wires) {
     let tree = 0;
     used.forEach((e) => { tree += net.edges[e].len; });
     ct.length = tree / PLAN_UNITS_PER_M + stubs + direct + (used.size ? (tbA.stub / PLAN_UNITS_PER_M + tbRiser) : 0);
+    if (B && !ct.length && ct.lengthIn) ct.length = ct.lengthIn;
     ct.edges = [...used];
     ct.power = ct.devices.reduce((s, c) => s + (LOADS[c.type] ? (LOADS[c.type].Pmax || loadPower(c)) : 0), 0);
     // Courant de calcul : In au point le plus éloigné pour les prises, charges réelles sinon
@@ -403,9 +448,8 @@ function designInstallation(components, wires) {
         dU = Math.max(dU, (2 * RHO_CU * route[c.id].len * (ct.power / U_NOM)) / ct.S);
       }
     }
-    ct.limit = ct.kind === 'light' ? 3 : 5;
     // Prises trop loin du tableau : disjoncteur 16 A sur le même 2,5 mm² (ΔU calculée à In)
-    if (ct.kind === 'socket' && ct.In === 20 && (dU / U_NOM) * 100 > ct.limit) {
+    if (!B && ct.kind === 'socket' && ct.In === 20 && (dU / U_NOM) * 100 > ct.limit) {
       ct.In = 16; ct.derated = true;
       dU = (2 * RHO_CU * far * ct.In) / ct.S;
     }
@@ -418,33 +462,42 @@ function designInstallation(components, wires) {
     if (!ct.ok) design.issues.push({ level: 'warn', msg: `${ct.id} ${ct.name} : chute de tension ${ct.dUpct.toFixed(1).replace('.', ',')} % > ${ct.limit} % — augmenter la section ou scinder le circuit.` });
   }
 
-  // Interrupteurs différentiels 30 mA selon la surface (NF C 15-100)
-  const A = design.area;
-  const acCount = A <= 35 ? 1 : A <= 100 ? 2 : 3;
-  const rcds = design.rcds;
-  for (let i = 0; i < acCount; i++) rcds.push({ id: 'ID' + (rcds.length + 1), In: A <= 35 ? 25 : 40, type: 'AC', circuits: [] });
-  rcds.push({ id: 'ID' + (rcds.length + 1), In: 40, type: 'A', circuits: [] });
-  if (circuits.some((c) => c.typeF)) rcds.push({ id: 'ID' + (rcds.length + 1), In: 40, type: 'F', circuits: [] });
-  const typeA = rcds.find((r) => r.type === 'A'), typeF = rcds.find((r) => r.type === 'F');
-  const acs = rcds.filter((r) => r.type === 'AC');
-  let rr = 0;
-  const leastLoaded = () => acs.slice().sort((a, b) => a.circuits.length - b.circuits.length)[0];
-  for (const ct of circuits) {
-    let target;
-    if (ct.typeF && typeF) target = typeF;
-    else if (ct.typeA) target = typeA;
-    else if (ct.kind === 'light') target = acs[rr++ % acs.length]; // éclairages répartis
-    else target = leastLoaded();
-    if (target.circuits.length >= 8 && target.type === 'AC') {
-      target = { id: 'ID' + (rcds.length + 1), In: 40, type: 'AC', circuits: [] };
-      rcds.splice(rcds.indexOf(typeA), 0, target);
-      acs.push(target);
+  if (B) {
+    // Différentiels du tableau personnalisé ; un circuit sans différentiel reste signalé
+    for (const r of B.rcds || []) design.rcds.push({ id: String(r.id), In: +r.In || 40, type: r.type || 'AC', sens: +r.sens || 30, circuits: [] });
+    for (const ct of circuits) {
+      const r = design.rcds.find((x) => x.id === ct.rcd);
+      if (r) r.circuits.push(ct.id); else ct.rcd = null;
     }
-    target.circuits.push(ct.id);
-    ct.rcd = target.id;
+  } else {
+    // Interrupteurs différentiels 30 mA selon la surface (NF C 15-100)
+    const A = design.area;
+    const acCount = A <= 35 ? 1 : A <= 100 ? 2 : 3;
+    const rcds = design.rcds;
+    for (let i = 0; i < acCount; i++) rcds.push({ id: 'ID' + (rcds.length + 1), In: A <= 35 ? 25 : 40, type: 'AC', circuits: [] });
+    rcds.push({ id: 'ID' + (rcds.length + 1), In: 40, type: 'A', circuits: [] });
+    if (circuits.some((c) => c.typeF)) rcds.push({ id: 'ID' + (rcds.length + 1), In: 40, type: 'F', circuits: [] });
+    const typeA = rcds.find((r) => r.type === 'A'), typeF = rcds.find((r) => r.type === 'F');
+    const acs = rcds.filter((r) => r.type === 'AC');
+    let rr = 0;
+    const leastLoaded = () => acs.slice().sort((a, b) => a.circuits.length - b.circuits.length)[0];
+    for (const ct of circuits) {
+      let target;
+      if (ct.typeF && typeF) target = typeF;
+      else if (ct.typeA) target = typeA;
+      else if (ct.kind === 'light') target = acs[rr++ % acs.length]; // éclairages répartis
+      else target = leastLoaded();
+      if (target.circuits.length >= 8 && target.type === 'AC') {
+        target = { id: 'ID' + (rcds.length + 1), In: 40, type: 'AC', circuits: [] };
+        rcds.splice(rcds.indexOf(typeA), 0, target);
+        acs.push(target);
+      }
+      target.circuits.push(ct.id);
+      ct.rcd = target.id;
+    }
+    rcds.forEach((r, i) => { const old = r.id; r.id = 'ID' + (i + 1); circuits.forEach((c) => { if (c.rcd === old) c.rcd = '#' + r.id; }); });
+    circuits.forEach((c) => { c.rcd = c.rcd.replace('#', ''); });
   }
-  rcds.forEach((r, i) => { const old = r.id; r.id = 'ID' + (i + 1); circuits.forEach((c) => { if (c.rcd === old) c.rcd = '#' + r.id; }); });
-  circuits.forEach((c) => { c.rcd = c.rcd.replace('#', ''); });
 
   // Puissance installée / probable → abonnement et réglage du disjoncteur de branchement
   const sum = (f) => circuits.filter(f).reduce((s, c) => s + c.power, 0);
@@ -454,8 +507,10 @@ function designInstallation(components, wires) {
   design.probable = 0.65 * sum((c) => c.kind === 'heating') + 0.5 * sum((c) => c.appliance === 'water_heater')
     + 0.3 * cook + 0.2 * laundry + 0.3 * sum((c) => c.appliance === 'ev_charger')
     + 0.5 * sum((c) => c.kind === 'light') + 800;
-  const kva = KVA_STEPS.find((k) => k * 1000 >= design.probable) || 18;
-  design.agcp = { In: kva * 5, kva, setting: kva * 5 };
+  const kvaAuto = KVA_STEPS.find((k) => k * 1000 >= design.probable) || 18;
+  const kva = B && B.supply && KVA_STEPS.includes(+B.supply.kva) ? +B.supply.kva : kvaAuto;
+  design.agcp = { In: kva * 5, kva, setting: kva * 5, auto: kvaAuto };
+  design.supply.kva = kva;
   if (design.probable > 18000) design.issues.push({ level: 'warn', msg: 'Puissance probable > 18 kVA : prévoir un branchement triphasé.' });
 
   // Section / protection : garde-fous
@@ -466,6 +521,7 @@ function designInstallation(components, wires) {
   design.ok = true;
   design.net = net;
   design.route = route;
+  if (typeof checkBoard === 'function') design.checks = checkBoard(design); // contrôles du tableau (board.js)
   return design;
 }
 
@@ -551,7 +607,7 @@ class InstallSim {
     for (const c of components) comp[c.id] = c;
     const lights = this._lightDemand(components, wires);
     const a = this.agcp;
-    const live = (ct) => a.closed && this.rcds[ct.rcd].closed && this.breakers[ct.id].closed;
+    const live = (ct) => a.closed && (!this.rcds[ct.rcd] || this.rcds[ct.rcd].closed) && this.breakers[ct.id].closed;
 
     // Puissance demandée par appareil (W, sous 230 V)
     const demand = {};
@@ -613,6 +669,7 @@ class InstallSim {
           } else I += Icc;
         } else if (f === 'leak') {
           const rc = this.rcds[ct.rcd];
+          if (!rc) { this.log(`Défaut d’isolement sur ${comp[id] ? comp[id].label || id : id} : ${ct.id} n’est protégé par aucun différentiel 30 mA — la fuite n’est pas coupée, danger d’électrocution !`, 'err'); continue; }
           rc.closed = false; rc.tripped = true;
           this.log(`Défaut d’isolement sur ${comp[id] ? comp[id].label || id : id} : fuite ≈ ${Math.round(I_LEAK * 1000)} mA ≥ 30 mA → ${ct.rcd} déclenche (${this.design.circuits.filter((x) => x.rcd === ct.rcd).length} circuits coupés).`, 'err');
         }
@@ -644,54 +701,4 @@ class InstallSim {
     this.snap = { t: this.t, P: Ptot, I: Itot, circuits: circ, devices: dev, lit, energy: this.energy, cost: (this.energy / 1000) * TARIF_KWH, agcpLoad: Itot / d.agcp.setting };
     return this.snap;
   }
-}
-
-// ---------------------------------------------------------------------------
-// Schéma unifilaire du tableau (SVG)
-// ---------------------------------------------------------------------------
-function unifilarSVG(design, meta) {
-  const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
-  const colW = 70, left = 150, top = 70;
-  const n = design.circuits.length;
-  const W = left + n * colW + design.rcds.length * 20 + 60, H = 560;
-  let x = left;
-  let s = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" font-family="sans-serif">`;
-  s += `<rect width="${W}" height="${H}" fill="#fff"/>`;
-  s += `<text x="20" y="32" font-size="18" font-weight="bold" fill="#1a2230">Schéma unifilaire — ${esc((meta && meta.title) || 'Installation')}</text>`;
-  s += `<text x="20" y="52" font-size="11" fill="#5b6b82">Monophasé 230 V · abonnement ${design.agcp.kva} kVA · ${design.circuits.length} circuits · ${design.cableTotal.toFixed(0)} m de câble · NF C 15-100 (simplifiée)</text>`;
-  // Arrivée + AGCP
-  const g = '#1a2230';
-  s += `<line x1="60" y1="${top + 20}" x2="60" y2="${top + 90}" stroke="${g}" stroke-width="2"/>`;
-  s += `<rect x="40" y="${top + 90}" width="40" height="56" rx="4" fill="#fff" stroke="${g}" stroke-width="2"/>`;
-  s += `<text x="60" y="${top + 114}" font-size="10" text-anchor="middle" font-weight="bold">AGCP</text><text x="60" y="${top + 128}" font-size="10" text-anchor="middle">${design.agcp.setting} A</text><text x="60" y="${top + 140}" font-size="9" text-anchor="middle">500 mA</text>`;
-  s += `<text x="60" y="${top + 12}" font-size="10" text-anchor="middle" fill="#5b6b82">Réseau</text>`;
-  const bus = top + 190;
-  s += `<line x1="60" y1="${top + 146}" x2="60" y2="${bus}" stroke="${g}" stroke-width="2"/>`;
-  const xEnd = left + n * colW + design.rcds.length * 20;
-  s += `<line x1="60" y1="${bus}" x2="${xEnd}" y2="${bus}" stroke="${g}" stroke-width="3"/>`;
-  for (const r of design.rcds) {
-    const cs = design.circuits.filter((c) => c.rcd === r.id);
-    if (!cs.length) continue;
-    const x0 = x, x1 = x + cs.length * colW - colW;
-    const xr = (x0 + x1) / 2;
-    s += `<line x1="${xr}" y1="${bus}" x2="${xr}" y2="${bus + 30}" stroke="${g}" stroke-width="2"/>`;
-    s += `<rect x="${xr - 26}" y="${bus + 30}" width="52" height="46" rx="4" fill="#eef4ff" stroke="#1668c4" stroke-width="2"/>`;
-    s += `<text x="${xr}" y="${bus + 48}" font-size="10" text-anchor="middle" font-weight="bold" fill="#1668c4">${r.id}</text>`;
-    s += `<text x="${xr}" y="${bus + 61}" font-size="9" text-anchor="middle">${r.In} A 30 mA</text><text x="${xr}" y="${bus + 72}" font-size="9" text-anchor="middle">type ${r.type}</text>`;
-    const sub = bus + 100;
-    s += `<line x1="${xr}" y1="${bus + 76}" x2="${xr}" y2="${sub}" stroke="${g}" stroke-width="2"/>`;
-    s += `<line x1="${x0}" y1="${sub}" x2="${Math.max(x1, x0)}" y2="${sub}" stroke="${g}" stroke-width="2"/>`;
-    for (const c of cs) {
-      s += `<line x1="${x}" y1="${sub}" x2="${x}" y2="${sub + 22}" stroke="${g}" stroke-width="1.6"/>`;
-      s += `<rect x="${x - 16}" y="${sub + 22}" width="32" height="38" rx="3" fill="#fff" stroke="${g}" stroke-width="1.6"/>`;
-      s += `<text x="${x}" y="${sub + 38}" font-size="9" text-anchor="middle" font-weight="bold">${c.id}</text><text x="${x}" y="${sub + 51}" font-size="9" text-anchor="middle">${c.In} A</text>`;
-      s += `<line x1="${x}" y1="${sub + 60}" x2="${x}" y2="${sub + 92}" stroke="${g}" stroke-width="1.6"/>`;
-      const col = c.ok ? '#0f7a3d' : '#b3261e';
-      s += `<text transform="translate(${x + 4} ${sub + 100}) rotate(90)" font-size="10" fill="${g}"><tspan font-weight="bold">${esc(c.name)}</tspan><tspan x="0" dy="13" fill="#5b6b82">${c.S} mm² · ${c.length.toFixed(1).replace('.', ',')} m · ${c.points} pt${c.points > 1 ? 's' : ''}</tspan><tspan x="0" dy="13" fill="${col}">ΔU ${c.dUpct.toFixed(1).replace('.', ',')} %</tspan></text>`;
-      x += colW;
-    }
-    x += 20;
-  }
-  s += '</svg>';
-  return s;
 }

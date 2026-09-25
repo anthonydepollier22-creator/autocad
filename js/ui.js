@@ -37,6 +37,7 @@ const ICONS = {
   conduit: '<svg viewBox="0 0 24 24"><path d="M3 17v-7h8V5h10"/><path d="M6.5 20v-6.5H14V8.5h7"/></svg>',
   moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>',
   house: '<svg viewBox="0 0 24 24"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/></svg>',
+  board: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M3.5 12h17"/><path d="M7 6.5v3M10 6.5v3M13 6.5v3M7 14.5v3M10 14.5v3"/></svg>',
   components: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/></svg>',
   panel: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14.5 4v16"/><path d="M17 8.5h1.5M17 12h1.5"/></svg>',
   download: '<svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19.5h14"/></svg>',
@@ -912,10 +913,14 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) closeModal(); }, true);
 
   // --- Maison, tableau simulé, vue 3D (house-ui.js) -------------------------
+  let boardUI = null;
   const houseUI = initHouseUI({
     editor, showTab, showToast, download, fileName, esc: _escHtml,
     activeTab: () => activeTab, renderThumb: renderExThumb,
+    openBoard: () => boardUI && boardUI.open(),
   });
+  // --- Tableau électrique et schéma unifilaire (board-ui.js) ------------------
+  boardUI = initBoardUI({ editor, houseUI, showToast, download, fileName, esc: _escHtml });
   bomExtra = { html: houseUI.materialsHTML, csv: houseUI.exportMaterials };
 
   // --- Import d'un plan DXF (AutoCAD, LibreCAD, ArchiCAD, Revit…) ------------

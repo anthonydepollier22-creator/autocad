@@ -79,7 +79,10 @@ class SVGContext {
     const weight = /^\s*(bold|[5-9]00)\b/.exec(this.font) ? ' font-weight="bold"' : '';
     const anchor = this.textAlign === 'center' ? 'middle' : this.textAlign === 'right' ? 'end' : 'start';
     const mid = this.textBaseline === 'middle' ? ` dy="0.35em"` : '';
-    this.out.push(`<text x="${this._n(p.x)}" y="${this._n(p.y)}"${mid} font-family="sans-serif" font-size="${size}"${weight} fill="${this.fillStyle}" text-anchor="${anchor}">${_esc(text)}</text>`);
+    // texte tourné (étiquettes verticales) et mis à l'échelle comme le reste
+    const ang = Math.atan2(this.M.b, this.M.a), k = Math.hypot(this.M.a, this.M.b);
+    const rot = Math.abs(ang) > 1e-4 ? ` transform="rotate(${this._n((ang * 180) / Math.PI)} ${this._n(p.x)} ${this._n(p.y)})"` : '';
+    this.out.push(`<text x="${this._n(p.x)}" y="${this._n(p.y)}"${mid}${rot} font-family="sans-serif" font-size="${this._n(size * k)}"${weight} fill="${this.fillStyle}" text-anchor="${anchor}">${_esc(text)}</text>`);
   }
   _n(v) { return Math.round(v * 100) / 100; }
 }

@@ -68,8 +68,10 @@ function buildDossier(o) {
         `<td class="n ${c.ok ? '' : 'bad'}">${num(c.dUpct, 1)} %</td><td>${esc(c.rcd)}</td></tr>`;
     }
     h += '</tbody></table>';
-    if (d.issues.length) h += '<ul class="checks">' + d.issues.map((i) => `<li class="${i.level}">${esc(i.msg)}</li>`).join('') + '</ul>';
+    const notes = d.issues.concat((d.checks || []).filter((c) => c.level !== 'info'));
+    if (notes.length) h += '<ul class="checks">' + notes.map((i) => `<li class="${i.level}">${esc(i.msg)}</li>`).join('') + '</ul>';
     h += '</section>';
+    if (o.boardFrontSVG) h += `<section class="page"><h2>Face avant du tableau</h2><div class="svg front">${o.boardFrontSVG}</div></section>`;
   }
 
   // Matériel et budget

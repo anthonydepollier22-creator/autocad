@@ -155,9 +155,49 @@ L'installation est **conçue** puis **simulée en temps réel** :
   mettre en marche les appareils, brancher un radiateur d'appoint, provoquer un
   court-circuit ou une fuite — tout est consigné au journal ;
 - Le **plan 2D** montre les lampes allumées (halo) et les appareils en marche ; survoler
-  un circuit met ses appareils en évidence ; **schéma unifilaire** exportable en SVG.
+  un circuit met ses appareils en évidence.
 
 ![Tableau simulé](docs/screenshot-installation.png)
+
+### 🗂️ Tableau électrique et schéma unifilaire
+
+Le bouton **Tableau** (barre d'outils, ou **Unifilaire** dans l'onglet Tableau) ouvre
+l'éditeur du tableau, **avec ou sans plan** :
+
+- **Tableau modifiable** : chaque interrupteur différentiel (25 / 40 / 63 A, type AC,
+  A, F ou B) et ses circuits — repère, désignation, type, calibre (C2 à C63), section
+  (1,5 à 16 mm²), charge (points, prises ou watts), longueur, contacteur heures
+  creuses, télérupteur — ordre modifiable, **+ Circuit** d'après 19 circuits types
+  (éclairage, prises, cuisine, plaque 32 A / 6 mm², four, lave-linge, chauffe-eau,
+  chauffage, VMC, borne IRVE 40 A / 10 mm², volets, PAC…), **+ Différentiel**,
+  abonnement, coffret et **parafoudre** ;
+- **Déduit du plan** au départ : la première modification le fige en tableau
+  **personnalisé** (les appareils du plan gardent leurs câbles et leurs longueurs ;
+  ceux ajoutés ensuite sont signalés puis **répartis** en un clic), annulable avec
+  Ctrl+Z, et l'on peut **revenir à l'automatique**. **Sans plan**, un modèle selon la
+  surface (chauffage, plaque, IRVE) sert de point de départ — pour tracer l'unifilaire
+  d'un logement existant ;
+- **Contrôles NF C 15-100 en direct** : calibre protégé par la section (1,5 mm² → 16 A,
+  2,5 → 20 A, 6 → 32 A, 10 → 40 A), 8 points d'éclairage, 8 ou 12 socles selon la
+  section, 6 en cuisine, 4 500 W de chauffage par circuit, plaque et lave-linge sous
+  type A, borne sous type F, 8 circuits par différentiel, nombre d'ID selon la
+  surface, circuit sans 30 mA, chute de tension, abonnement, 20 % de réserve ;
+- **Folio unifilaire normalisé** (A3 paysage, symboles CEI 60617) : réseau, compteur,
+  disjoncteur de branchement 500 mA, parafoudre, borne principale et prise de terre,
+  jeu de barres, différentiels, disjoncteurs, contacteurs, désignations verticales,
+  **nomenclature** (repère, protection, ID, câble 3G…, longueur, charge, ΔU), légende
+  et **cartouche** ; plusieurs folios numérotés si le tableau est grand ;
+- **Face avant** du coffret (rangées de 13 modules de 18 mm, réserve, GTL) et
+  **étiquettes** de repérage à imprimer à l'échelle 1 ;
+- **Exports** : SVG, **DXF** (en millimètres, calques UNIFILAIRE / TEXTES / CARTOUCHE,
+  validé par ezdxf) et **Imprimer / PDF** (folios A3, face avant, étiquettes A4) ; le
+  dossier du projet et le métré (coffret, parafoudre, contacteurs, ID 63 A…) suivent.
+
+![Éditeur du tableau : circuits modifiables et aperçu du folio](docs/screenshot-tableau-editeur.png)
+
+![Folio unifilaire A3 : symboles, nomenclature, cartouche](docs/screenshot-unifilaire.png)
+
+![Face avant du tableau](docs/screenshot-face-avant.png)
 
 ### Dossier du projet — imprimable ou PDF
 
@@ -557,6 +597,8 @@ python3 -m http.server 8000
 │   ├── plan.js        # Plan de maison : pièces, surfaces, cotations, NF C 15-100
 │   ├── houses.js      # Types de maison, ameublement, implantation et goulottes automatiques
 │   ├── install.js     # Conception du tableau, câbles, chutes de tension, simulation physique
+│   ├── board.js       # Tableau : modèle, contrôles NF, folio unifilaire, face avant, étiquettes
+│   ├── board-ui.js    # Éditeur du tableau et du schéma unifilaire
 │   ├── day.js         # Journée type : emploi du temps, énergie par heure et par usage
 │   ├── materials.js   # Matériel et budget de l'installation, export CSV
 │   ├── dossier.js     # Dossier du projet (A4, impression / PDF)
@@ -585,7 +627,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-138 vérifications sans dépendance : valeurs numériques de chaque simulation
+146 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
@@ -598,7 +640,9 @@ magnétique, différentiel, disjoncteur de branchement, énergie, va-et-vient), 
 montée et descente de l'escalier en visite, visite guidée jusqu'à l'étage), la vue en
 coupe, la course du soleil selon la saison, les interactions de l'éditeur 2D (fin d'un
 mur au double-clic, à `Entrée` ou en fermant le contour, mise à l'échelle du calque),
-**l'éclairement** (formule du plafonnier, lumière confinée à sa pièce, appliques
+**le tableau et l'unifilaire** (tableau personnalisé identique à l'automatique,
+contrôles NF, circuit sans différentiel en simulation, appareils ajoutés puis
+répartis, tableau sans plan, face avant, folios, DXF, métré), **l'éclairement** (formule du plafonnier, lumière confinée à sa pièce, appliques
 jusqu'à l'objectif), les exports SVG et DXF et **l'import DXF** (aller-retour des 6 maisons, plans
 d'architecte produits par ezdxf, maison à étage, croquis en mètres, accents, arcs,
 blocs tournés). Le déploiement GitHub Pages **exécute ces tests d'abord** : une

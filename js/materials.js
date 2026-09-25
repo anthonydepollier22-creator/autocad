@@ -9,12 +9,13 @@
 
 const MAT_PRICES = {
   rowPanel: [0, 38, 62, 88, 118, 150],       // coffret selon le nombre de rangées de 13 modules
-  rcd: { AC25: 42, AC40: 46, A: 78, F: 135 },
-  breaker: { 2: 9, 10: 8, 16: 8, 20: 8.5, 32: 11.5, 40: 15 },
+  rcd: { AC25: 42, AC40: 46, AC63: 62, A: 78, A63: 95, F: 135, B: 290 },
+  breaker: { 2: 9, 6: 9, 10: 8, 16: 8, 20: 8.5, 25: 10, 32: 11.5, 40: 15, 50: 24, 63: 28 },
+  surge: 69, contactor: 22, teleruptor: 18,
   comb: 8.5,            // peigne d'alimentation, par rangée
   earthBar: 14,         // bornier de terre / répartiteur
   earthKit: 48,         // piquet de terre, câble 16 mm², barrette de coupure
-  cable: { 1.5: 0.82, 2.5: 1.18, 6: 3.25, 10: 5.6 }, // gaine ICTA préfilée 3G…, €/m
+  cable: { 1.5: 0.82, 2.5: 1.18, 4: 2.1, 6: 3.25, 10: 5.6, 16: 8.9 }, // gaine ICTA préfilée 3G…, €/m
   conduit: 4.6,         // goulotte / plinthe technique, €/m
   socket: 4.9, switchSa: 5.2, switchVv: 6.4, dcl: 3.6, rj45: 12.5, cableOut32: 9.5, cableOut20: 6.5, smoke: 19.9,
   box: 0.65, boxDcl: 3.2,
@@ -35,18 +36,29 @@ function materialList(components, wires, design) {
 
   // --- Tableau ---------------------------------------------------------------
   if (design && design.ok) {
-    const modules = design.rcds.length * 2 + design.circuits.length + design.reserve;
-    const rows = Math.max(1, Math.ceil(modules / 13));
-    add('Tableau', `Coffret ${rows} rangée${rows > 1 ? 's' : ''} (13 modules)`, 1, 'u', P.rowPanel[Math.min(rows, 5)], `${modules} modules dont ${design.reserve} de réserve`);
+    // coffret : rangées de la face avant (board.js), 20 % de réserve comprise
+    const M = typeof boardModules === 'function' ? boardModules(design) : null;
+    const rows = M ? M.rowsCount : Math.max(1, Math.ceil((design.rcds.length * 2 + design.circuits.length + design.reserve) / 13));
+    const modules = M ? M.used : design.rcds.length * 2 + design.circuits.length;
+    add('Tableau', `Coffret ${rows} rangée${rows > 1 ? 's' : ''} (13 modules)`, 1, 'u', P.rowPanel[Math.min(rows, 5)], `${modules} modules occupés sur ${rows * 13}`);
     const rcdKind = {};
     for (const r of design.rcds) {
-      const k = r.type === 'AC' ? (r.In <= 25 ? 'AC25' : 'AC40') : r.type;
+      const k = r.type === 'AC' ? (r.In <= 25 ? 'AC25' : r.In >= 63 ? 'AC63' : 'AC40') : r.type === 'A' && r.In >= 63 ? 'A63' : r.type;
       rcdKind[k] = (rcdKind[k] || 0) + 1;
     }
-    const rcdName = { AC25: 'Interrupteur différentiel 25 A 30 mA type AC', AC40: 'Interrupteur différentiel 40 A 30 mA type AC', A: 'Interrupteur différentiel 40 A 30 mA type A', F: 'Interrupteur différentiel 40 A 30 mA type F' };
-    for (const k of ['AC25', 'AC40', 'A', 'F']) add('Tableau', rcdName[k], rcdKind[k], 'u', P.rcd[k]);
+    const rcdName = {
+      AC25: 'Interrupteur différentiel 25 A 30 mA type AC', AC40: 'Interrupteur différentiel 40 A 30 mA type AC', AC63: 'Interrupteur différentiel 63 A 30 mA type AC',
+      A: 'Interrupteur différentiel 40 A 30 mA type A', A63: 'Interrupteur différentiel 63 A 30 mA type A', F: 'Interrupteur différentiel 40 A 30 mA type F', B: 'Interrupteur différentiel 40 A 30 mA type B',
+    };
+    for (const k of ['AC25', 'AC40', 'AC63', 'A', 'A63', 'F', 'B']) add('Tableau', rcdName[k], rcdKind[k], 'u', P.rcd[k]);
     const byIn = {};
     for (const c of design.circuits) byIn[c.In] = (byIn[c.In] || 0) + 1;
+    if (design.supply && design.supply.surge) {
+      add('Tableau', 'Parafoudre type 2 (monophasé)', 1, 'u', P.surge);
+      byIn[10] = (byIn[10] || 0) + 1; // son disjoncteur de déconnexion
+    }
+    add('Tableau', 'Contacteur jour / nuit 20 A (heures creuses)', design.circuits.filter((c) => c.contactor).length, 'u', P.contactor);
+    add('Tableau', 'Télérupteur 16 A', design.circuits.filter((c) => c.teleruptor).length, 'u', P.teleruptor);
     for (const In of Object.keys(byIn).map(Number).sort((a, b) => a - b)) {
       add('Tableau', `Disjoncteur phase + neutre ${In} A courbe C`, byIn[In], 'u', P.breaker[In] || 9);
     }

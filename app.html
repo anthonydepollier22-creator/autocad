@@ -66,6 +66,7 @@
       <div class="group">
         <button id="btn-examples" class="text-btn" data-icon="book" title="Bibliothèque de circuits d'exemples"><span>Exemples</span></button>
         <button id="btn-houses" class="text-btn" data-icon="house" title="Nouvelle maison : studio, T2, T3, maison T4, maison T5 + garage"><span>Maison</span></button>
+        <button id="btn-board" class="text-btn" data-icon="board" title="Tableau électrique et schéma unifilaire : circuits modifiables (avec ou sans plan), folio normalisé, face avant, étiquettes, exports"><span>Tableau</span></button>
         <button id="btn-sim" class="text-btn btn-sim" data-icon="play" title="Lancer la simulation (DC)"><span>Simuler</span></button>
         <button id="btn-3d" class="text-btn" data-icon="cube" title="Vue 3D : visite de la maison, heure du jour, rayons X"><span>3D</span></button>
       </div>
@@ -223,6 +224,7 @@
             <li><b>Maison</b> : génère un studio, un T2, un T3 ou une maison avec mobilier, installation NF C 15-100 et goulottes.</li>
             <li>Plan de maison : <kbd>M</kbd> mur · <kbd>G</kbd> goulotte · <kbd>L</kbd> règle · pose une étiquette <b>Pièce</b> dans chaque pièce pour sa surface et le contrôle NF.</li>
             <li><b>Calque</b> (icône des feuilles) : importe le plan de ta maison en image, mets-le à l’échelle sur une cote connue, puis trace les murs par-dessus (double-clic ou <kbd>Entrée</kbd> pour finir).</li>
+            <li><b>Tableau</b> (barre d’outils) : le tableau électrique et son <b>schéma unifilaire</b>, avec ou sans plan — différentiels et circuits modifiables, contrôles NF C 15-100 en direct, folio A3 normalisé, face avant, étiquettes, exports SVG, DXF et PDF.</li>
             <li><b>Importer un plan DXF</b> (icône dossier, ou glisser le fichier) : les murs d’un plan d’architecte (AutoCAD, LibreCAD, ArchiCAD…) sont repris à leur épaisseur avec portes, fenêtres et noms des pièces, puis meublés et équipés en un clic. Rez-de-chaussée et étage dessinés sur la même feuille sont superposés en 3D, reliés par l’escalier. Pas de plan sous la main ? Plans d’exemple : <a href="samples/plan-exemple-t4.dxf" download>T4</a>, <a href="samples/plan-exemple-r1.dxf" download>maison à étage</a>.</li>
             <li><b>DXF</b> : exporte le plan pour AutoCAD, LibreCAD ou QCAD, en mètres, avec un calque par nature d’objet (murs, menuiseries, électricité, goulottes, fils, cotes).</li>
             <li>Onglet <b>Tableau</b> : installation simulée — allume, surcharge, provoque un court-circuit ; <b>double-clic</b> sur un appareil pour le mettre en marche.</li>
@@ -355,6 +357,42 @@
     </div>
   </div>
 
+  <!-- Tableau électrique et schéma unifilaire -->
+  <div id="board-modal" class="modal" hidden>
+    <div class="modal-backdrop"></div>
+    <div class="modal-box board-box" role="dialog" aria-label="Tableau électrique et schéma unifilaire">
+      <header class="modal-head">
+        <div>
+          <h2>Tableau électrique et schéma unifilaire</h2>
+          <p id="bd-sub"></p>
+        </div>
+        <div class="bd-head">
+          <button type="button" class="btn-ghost" data-bx="svg" title="Télécharger la vue affichée en SVG">SVG</button>
+          <button type="button" class="btn-ghost" data-bx="dxf" title="Schéma unifilaire en DXF (AutoCAD, LibreCAD…), en millimètres">DXF</button>
+          <button type="button" class="btn-primary" data-bx="print" title="Folios A3, face avant et étiquettes : imprimer ou enregistrer en PDF">Imprimer / PDF</button>
+          <button id="board-close" class="icon-btn" title="Fermer" aria-label="Fermer">✕</button>
+        </div>
+      </header>
+      <div class="bd-body">
+        <section id="bd-edit" class="bd-edit" aria-label="Circuits du tableau"></section>
+        <section class="bd-view" aria-label="Aperçu">
+          <div class="bd-viewbar">
+            <div class="seg" role="group" aria-label="Vue">
+              <button type="button" data-view="uni" class="on">Unifilaire</button>
+              <button type="button" data-view="front">Face avant</button>
+              <button type="button" data-view="labels">Étiquettes</button>
+            </div>
+            <div id="bd-folios" class="bd-folios" hidden>
+              <button id="bd-prev" type="button" aria-label="Folio précédent">‹</button><span id="bd-folio-lbl"></span><button id="bd-next" type="button" aria-label="Folio suivant">›</button>
+            </div>
+            <div class="bd-zoom"><button id="bd-zoom-out" type="button" aria-label="Zoom arrière">−</button><button id="bd-zoom-in" type="button" aria-label="Zoom avant">+</button></div>
+          </div>
+          <div id="bd-sheet" class="bd-sheet"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
   <div id="toast" class="toast" hidden></div>
 
   <input type="file" id="file-input" accept=".json,application/json,.dxf,.dwg" hidden />
@@ -384,11 +422,13 @@
   <script src="js/examples.js"></script>
   <script src="js/houses.js"></script>
   <script src="js/install.js"></script>
+  <script src="js/board.js"></script>
   <script src="js/day.js"></script>
   <script src="js/materials.js"></script>
   <script src="js/dossier.js"></script>
   <script src="js/editor.js"></script>
   <script src="js/house-ui.js"></script>
+  <script src="js/board-ui.js"></script>
   <script src="js/ui.js"></script>
   <script>
     if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !window.Capacitor) {

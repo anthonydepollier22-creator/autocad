@@ -29,8 +29,9 @@ function initHouseUI(app) {
     const rev = editor.history[editor.history.length - 1];
     if (!force && rev === designRev) return design;
     designRev = rev;
-    const relevant = editor.components.some((c) => c.type === 'panel_house');
-    design = relevant ? designInstallation(editor.components, editor.wires) : null;
+    const board = editor.meta && editor.meta.board && Array.isArray(editor.meta.board.circuits) ? editor.meta.board : null;
+    const relevant = board || editor.components.some((c) => c.type === 'panel_house');
+    design = relevant ? designInstallation(editor.components, editor.wires, board) : null;
     if (design && design.ok) sim.setDesign(design);
     structKey = null;
     return design;
@@ -112,7 +113,7 @@ function initHouseUI(app) {
         '<div class="norm-empty"><b>Tableau électrique</b><p>' + msg + '</p>' +
         '<div class="inst-empty-actions">' +
         '<button class="btn-primary" data-act="houses">Nouvelle maison…</button>' +
-        (hasPlan() ? '<button class="btn-ghost" data-act="implant">Implanter automatiquement</button>' : '') +
+        (hasPlan() ? '<button class="btn-ghost" data-act="implant">Implanter automatiquement</button>' : '<button class="btn-ghost" data-act="board" title="Schéma unifilaire d’un tableau, sans dessiner de plan">Tableau sans plan…</button>') +
         '</div></div>';
       bindActions();
       return;
@@ -122,7 +123,7 @@ function initHouseUI(app) {
       '<button data-act="implant" title="Ajoute l’appareillage NF C 15-100 manquant puis retrace les goulottes">Implanter</button>' +
       '<button data-act="conduits" title="Retrace toutes les goulottes depuis le tableau">Goulottes</button>' +
       '<button data-act="furnish" title="Meuble les pièces vides">Meubler</button>' +
-      '<button data-act="unifilar" title="Télécharger le schéma unifilaire (SVG)">Unifilaire</button>' +
+      '<button data-act="board" title="Tableau électrique et schéma unifilaire : modifier les circuits, folio normalisé, face avant, étiquettes, exports SVG / DXF / PDF">Unifilaire</button>' +
       '<button data-act="dossier" title="Dossier du projet à imprimer ou enregistrer en PDF : plan, norme, tableau, matériel, 3D, journée type">Dossier</button></div>';
     // Puissance et énergie
     h += '<div class="inst-live">' +
@@ -138,7 +139,8 @@ function initHouseUI(app) {
     // Tableau (rangées sur rail DIN)
     h += '<div class="board"><div class="board-row"><button class="dm dm-agcp" data-agcp title="Disjoncteur de branchement : cliquer pour ouvrir / réarmer">' +
       '<span class="dm-lever"></span><b>AGCP</b><em>' + d.agcp.setting + ' A</em></button>' +
-      `<div class="board-info"><b>Abonnement ${d.agcp.kva} kVA</b><span>${d.circuits.length} circuits · ${d.rcds.length} différentiels 30 mA · ${Math.round(d.cableTotal)} m de câble · réserve ${d.reserve} modules</span></div></div>`;
+      `<div class="board-info"><b>Abonnement ${d.agcp.kva} kVA${d.custom ? ' <em class="bd-badge">personnalisé</em>' : ''}</b><span>${d.circuits.length} circuits · ${d.rcds.length} différentiels 30 mA · ${Math.round(d.cableTotal)} m de câble · réserve ${d.reserve} modules</span>` +
+      `<button class="bd-open" data-act="board">Modifier le tableau · unifilaire</button></div></div>`;
     for (const r of d.rcds) {
       const cs = d.circuits.filter((c) => c.rcd === r.id);
       if (!cs.length) continue;
@@ -161,6 +163,7 @@ function initHouseUI(app) {
     // Pièces et appareils
     h += '<details class="inst-sec" open><summary>Pièces et appareils</summary>' + renderRooms(d) + '</details>';
     for (const i of d.issues) h += `<div class="inst-issue ${i.level}">${esc(i.msg)}</div>`;
+    for (const i of (d.checks || []).filter((c) => c.level === 'err' || c.level === 'warn')) h += `<div class="inst-issue ${i.level}">${esc(i.msg)}</div>`;
     h += '<details class="inst-sec" open><summary>Journal</summary><ul class="inst-log" data-l="log"></ul></details>';
     h += '<p class="norm-foot">Simulation pédagogique : charges résistives, chute de tension 2·ρ·L·I/S, disjoncteurs courbe C (thermique du 1er ordre, magnétique au-delà de 10 In), différentiels 30 mA. Elle ne remplace pas une étude d’installation.</p>';
     panel.innerHTML = h;
@@ -299,12 +302,7 @@ function initHouseUI(app) {
   function action(act) {
     if (act === 'houses') { openHouses(); return; }
     if (act === 'dossier') { openDossier(); return; }
-    if (act === 'unifilar') {
-      const d = ensureDesign(true);
-      if (!d || !d.ok) return;
-      download(new Blob([unifilarSVG(d, editor.meta)], { type: 'image/svg+xml' }), (editor.meta.title || 'installation') + ' - unifilaire.svg');
-      return;
-    }
+    if (act === 'unifilar' || act === 'board') { if (app.openBoard) app.openBoard(); return; }
     const doc = { components: editor.components, wires: editor.wires, counters: editor.counters };
     if (act === 'implant') {
       const r = autoImplant(doc);
@@ -1487,6 +1485,7 @@ function initHouseUI(app) {
         meta: editor.meta, design: d, report, year, lighting: lightingStudy(editor.components, editor.wires),
         planSVG: buildSVG(editor.components, editor.wires, SYMBOLS, { ...editor.meta, date: new Date().toISOString().slice(0, 10) }),
         unifilarSVG: d && d.ok ? unifilarSVG(d, editor.meta) : '',
+        boardFrontSVG: d && d.ok ? boardFrontSVG(d, editor.meta) : '',
         materials: d && d.ok ? materialList(editor.components, editor.wires, d) : null,
         images: hasPlan() ? dossierImages(d) : [],
         day: dayData,
@@ -1526,5 +1525,8 @@ function initHouseUI(app) {
     open3D, close3D, openHouses, loadPlan, sim, materialsHTML, exportMaterials,
     design: () => ensureDesign(),
     refresh: () => { structKey = null; tick(0, true); },
+    // tableau modifié (éditeur du tableau) : on reconçoit, on rafraîchit l'onglet et la 3D
+    redesign: () => { ensureDesign(true); structKey = null; tick(0, true); if (viz && !view3d.hidden) build3D(false); },
+    implant: () => action('implant'),
   };
 }

@@ -13,7 +13,7 @@ const vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const sb = { Math, JSON, console, TextEncoder, TextDecoder, performance };
 vm.createContext(sb);
-for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'day', 'materials', 'svg', 'dxf', 'viz3d', 'gl3d', 'export3d', 'dossier']) {
+for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'day', 'materials', 'svg', 'dxf', 'board', 'viz3d', 'gl3d', 'export3d', 'dossier']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f + '.js'), 'utf8'), sb, { filename: f + '.js' });
 }
 const run = (code) => vm.runInContext(code, sb);
@@ -777,6 +777,64 @@ r = run(`(function(){
 })()`);
 check('Lecture : accents Windows-1252, DXF binaire et fichier non DXF refusés avec un message clair', r.cp1252 === 'Séjour' && /binaire/.test(r.bin) && /DXF/.test(r.bad), `${r.cp1252} · ${r.bin.slice(0, 22)}…`);
 check('Lecture : arc de polyligne (bulge) en segments sur le cercle, bloc inséré tourné et mis à l’échelle, calque 0 hérité', r.arc[0] >= 6 && r.arc[1] && r.arc[2] && near(r.arc[3], -1, 1e-9) && r.blk.join() === 'MURS,50,50,50,250', JSON.stringify(r.arc) + ' ' + r.blk.join(','));
+
+// ---------------------------------------------------------------------------
+group('Tableau électrique et schéma unifilaire');
+r = run(`(function(){
+  var d = buildHouse('t5'), auto = designInstallation(d.components, d.wires);
+  var b = boardFromDesign(auto), cust = designInstallation(d.components, d.wires, b);
+  var same = auto.circuits.every(function(c, i){ var x = cust.circuits[i]; return x && x.id === c.id && x.In === c.In && x.S === c.S && x.rcd === c.rcd && Math.abs(x.length - c.length) < 1e-9 && Math.abs(x.dUpct - c.dUpct) < 1e-9 && x.points === c.points; });
+  // modifications : 32 A sur 1,5 mm², plaque sous un ID type AC, circuit sans ID
+  var b2 = JSON.parse(JSON.stringify(b));
+  var light = b2.circuits.find(function(c){ return c.kind === 'light'; }); light.In = 32;
+  var cook = b2.circuits.find(function(c){ return c.appliance === 'cooktop'; }); cook.rcd = b2.rcds.find(function(r){ return r.type === 'AC'; }).id;
+  var oven = b2.circuits.find(function(c){ return c.appliance === 'oven'; }); oven.rcd = null;
+  var d2 = designInstallation(d.components, d.wires, b2), errs = d2.checks.filter(function(c){ return c.level === 'err'; });
+  var has = function(ref, re){ return errs.some(function(c){ return c.ref === ref && re.test(c.msg); }); };
+  // simulation : fuite sur un circuit sans différentiel → pas de coupure, alerte
+  var sim = new InstallSim(); sim.setDesign(d2);
+  var ov = d.components.find(function(c){ return c.type === 'oven'; });
+  sim.setFault(ov.id, 'leak'); ov.on = true; sim.step(0.5, d.components, d.wires);
+  // appareils ajoutés au plan après coup : répartis
+  var d3 = buildHouse('t5'), b3 = boardFromDesign(designInstallation(d3.components, d3.wires));
+  var room = d3.components.find(function(c){ return c.type === 'socket_wall'; });
+  d3.components.push({ id: 'newS', type: 'socket_wall', x: room.x + 40, y: room.y, rot: room.rot || 0 }, { id: 'newL', type: 'dcl', x: room.x, y: room.y + 60 });
+  var before = designInstallation(d3.components, d3.wires, b3).orphans.length;
+  var placed = boardDistribute(b3, d3.components, designInstallation(d3.components, d3.wires, b3));
+  var after = designInstallation(d3.components, d3.wires, b3).orphans.length;
+  return { same: same, n: auto.circuits.length, custom: cust.custom, autoErr: auto.checks.filter(function(c){ return c.level === 'err'; }).length,
+    e1: has(light.id, /1,5 mm²/), e2: has(cook.id, /type A/), e3: has(oven.id, /aucun interrupteur/),
+    log: sim.events.map(function(e){ return e.msg; }).join(' | '), ovenLive: sim.snap.circuits.find(function(c){ return c.id === oven.id; }).live,
+    before: before, placed: placed, after: after };
+})()`);
+check('Tableau personnalisé tiré du plan : mêmes circuits, longueurs, ΔU et différentiels que l’automatique', r.same && r.custom && r.autoErr === 0, `${r.n} circuits`);
+check('Contrôles NF : 32 A sur 1,5 mm², plaque sous un ID type AC, circuit sans différentiel signalés', r.e1 && r.e2 && r.e3);
+check('Simulation : fuite sur un circuit sans différentiel → rien ne coupe, alerte de danger', /aucun différentiel/.test(r.log) && r.ovenLive === true);
+check('Appareils ajoutés au plan après coup : repérés puis rangés sur les circuits', r.before === 2 && r.placed === 2 && r.after === 0, `${r.before} → ${r.after}`);
+
+r = run(`(function(){
+  // Tableau sans plan : modèle selon la surface
+  var b = boardTemplate(90, { heating: true, cooktop: true, ev: true }), d = designInstallation([], [], b);
+  var checks = d.checks.filter(function(c){ return c.level === 'err' || c.level === 'warn'; }).map(function(c){ return c.msg; });
+  var svg = unifilarSVG(d, { title: 'Sans plan' }), M = boardModules(d);
+  // grand tableau : plusieurs folios
+  var big = boardTemplate(90); for (var i = 0; i < 26; i++) boardAddCircuit(big, 'socket', { name: 'Prises ' + (i + 10) });
+  var dbig = designInstallation([], [], big), folios = unifilarSVGs(dbig, {}).length;
+  var inFolios = unifilarLayout(dbig).folios.reduce(function(s, f){ return s + f.groups.reduce(function(t, g){ return t + g.cs.length; }, 0); }, 0);
+  // DXF de l'unifilaire
+  var dxf = unifilarDXF(d, { title: 'X' }), L = dxf.split('\\r\\n');
+  var rot = 0; for (var k = 0; k < L.length - 1; k += 2) if (L[k] === '50' && Math.abs(+L[k + 1] - 90) < 0.01) rot++;
+  var mat = materialList([], [], Object.assign(d, { supply: Object.assign(d.supply, { surge: true }) }));
+  var hasMat = function(re){ return mat.lines.some(function(l){ return re.test(l.name); }); };
+  return { ok: d.ok, n: d.circuits.length, ids: d.rcds.map(function(r){ return r.type; }).join(''), checks: checks, svg: svg.indexOf('<svg') === 0 && svg.indexOf('rotate(-90') > 0 && svg.indexOf('Folio') > 0,
+    reserve: M.reservePct, rowsOk: M.rows.every(function(row){ return row.reduce(function(s, m){ return s + m.w; }, 0) <= 13; }),
+    folios: folios, inFolios: inFolios, nbig: dbig.circuits.length, dxf: [L.length % 2 === 1 || L[L.length - 1] === '', dxf.indexOf('UNIFILAIRE') > 0, /\\$INSUNITS\\r\\n70\\r\\n4/.test(dxf), rot],
+    mat: [hasMat(/Parafoudre/), hasMat(/Contacteur/), hasMat(/type F/), hasMat(/Coffret \\d rangée/)] };
+})()`);
+check('Tableau sans plan (90 m²) : circuits usuels, 2 ID AC + 1 A + 1 F (IRVE), aucune erreur', r.ok && r.n >= 12 && r.ids === 'ACACAF' && r.checks.length === 0, `${r.n} circuits · ${r.checks.join(' | ') || 'conforme'}`);
+check('Face avant : rangées de 13 modules au plus, 20 % de réserve au moins', r.rowsOk && r.reserve >= 20, r.reserve + ' %');
+check('Folio unifilaire SVG : désignations verticales, cartouche ; grand tableau réparti sur plusieurs folios sans perte', r.svg && r.folios >= 2 && r.inFolios === r.nbig, `${r.nbig} circuits sur ${r.folios} folios`);
+check('Unifilaire DXF (mm, calques, textes à 90°) et matériel : parafoudre, contacteur HC, ID type F, coffret', r.dxf[1] && r.dxf[2] && r.dxf[3] > 10 && r.mat.every(Boolean), `${r.dxf[3]} textes verticaux`);
 
 // ---------------------------------------------------------------------------
 group('Éclairement (lux)');
