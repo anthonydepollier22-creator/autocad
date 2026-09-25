@@ -1174,6 +1174,12 @@ function initHouseUI(app) {
     v3.lux = !v3.lux;
     if (v3.lux && v3.energy) { v3.energy = false; setChip('v3-energy', false); } // une seule teinte de sol à la fois
     setChip('v3-lux', v3.lux);
+    // la nuit, pour voir les lampes allumées comme sur la carte (l'heure revient ensuite)
+    if (!day.running && viz && viz.webgl) {
+      const tIn = $('v3-time');
+      if (v3.lux && v3.time > 7 && v3.time < 20) { v3.luxTime = v3.time; tIn.value = 21.5; tIn.dispatchEvent(new Event('input')); }
+      else if (!v3.lux && v3.luxTime !== undefined) { tIn.value = v3.luxTime; tIn.dispatchEvent(new Event('input')); v3.luxTime = undefined; }
+    }
     build3D(false);
     if (v3.lux) luxToast();
   });

@@ -1215,7 +1215,7 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
   // États des appareils (lampes allumées, appareils en marche)
   for (const c of components) {
     const d = snap && snap.devices[c.id];
-    c.__lit = !!(snap && snap.lit && snap.lit.has(c.id));
+    c.__lit = !!(snap && snap.lit && snap.lit.has(c.id)) || !!(opts.lux && (c.type === 'dcl' || c.type === 'wall_light')); // vue Lumière : tout allumé
     c.__on = !!(d && d.on);
     if (!d && c.on && snap) {
       // appareils branchés sur une prise : en marche si la prise est alimentée

@@ -276,7 +276,8 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
 - **Énergie** : le sol de chaque pièce se teinte selon la puissance qu'elle consomme
   (échelle 0 → 4 kW), avec une étiquette en watts au-dessus de chaque pièce ;
 - **Lumière** (`L`) : carte d'**éclairement** au sol, en lux sur le plan de travail
-  (0,85 m), tous les points lumineux allumés. Luminaires LED à 60 lm/W ; plafonnier
+  (0,85 m), tous les points lumineux allumés — la scène passe à 21 h 30 pour les voir
+  briller, puis l'heure revient. Luminaires LED à 60 lm/W ; plafonnier
   lambertien (E = Φ·h²/π·d⁴), applique en demi-espace (E = Φ·h/2π·d³), la lumière
   reste dans sa pièce et les parois en renvoient une part (ρ = 0,5). Chaque pièce
   affiche son éclairement moyen face à l'objectif (100 lx en chambre, 150 au séjour et
