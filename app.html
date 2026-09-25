@@ -33,13 +33,14 @@
         <button id="btn-png" class="icon-btn" data-icon="image" title="Exporter en PNG"></button>
         <button id="btn-svg" class="icon-btn" data-icon="vector" title="Exporter en SVG vectoriel"></button>
         <button id="btn-print" class="icon-btn" data-icon="printer" title="Imprimer / PDF"></button>
+        <button id="btn-underlay" class="icon-btn" data-icon="layers" title="Calque : importer le plan de ta maison (image) et le décalquer"></button>
       </div>
       <div class="sep"></div>
       <div class="group">
         <button data-tool="select" class="icon-btn" data-icon="cursor" title="Sélection (V)"></button>
         <button data-tool="wire" class="icon-btn" data-icon="wire" title="Fil (W) — clique les points, double-clic pour finir"></button>
         <button data-tool="pan" class="icon-btn" data-icon="move" title="Panoramique (H, ou Espace + glisser)"></button>
-        <button data-tool="wall" class="icon-btn" data-icon="wall" title="Mur (M) — plan de maison : clique les points, double-clic pour finir"></button>
+        <button data-tool="wall" class="icon-btn" data-icon="wall" title="Mur (M) — plan de maison : clique les points ; double-clic, Entrée ou retour au point de départ pour finir"></button>
         <button data-tool="conduit" class="icon-btn" data-icon="conduit" title="Goulotte / chemin de câbles (G)"></button>
       </div>
       <div class="sep"></div>
@@ -213,6 +214,7 @@
             <li>Outil <b>Fil</b> : clique les points, double-clic pour terminer. <kbd>Maj</kbd> inverse le coude.</li>
             <li><b>Maison</b> : génère un studio, un T2, un T3 ou une maison avec mobilier, installation NF C 15-100 et goulottes.</li>
             <li>Plan de maison : <kbd>M</kbd> mur · <kbd>G</kbd> goulotte · pose une étiquette <b>Pièce</b> dans chaque pièce pour sa surface et le contrôle NF.</li>
+            <li><b>Calque</b> (icône des feuilles) : importe le plan de ta maison en image, mets-le à l’échelle sur une cote connue, puis trace les murs par-dessus (double-clic ou <kbd>Entrée</kbd> pour finir).</li>
             <li>Onglet <b>Tableau</b> : installation simulée — allume, surcharge, provoque un court-circuit ; <b>double-clic</b> sur un appareil pour le mettre en marche.</li>
             <li><kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> annuler / refaire · <kbd>Ctrl+D</kbd> dupliquer · <kbd>Ctrl+A</kbd> tout sélectionner</li>
           </ul>
@@ -304,6 +306,18 @@
   <div id="toast" class="toast" hidden></div>
 
   <input type="file" id="file-input" accept=".json,application/json" hidden />
+  <input type="file" id="ul-input" accept="image/*" hidden />
+  <div id="ul-panel" class="ul-panel" hidden role="dialog" aria-label="Calque du plan importé">
+    <div class="ul-head"><b>Calque</b><button type="button" data-ul="close" class="ul-x" aria-label="Fermer">✕</button></div>
+    <label class="ul-row">Opacité <input type="range" id="ul-opacity" min="10" max="100" step="5" value="50" /></label>
+    <div class="ul-btns">
+      <button type="button" data-ul-tool="ul-calib" title="Clique deux points dont tu connais la distance réelle">Mettre à l’échelle</button>
+      <button type="button" data-ul-tool="ul-move" title="Glisser le calque pour l'aligner">Déplacer</button>
+      <button type="button" data-ul="replace">Remplacer…</button>
+      <button type="button" data-ul="remove">Retirer</button>
+    </div>
+    <p class="ul-help">Trace ensuite les murs par-dessus avec l’outil Mur (M), puis <b>Maison → Implanter</b>.</p>
+  </div>
 
   <script src="js/symbols.js"></script>
   <script src="js/netlist.js"></script>

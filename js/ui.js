@@ -11,6 +11,7 @@ const ICONS = {
   save: '<svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13a0 0 0 0 1 0 0H5a0 0 0 0 1 0 0V4z"/><path d="M8 4v4h7V4"/><path d="M7 20v-7h10v7"/></svg>',
   image: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3 17l5.5-5.5 4 4 2.5-2.5L21 19"/></svg>',
   vector: '<svg viewBox="0 0 24 24"><path d="M5 16c3-8 11-8 14 0"/><rect x="2.5" y="14.5" width="4.5" height="4.5" rx="1"/><rect x="17" y="14.5" width="4.5" height="4.5" rx="1"/><circle cx="12" cy="10" r="1.6"/></svg>',
+  layers: '<svg viewBox="0 0 24 24"><path d="M12 3.5l8.5 4.5-8.5 4.5L3.5 8z"/><path d="M3.5 12.2L12 16.7l8.5-4.5"/><path d="M3.5 16.2L12 20.7l8.5-4.5"/></svg>',
   printer: '<svg viewBox="0 0 24 24"><path d="M7 8V3.5h10V8"/><path d="M7 16.5H4.5A1.5 1.5 0 0 1 3 15V9.5A1.5 1.5 0 0 1 4.5 8h15A1.5 1.5 0 0 1 21 9.5V15a1.5 1.5 0 0 1-1.5 1.5H17"/><path d="M7 13.5h10v7H7z"/></svg>',
   cursor: '<svg viewBox="0 0 24 24"><path d="M5.5 3.5l6.7 16.3 2.2-6.4 6.4-2.2z"/></svg>',
   wire: '<svg viewBox="0 0 24 24"><path d="M4 18h5v-6h6V6h5"/><circle cx="4" cy="18" r="1.7"/><circle cx="20" cy="6" r="1.7"/></svg>',
@@ -222,6 +223,83 @@ document.addEventListener('DOMContentLoaded', () => {
     const blob = new Blob([JSON.stringify(editor.serialize(), null, 2)], { type: 'application/json' });
     download(blob, 'schema.elec.json');
   });
+  // --- Calque : plan importé (image) à décalquer ------------------------------
+  const ulInput = document.getElementById('ul-input'), ulPanel = document.getElementById('ul-panel'), ulBtn = document.getElementById('btn-underlay');
+  const ulSync = () => {
+    const on = !!editor.underlay;
+    ulBtn.classList.toggle('on', on);
+    if (on) document.getElementById('ul-opacity').value = Math.round(editor.underlay.opacity * 100);
+    document.querySelectorAll('#ul-panel [data-ul-tool]').forEach((b) => b.classList.toggle('on', editor.tool === b.dataset.ulTool));
+  };
+  const ulShow = (show) => {
+    ulPanel.hidden = !show;
+    if (!show) return;
+    const r = ulBtn.getBoundingClientRect();
+    ulPanel.style.left = Math.max(8, Math.min(window.innerWidth - ulPanel.offsetWidth - 8, r.left)) + 'px';
+    ulPanel.style.top = r.bottom + 6 + 'px';
+    ulSync();
+  };
+  ulBtn.addEventListener('click', () => {
+    if (!editor.underlay) { ulInput.click(); return; }
+    ulShow(ulPanel.hidden);
+  });
+  ulInput.addEventListener('change', () => {
+    const f = ulInput.files[0];
+    ulInput.value = '';
+    if (!f) return;
+    if (!/^image\//.test(f.type)) { showToast('Choisis une image du plan (PNG ou JPEG). Un PDF peut être exporté en image depuis sa visionneuse.', 4200); return; }
+    const img = new Image(), url = URL.createObjectURL(f);
+    img.onload = () => {
+      // réduit à 2 400 px au plus (JPEG) : le calque tient dans le stockage du navigateur
+      const k = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight));
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k);
+      const g = cv.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height);
+      g.drawImage(img, 0, 0, cv.width, cv.height);
+      URL.revokeObjectURL(url);
+      editor.setUnderlay(cv.toDataURL('image/jpeg', 0.85)).then((saved) => {
+        ulShow(true);
+        showToast('Plan importé en calque. <b>Mettre à l’échelle</b> : clique les deux bouts d’une cote connue. Puis trace les murs par-dessus (outil Mur).' +
+          (saved ? '' : ' (Image trop lourde pour être gardée après fermeture.)'), 6000);
+      });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); showToast('Image illisible.'); };
+    img.src = url;
+  });
+  document.getElementById('ul-opacity').addEventListener('input', (e) => {
+    if (!editor.underlay) return;
+    editor.underlay.opacity = +e.target.value / 100;
+    editor.render();
+  });
+  document.getElementById('ul-opacity').addEventListener('change', () => editor.saveUnderlay());
+  ulPanel.addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.ulTool) {
+      editor.setTool(editor.tool === b.dataset.ulTool ? 'select' : b.dataset.ulTool);
+      if (editor.tool === 'ul-calib') showToast('Clique le premier puis le second point d’une distance connue (une cote, un mur mesuré).', 4200);
+      if (editor.tool === 'ul-move') showToast('Glisse le calque pour l’aligner sur ton dessin. Échap pour finir.', 3000);
+    } else if (b.dataset.ul === 'replace') ulInput.click();
+    else if (b.dataset.ul === 'remove') { editor.clearUnderlay(); ulShow(false); showToast('Calque retiré.'); }
+    else if (b.dataset.ul === 'close') ulShow(false);
+    ulSync();
+  });
+  editor.onCalibrate = (a, b) => {
+    const v = prompt('Distance réelle entre ces deux points, en mètres :', '');
+    const m = v === null ? NaN : parseFloat(String(v).replace(',', '.'));
+    if (!(m > 0)) { showToast('Mise à l’échelle annulée.'); editor.setTool('select'); ulSync(); return; }
+    editor.calibrateUnderlay(a, b, m);
+    editor.setTool('select'); ulSync();
+    if (!editor.components.length && !editor.wires.length) editor.zoomFit(); // le plan à la bonne échelle, en entier
+    showToast(`Échelle réglée : ${String(m).replace('.', ',')} m entre les deux points. Les cotes des murs que tu traces sont maintenant justes.`, 4200);
+  };
+  window.addEventListener('pointerdown', (e) => { if (!ulPanel.hidden && !ulPanel.contains(e.target) && e.target !== ulBtn && !ulBtn.contains(e.target) && editor.tool !== 'ul-calib' && editor.tool !== 'ul-move') ulShow(false); });
+  editor.restoreUnderlay().then((ok) => {
+    ulSync();
+    if (editor.underlay && !editor.components.length && !editor.wires.length) editor.zoomFit(); // reprise : le plan importé à l'écran
+  });
+
   const fileInput = document.getElementById('file-input');
   document.getElementById('btn-open').addEventListener('click', () => fileInput.click());
   fileInput.addEventListener('change', (e) => {
@@ -852,7 +930,7 @@ document.addEventListener('DOMContentLoaded', () => {
       statCount.textContent = `${editor.components.length} composants · ${editor.wires.length} fils`;
     }
     // écran d'accueil sur document vide
-    emptyState.hidden = editor.components.length > 0 || editor.wires.length > 0 || editor.tool === 'place';
+    emptyState.hidden = editor.components.length > 0 || editor.wires.length > 0 || editor.tool === 'place' || !!editor.underlay;
   };
 
   // Restauration de la dernière session (sauvegarde auto)

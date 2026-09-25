@@ -298,7 +298,13 @@ coupure sélective vérifiée par les tests.
 
 Dessine une **maison complète** et implante l'installation dedans :
 
-- Outils **Mur** (M) et **Goulotte / chemin de câbles** (G) au tracé orthogonal ;
+- Outils **Mur** (M) et **Goulotte / chemin de câbles** (G) au tracé orthogonal
+  (double-clic, `Entrée` ou retour au point de départ pour finir) ;
+- **Calque** : importe le plan de ta maison (photo ou scan d'un plan d'architecte),
+  mets-le à l'échelle en cliquant les deux bouts d'une cote connue et en tapant sa
+  longueur, règle son opacité, déplace-le, puis **décalque les murs** : leurs cotes
+  sont justes. Le calque reste sous le dessin (il n'est ni exporté ni imprimé) et
+  est gardé dans le navigateur d'une séance à l'autre ;
 - **Architecture** : portes (avec débattement), fenêtres — **mobilier** : lit,
   canapé, table, plan de travail avec évier, armoire ;
 - **Implantation NF C 15-100** : **GTL**, **tableau électrique**, prises murales
@@ -454,6 +460,7 @@ python3 -m http.server 8000
 | `M` (vue 3D) | Murs : pleins → coupés → plan → extérieur |
 | `X` `C` `E` `J` `F` (vue 3D) | Rayons X, Coupe, Énergie, Journée, Défaut |
 | `G` `O` `P` `V` (vue 3D) | Visite guidée, course du Soleil, Photo, Vidéo 360° |
+| `Entrée` / `Double-clic` (outils Fil, Mur, Goulotte) | Terminer le tracé en cours |
 | `Échap` | Annuler l'action en cours / outil Sélection |
 
 ## 🗂️ Structure du projet

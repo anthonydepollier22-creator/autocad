@@ -371,6 +371,21 @@ class Editor {
       return;
     }
 
+    if (this.tool === 'ul-move' && this.underlay) {
+      this.ulDrag = { sx: w.x, sy: w.y, x0: this.underlay.x, y0: this.underlay.y };
+      return;
+    }
+    if (this.tool === 'ul-calib' && this.underlay) {
+      this.ulCalib = (this.ulCalib || []).concat([{ x: w.x, y: w.y }]);
+      if (this.ulCalib.length === 2) {
+        const [a, b] = this.ulCalib;
+        this.ulCalib = null;
+        if (this.onCalibrate && Math.hypot(b.x - a.x, b.y - a.y) > 2) this.onCalibrate(a, b);
+      }
+      this.render();
+      return;
+    }
+
     if (this.tool === 'place' && this.placeType) {
       this.addComponent(this.placeType, w.x, w.y);
       return;
@@ -385,6 +400,9 @@ class Editor {
         const route = this.wireRoute(last, { x: sp.x, y: sp.y });
         for (let i = 1; i < route.length; i++) this.wireDraft.points.push(route[i]);
         if (sp.onTerm && this.tool === 'wire') this._finishWire();
+        // mur : revenir au point de départ ferme le contour
+        const p0 = this.wireDraft && this.wireDraft.points[0];
+        if (this.tool === 'wall' && p0 && this.wireDraft.points.length >= 4 && Math.hypot(sp.x - p0.x, sp.y - p0.y) < 1) this._finishWire();
       }
       this.render();
       return;
@@ -428,6 +446,13 @@ class Editor {
       this.render(); this._emit();
       return;
     }
+    if (this.ulDrag && this.underlay) {
+      this.underlay.x = this.ulDrag.x0 + (w.x - this.ulDrag.sx);
+      this.underlay.y = this.ulDrag.y0 + (w.y - this.ulDrag.sy);
+      this.render();
+      return;
+    }
+    if (this.tool === 'ul-calib') this.render();
 
     if (this.dragging) {
       const dx = this.snap(w.x - this.dragging.sx);
@@ -469,6 +494,7 @@ class Editor {
 
   _up(e) {
     if (this.panning) { this.panning = null; return; }
+    if (this.ulDrag) { this.ulDrag = null; this.saveUnderlay(); return; }
     if (this.dragging) {
       if (this.dragging.moved) this.pushHistory();
       this.dragging = null;
@@ -504,7 +530,8 @@ class Editor {
   }
 
   _dblclick(e) {
-    if (this.tool === 'wire') { this._finishWire(); return; }
+    // double-clic (ou double-tap) : termine le fil, le mur ou la goulotte en cours
+    if (this.tool === 'wire' || this.tool === 'wall' || this.tool === 'conduit') { this._finishWire(); return; }
     // Double-clic sur un interrupteur : bascule ouvert/fermé
     const s = this._evtPos(e);
     const w = this.screenToWorld(s.x, s.y);
@@ -531,6 +558,8 @@ class Editor {
   }
 
   _finishWire() {
+    // points confondus (le double-clic en ajoute) retirés
+    if (this.wireDraft) this.wireDraft.points = this.wireDraft.points.filter((p, i, a) => !i || Math.hypot(p.x - a[i - 1].x, p.y - a[i - 1].y) > 0.5);
     if (this.wireDraft && this.wireDraft.points.length >= 2) {
       const w = { id: this.uid(), points: this.wireDraft.points };
       if (this.tool === 'wall') w.kind = 'wall';
@@ -548,6 +577,7 @@ class Editor {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
     if (document.body.classList.contains('modal-open')) return;
     if (e.key === ' ') { this._space = true; this.canvas.style.cursor = 'grab'; }
+    if (e.key === 'Enter' && this.wireDraft) { e.preventDefault(); this._finishWire(); return; }
     if (!e.ctrlKey && !e.metaKey && !e.altKey) {
       const k = e.key.toLowerCase();
       if (k === 'v') this.setTool('select');
@@ -591,7 +621,8 @@ class Editor {
     this.placeType = placeType;
     this.wireDraft = null;
     if (tool !== 'select') this.selection.clear();
-    const cursors = { select: 'default', wire: 'crosshair', wall: 'crosshair', conduit: 'crosshair', pan: 'grab', place: 'copy' };
+    const cursors = { select: 'default', wire: 'crosshair', wall: 'crosshair', conduit: 'crosshair', pan: 'grab', place: 'copy', 'ul-move': 'move', 'ul-calib': 'crosshair' };
+    this.ulCalib = null;
     this.canvas.style.cursor = cursors[tool] || 'default';
     this.render(); this._emit();
   }
@@ -624,6 +655,14 @@ class Editor {
     ctx.scale(this.view.scale, this.view.scale);
     const lw = 2 / this.view.scale;
 
+    // Calque : plan importé à décalquer, sous tout le reste
+    const ul = this.underlay;
+    if (ul && ul.img && ul.img.complete && ul.img.naturalWidth) {
+      ctx.globalAlpha = ul.opacity;
+      ctx.drawImage(ul.img, ul.x, ul.y, ul.img.naturalWidth * ul.scale, ul.img.naturalHeight * ul.scale);
+      ctx.globalAlpha = 1;
+    }
+
     // Plan de maison : sol de chaque pièce teinté selon son type
     const plan = this._planInfo();
     if (plan) this._drawRoomFills(plan);
@@ -639,6 +678,15 @@ class Editor {
 
     // Points de jonction
     this._drawJunctions(lw);
+
+    // Mise à l'échelle du calque : points cliqués et segment en cours
+    if (this.tool === 'ul-calib' && this.ulCalib) {
+      const pts = this.ulCalib.slice();
+      if (pts.length === 1 && this.mouse) pts.push({ x: this.mouse.wx, y: this.mouse.wy });
+      ctx.strokeStyle = '#ff6b3d'; ctx.fillStyle = '#ff6b3d'; ctx.lineWidth = 2 / this.view.scale;
+      if (pts.length === 2) { ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y); ctx.lineTo(pts[1].x, pts[1].y); ctx.stroke(); }
+      for (const q of this.ulCalib) circle(ctx, q.x, q.y, 5 / this.view.scale, true);
+    }
 
     // Mode fil : matérialise toutes les bornes connectables
     if (this.tool === 'wire' || this.tool === 'conduit') {
@@ -952,12 +1000,14 @@ class Editor {
     this.render(); this._emit();
   }
   zoomFit() {
-    if (!this.components.length && !this.wires.length) {
+    const ul = this.underlay && this.underlay.img && this.underlay.img.naturalWidth ? this.underlay : null;
+    if (!this.components.length && !this.wires.length && !ul) {
       this.view = { x: this._cssW / 2, y: this._cssH / 2, scale: 1 };
       this.render(); this._emit(); return;
     }
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
     const acc = (x, y) => { minX = Math.min(minX, x); minY = Math.min(minY, y); maxX = Math.max(maxX, x); maxY = Math.max(maxY, y); };
+    if (ul) { acc(ul.x, ul.y); acc(ul.x + ul.img.naturalWidth * ul.scale, ul.y + ul.img.naturalHeight * ul.scale); } // le calque compte
     for (const c of this.components) {
       const b = SYMBOLS[c.type].bbox;
       acc(c.x + b.x, c.y + b.y); acc(c.x + b.x + b.w, c.y + b.y + b.h);
@@ -1056,6 +1106,61 @@ class Editor {
   }
 
   // --- Sauvegarde automatique (localStorage) -----------------------------
+  // --- Calque : plan importé à décalquer ------------------------------------
+  // Hors historique et hors fichier : il est gardé à part dans le navigateur.
+  setUnderlay(src, place) {
+    const img = new Image();
+    return new Promise((resolve) => {
+      img.onload = () => {
+        let { x, y, scale } = place || {};
+        if (scale === undefined) { // pleine vue, centré
+          const r = this.canvas.getBoundingClientRect();
+          const a = this.screenToWorld(0, 0), b = this.screenToWorld(r.width, r.height);
+          scale = Math.min((b.x - a.x) * 0.85 / img.naturalWidth, (b.y - a.y) * 0.85 / img.naturalHeight);
+          x = (a.x + b.x) / 2 - (img.naturalWidth * scale) / 2;
+          y = (a.y + b.y) / 2 - (img.naturalHeight * scale) / 2;
+        }
+        this.underlay = { src, img, x, y, scale, opacity: (place && place.opacity) || 0.5 };
+        this.render(); this._emit();
+        resolve(this.saveUnderlay());
+      };
+      img.onerror = () => resolve(false);
+      img.src = src;
+    });
+  }
+  clearUnderlay() {
+    this.underlay = null;
+    try { localStorage.removeItem('electricad-underlay'); } catch (_) {}
+    if (this.tool === 'ul-move' || this.tool === 'ul-calib') this.setTool('select');
+    this.render(); this._emit();
+  }
+  // Deux points du calque et leur distance réelle (m) : le point a reste fixe
+  calibrateUnderlay(a, b, meters) {
+    const ul = this.underlay, d = Math.hypot(b.x - a.x, b.y - a.y);
+    if (!ul || !(meters > 0) || d < 1) return false;
+    const k = (meters * PLAN_UNITS_PER_M) / d;
+    ul.scale *= k;
+    ul.x = a.x - (a.x - ul.x) * k;
+    ul.y = a.y - (a.y - ul.y) * k;
+    this.render(); this.saveUnderlay();
+    return k;
+  }
+  saveUnderlay() {
+    const ul = this.underlay;
+    if (!ul) return false;
+    try {
+      localStorage.setItem('electricad-underlay', JSON.stringify({ src: ul.src, x: ul.x, y: ul.y, scale: ul.scale, opacity: ul.opacity }));
+      return true;
+    } catch (_) { return false; } // image trop lourde pour le stockage : elle reste pour la session
+  }
+  restoreUnderlay() {
+    try {
+      const s = localStorage.getItem('electricad-underlay');
+      if (s) { const u = JSON.parse(s); if (u && u.src) return this.setUnderlay(u.src, u); }
+    } catch (_) {}
+    return Promise.resolve(false);
+  }
+
   autosave() {
     try { localStorage.setItem('electricad-doc', JSON.stringify(this.serialize())); } catch (_) {}
   }

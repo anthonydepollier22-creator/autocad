@@ -871,3 +871,24 @@ body.light .day-sec {
 .day-sec { --dc7: #9085e9; }
 body.light .day-sec { --dc7: #4a3aa7; }
 .day-legend li.pv i { height: 2px; border-radius: 1px; background: var(--dc7); align-self: center; }
+
+/* Calque : plan importé à décalquer */
+#btn-underlay.on { color: var(--accent); }
+.ul-panel {
+  position: fixed; z-index: 40; width: 280px; padding: 10px 12px 12px;
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35); font-size: 12px; color: var(--text);
+}
+.ul-panel[hidden] { display: none; }
+.ul-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.ul-x { border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 14px; }
+.ul-row { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+.ul-row input { flex: 1; accent-color: var(--accent); }
+.ul-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
+.ul-btns button {
+  min-height: 30px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text); font: inherit; font-weight: 600; cursor: pointer;
+}
+.ul-btns button:hover { border-color: var(--accent); }
+.ul-btns button.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.ul-help { margin: 10px 0 0; color: var(--muted); line-height: 1.45; }
