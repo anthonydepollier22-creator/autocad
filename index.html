@@ -125,7 +125,7 @@
         <div>
           <p class="sec-kicker">Plan</p>
           <h2 id="t-plan">Un plan complet, meublé et équipé, en un clic.</h2>
-          <p class="sec-lead">Du studio à la maison à étage : choisissez un type, ou décalquez le plan de votre maison et nommez les pièces. Le reste se place tout seul.</p>
+          <p class="sec-lead">Du studio à la maison à étage : choisissez un type, importez le plan d’architecte en DXF, ou décalquez celui de votre maison. Le reste se place tout seul.</p>
         </div>
       </header>
       <div class="plan-grid">
@@ -134,6 +134,7 @@
           <li><b>Mobilier</b> posé sans collision, en laissant les dégagements devant les portes et les meubles.</li>
           <li><b>Appareillage</b> NF C 15-100 : prises, points lumineux, commandes, détecteurs de fumée, RJ45.</li>
           <li><b>Goulottes</b> tracées au plus court depuis le tableau, en longeant les murs.</li>
+          <li><b>Plan d’architecte</b> : ouvrez le <b>DXF</b> d’AutoCAD, LibreCAD ou ArchiCAD — les murs en double trait sont ramenés à leur épaisseur, portes, fenêtres et noms des pièces sont repris. Retour vers AutoCAD par l’export DXF, un calque par nature d’objet.</li>
           <li><b>Votre maison</b> : importez son plan en image, mettez-le à l’échelle sur une cote connue et décalquez les murs — les cotes sont justes, les pièces oubliées sont signalées.</li>
         </ol>
         <figure class="plan-fig" id="plan-fig">
@@ -144,7 +145,7 @@
           <figcaption id="plan-cap">Plan généré automatiquement</figcaption>
         </figure>
       </div>
-      <p class="sec-more"><a href="app.html?houses=1">Générer une maison dans l’éditeur <span aria-hidden="true">→</span></a> &nbsp;·&nbsp; <a href="app.html?calque=1">Décalquer mon plan <span aria-hidden="true">→</span></a></p>
+      <p class="sec-more"><a href="app.html?houses=1">Générer une maison dans l’éditeur <span aria-hidden="true">→</span></a> &nbsp;·&nbsp; <a href="app.html?dxf=exemple">Importer un plan d’architecte (DXF) <span aria-hidden="true">→</span></a> &nbsp;·&nbsp; <a href="app.html?calque=1">Décalquer mon plan <span aria-hidden="true">→</span></a></p>
     </section>
 
     <!-- C2 : norme -->
@@ -235,7 +236,7 @@
         <div>
           <p class="sec-kicker">Visite 3D</p>
           <h2 id="t-visite">Visitez la maison avant de percer le premier trou.</h2>
-          <p class="sec-lead">Un moteur WebGL écrit pour ÉlectriCAD : ombres du soleil, heure du jour, lampes qui éclairent leur pièce, visite à hauteur d’yeux jusqu’à l’étage, rayons X sur les câbles et vue en coupe.</p>
+          <p class="sec-lead">Un moteur WebGL écrit pour ÉlectriCAD : ombres du soleil, heure du jour, lampes qui éclairent leur pièce, carte des lux, visite à hauteur d’yeux jusqu’à l’étage, rayons X sur les câbles et vue en coupe.</p>
         </div>
       </header>
       <div class="shots">
@@ -258,6 +259,10 @@
         <figure class="shot">
           <img src="img/accueil/etage.jpg" alt="La maison à étage vue de l’extérieur en fin d’après-midi, dans son jardin entouré d’une haie" width="1056" height="660" loading="lazy" />
           <figcaption><b>Maison à étage</b> : deux niveaux empilés, un escalier que l’on monte en visite, les câbles qui passent d’un étage à l’autre.</figcaption>
+        </figure>
+        <figure class="shot">
+          <img src="img/accueil/lumiere.jpg" alt="Vue Lumière, la nuit : le sol de chaque pièce coloré selon l’éclairement, étiquettes en lux avec l’objectif conseillé" width="1056" height="660" loading="lazy" />
+          <figcaption><b>Lumière</b> : l’éclairement en lux au sol de chaque pièce, comparé à l’objectif — et les appliques qui manquent, posées en un clic.</figcaption>
         </figure>
         <figure class="shot">
           <img src="img/accueil/coupe.jpg" alt="Coupe verticale de la maison à étage, le soir : chambres à l’étage, bureau et séjour au rez-de-chaussée, lampes allumées" width="1056" height="660" loading="lazy" />

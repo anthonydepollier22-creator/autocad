@@ -525,6 +525,9 @@ code { font-family: var(--f-mono); font-size: 0.88em; padding: 1px 5px; border-r
   outline: 1px solid rgba(0, 0, 0, 0.06); outline-offset: -1px;
 }
 .shot figcaption { margin-top: 10px; font-size: 14px; color: var(--muted); text-wrap: pretty; }
+/* nombre impair de captures : la première passe en bandeau sur toute la largeur */
+.shots .shot:first-child:nth-last-child(odd) { grid-column: 1 / -1; }
+.shots .shot:first-child:nth-last-child(odd) img { aspect-ratio: 21 / 9; }
 .shot figcaption b { color: var(--ink); }
 
 /* Électronique */
