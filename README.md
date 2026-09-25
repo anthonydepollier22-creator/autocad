@@ -133,6 +133,16 @@ L'installation est **conçue** puis **simulée en temps réel** :
 
 ![Tableau simulé](docs/screenshot-installation.png)
 
+### Matériel et budget — onglet Métré
+
+Dès qu'un tableau est conçu, l'onglet **Métré** chiffre l'installation : coffret (nombre
+de rangées de 13 modules, réserve comprise), interrupteurs différentiels par type,
+disjoncteurs par calibre, peignes, bornier et prise de terre ; **gaine ICTA préfilée par
+section** (longueur réelle des circuits + 10 % de chutes), goulottes, GTL ; prises (dont
+spécialisées), interrupteurs simples et va-et-vient, points DCL, RJ45, sorties de câble,
+détecteurs de fumée, boîtes d'encastrement ; équipements à part (radiateurs, VMC, borne).
+Prix indicatifs TTC, hors main-d'œuvre ; **export CSV** qui s'ouvre directement dans Excel.
+
 ### Journée type — 24 heures en 48 secondes
 
 Le bouton **Journée** (onglet Tableau ou barre 3D) fait vivre la maison pendant une
@@ -374,6 +384,7 @@ python3 -m http.server 8000
 │   ├── houses.js      # Types de maison, ameublement, implantation et goulottes automatiques
 │   ├── install.js     # Conception du tableau, câbles, chutes de tension, simulation physique
 │   ├── day.js         # Journée type : emploi du temps, énergie par heure et par usage
+│   ├── materials.js   # Matériel et budget de l'installation, export CSV
 │   ├── simulate.js    # Simulation analogique : DC non-linéaire, transitoire, Bode, ERC
 │   ├── digital.js     # Simulation logique (portes, bascules) + chronogramme
 │   ├── examples.js    # Bibliothèque d'exemples
@@ -396,7 +407,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-73 vérifications sans dépendance : valeurs numériques de chaque simulation
+76 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 5 types de maison** (pièces fermées, conformes, mobilier

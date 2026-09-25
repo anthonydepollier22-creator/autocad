@@ -824,8 +824,33 @@ function initHouseUI(app) {
   window.addEventListener('blur', () => { if (viz) viz.keys = {}; });
   window.addEventListener('resize', () => { if (!view3d.hidden && viz) viz.resize(); });
 
+  // ---- Matériel et budget (onglet Métré) -------------------------------------
+  function materialsHTML() {
+    const d = ensureDesign();
+    if (!d || !d.ok) return '';
+    const list = materialList(editor.components, editor.wires, d);
+    const eur = (v) => v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+    let h = '<section class="mat"><div class="mat-head"><div><b>Matériel et budget</b><span>d’après le tableau calculé et le plan</span></div>' +
+      '<button class="btn-ghost" data-mat-csv>Exporter CSV</button></div>' +
+      `<div class="mat-kpis"><div><b class="num">${eur(list.material)}</b><span>matériel électrique</span></div><div><b class="num">${eur(list.equipment)}</b><span>équipements (facultatif)</span></div></div>`;
+    let cat = null;
+    h += '<table class="mat-table"><tbody>';
+    for (const l of list.lines) {
+      if (l.cat !== cat) { cat = l.cat; h += `<tr class="mat-cat"><th colspan="3">${esc(cat)}</th></tr>`; }
+      h += `<tr><td>${esc(l.name)}${l.note ? `<small>${esc(l.note)}</small>` : ''}</td><td class="num">${String(l.qty).replace('.', ',')} ${l.unit}</td><td class="num">${eur(l.total)}</td></tr>`;
+    }
+    h += '</tbody></table><p class="norm-foot">Prix indicatifs TTC (entrée de gamme, 2026), hors main-d’œuvre. Le disjoncteur de branchement et le compteur sont fournis par le gestionnaire de réseau.</p></section>';
+    return h;
+  }
+  function exportMaterials() {
+    const d = ensureDesign();
+    if (!d || !d.ok) return;
+    const csv = materialCSV(materialList(editor.components, editor.wires, d));
+    download(new Blob(['\ufeff' + csv], { type: 'text/csv' }), (editor.meta.title || 'installation') + ' - materiel.csv');
+  }
+
   return {
-    open3D, close3D, openHouses, sim,
+    open3D, close3D, openHouses, sim, materialsHTML, exportMaterials,
     design: () => ensureDesign(),
     refresh: () => { structKey = null; tick(0, true); },
   };

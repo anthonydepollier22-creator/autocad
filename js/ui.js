@@ -370,14 +370,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Nomenclature (BOM) ------------------------------------------------
   const bomTable = document.getElementById('bom-table');
+  let bomExtra = null; // matériel et budget (installation de maison), branché plus bas
   function renderBOM() {
     const rows = buildBOM(editor.components, SYMBOLS);
-    if (!rows.length) { bomTable.innerHTML = '<div class="empty">Aucun composant.</div>'; return; }
-    let html = '<table><thead><tr><th>Réf.</th><th>Composant</th><th>Valeur</th><th>Qté</th></tr></thead><tbody>';
+    if (!rows.length) { bomTable.innerHTML = '<div class="empty">Aucun composant.</div>'; lastBomHtml = ''; return; }
+    let html = bomExtra ? bomExtra.html() : '';
+    if (html) html += '<h4 class="bom-sub">Nomenclature du plan</h4>';
+    html += '<table><thead><tr><th>Réf.</th><th>Composant</th><th>Valeur</th><th>Qté</th></tr></thead><tbody>';
     for (const r of rows) html += `<tr><td>${r.refs.join(', ')}</td><td>${r.name}</td><td>${r.value || '—'}</td><td>${r.qty}</td></tr>`;
     html += '</tbody></table>';
+    // pas de reconstruction si rien n'a changé : un clic en cours n'est pas perdu
+    if (html === lastBomHtml) return;
+    lastBomHtml = html;
     bomTable.innerHTML = html;
   }
+  let lastBomHtml = '';
+  bomTable.addEventListener('click', (e) => { if (e.target.closest('[data-mat-csv]') && bomExtra) bomExtra.csv(); });
   document.getElementById('btn-csv').addEventListener('click', () => {
     const rows = buildBOM(editor.components, SYMBOLS);
     let csv = 'Reference;Composant;Valeur;Quantite\n';
@@ -769,6 +777,7 @@ document.addEventListener('DOMContentLoaded', () => {
     editor, showTab, showToast, download, esc: _escHtml,
     activeTab: () => activeTab, renderThumb: renderExThumb,
   });
+  bomExtra = { html: houseUI.materialsHTML, csv: houseUI.exportMaterials };
 
   const statTool = document.getElementById('stat-tool');
   const TOOL_NAMES = { select: 'Sélection', wire: 'Fil', wall: 'Mur', conduit: 'Goulotte', pan: 'Panoramique', place: 'Placement' };
