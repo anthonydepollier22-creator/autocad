@@ -708,7 +708,14 @@ body.light .chip.on { color: #9a6206; }
   .statusbar { gap: 12px; padding-bottom: max(5px, env(safe-area-inset-bottom)); }
   #stat-coord, #stat-zoom { display: none; }
   .view3d-hint { display: none; }
-  .v3-controls { gap: 6px; }
+  /* téléphone : les commandes 3D tiennent sur une ligne qui défile au doigt (la maison reste visible) */
+  .v3-controls {
+    gap: 6px; flex-wrap: nowrap; overflow-x: auto; width: calc(100% + 108px); margin-right: -108px;
+    scrollbar-width: none; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain;
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+  .v3-controls::-webkit-scrollbar { display: none; }
+  .v3-controls > * { flex: none; }
   .seg button { padding: 0 7px; }
   .v3-walkhelp { white-space: normal; text-align: center; width: calc(100% - 28px); }
   .es-card { margin: 0 16px; padding: 24px 20px 20px; }
