@@ -40,8 +40,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const viz = new Viz3D(heroCanvas, { pitch: 0.68, yaw: -0.45 });
     const radius = buildBoard(viz, DEMO_BOARD.components, DEMO_BOARD.wires, SYMBOLS);
     viz.fit(radius * 0.98);
-    viz.start();
-    window.addEventListener('resize', () => viz.resize());
+    runWhenVisible(viz, heroCanvas);
+  }
+
+  // --- Plan de maison : maison 3D + badge de conformité calculé -----------
+  const houseCanvas = document.getElementById('house3d');
+  if (houseCanvas && typeof getExampleData === 'function') {
+    const data = getExampleData('maison');
+    const viz = new Viz3D(houseCanvas, { pitch: 0.78, yaw: -0.55 });
+    viz.fit(buildBoard(viz, data.components, data.wires, SYMBOLS) * 0.8);
+    runWhenVisible(viz, houseCanvas);
+    const rep = checkNFC15100(data.components, data.wires);
+    const area = rep.rooms.reduce((s, r) => s + (r.area || 0), 0);
+    const badge = document.getElementById('house-badge');
+    badge.innerHTML = (rep.ok ? '<span class="hb-ok">✓</span> Conforme NF C 15-100' : '<span class="hb-ko">!</span> À vérifier') +
+      ` · ${rep.rooms.length} pièces · ${fmtArea(area)}`;
+    badge.hidden = false;
   }
 
   // --- Navigation collante ---------------------------------------------------
@@ -104,10 +118,20 @@ document.addEventListener('DOMContentLoaded', () => {
     (BUILDERS3D[type] || (() => {}))(viz, comp);
     viz.target = [0, 8, 0];
     viz.fit(78);
-    viz.start();
-    window.addEventListener('resize', () => viz.resize());
+    runWhenVisible(viz, cv);
   });
 });
+
+// N'anime une vue 3D que lorsqu'elle est à l'écran (économise le processeur)
+function runWhenVisible(viz, canvas) {
+  window.addEventListener('resize', () => viz.resize());
+  if (!('IntersectionObserver' in window)) { viz.start(); return; }
+  new IntersectionObserver((entries) => {
+    for (const e of entries) {
+      if (e.isIntersecting) { viz.resize(); viz.start(); } else viz.stop();
+    }
+  }, { rootMargin: '120px' }).observe(canvas);
+}
 
 // Vignette 2D d'un schéma (mêmes tracés que l'éditeur)
 function drawSchematicThumb(cv, data) {
@@ -123,6 +147,17 @@ function drawSchematicThumb(cv, data) {
   const s = Math.min((W - 28) / (maxX - minX), (H - 22) / (maxY - minY), 0.6);
   ctx.translate(W / 2 - (minX + maxX) / 2 * s, H / 2 - (minY + maxY) / 2 * s);
   ctx.scale(s, s);
+  if (data.wires.some((w) => w.kind === 'wall') && typeof computeRooms === 'function') {
+    const info = computeRooms(data.components, data.wires);
+    info.rooms.forEach((room, i) => {
+      if (room.leaked || room.sharedWith !== null) return;
+      ctx.beginPath();
+      for (const r of roomRuns(info, i)) ctx.rect(r.x, r.y, r.w, r.h);
+      ctx.fillStyle = room.color; ctx.globalAlpha = 0.16; ctx.fill(); ctx.globalAlpha = 1;
+      const lab = data.components.find((c) => c.id === room.id);
+      if (lab) lab.__area = room.area;
+    });
+  }
   ctx.strokeStyle = '#c3cddd'; ctx.fillStyle = '#c3cddd';
   ctx.lineWidth = 1.7 / s; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   for (const w of data.wires) {

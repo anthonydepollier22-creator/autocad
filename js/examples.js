@@ -325,12 +325,15 @@ const EXAMPLES = [
     name: 'Maison T2 — implantation élec.',
     level: 'Avancé',
     sim: 'plan', simLabel: 'Plan 2D / 3D',
-    desc: 'Plan d’un T2 : murs, portes, fenêtres, mobilier — et l’installation NF C 15-100 : GTL + tableau, goulottes, prises, interrupteurs, DCL. Ouvre la vue 3D !',
+    desc: 'Plan d’un T2 de 41 m² : pièces et surfaces détectées, installation NF C 15-100 (GTL, tableau, goulottes, prises, DCL) contrôlée pièce par pièce. Ouvre la vue 3D !',
     data: {
       version: 1,
       meta: { title: 'Maison T2 — implantation électrique', author: 'Exemples ÉlectriCAD' },
-      counters: { TB: 1, GTL: 1, PC: 7, SW: 2, DCL: 2, BD: 2 },
+      counters: { TB: 1, GTL: 1, PC: 9, SW: 3, DCL: 2, BD: 2 },
       components: [
+        // Pièces (nom -> règles NF C 15-100, surface calculée automatiquement)
+        { id: 'r1', type: 'room', x: 190, y: 380, rot: 0, label: '', value: 'Chambre' },
+        { id: 'r2', type: 'room', x: 470, y: 250, rot: 0, label: '', value: 'Séjour' },
         // Architecture
         { id: 'p1', type: 'door', x: 100, y: 520, rot: 0, label: '', value: '' },
         { id: 'p2', type: 'door', x: 340, y: 260, rot: 90, label: '', value: '' },
@@ -344,7 +347,7 @@ const EXAMPLES = [
         { id: 'm4', type: 'table', x: 560, y: 350, rot: 0, label: '', value: '' },
         { id: 'm5', type: 'counter', x: 690, y: 60, rot: 0, label: '', value: '' },
         // Implantation électrique
-        { id: 'TB1', type: 'panel_house', x: 46, y: 340, rot: 0, label: 'TB1', value: '' },
+        { id: 'TB1', type: 'panel_house', x: 46, y: 320, rot: 0, label: 'TB1', value: '' },
         { id: 'GTL1', type: 'gtl', x: 30, y: 430, rot: 0, label: 'GTL', value: '' },
         { id: 'PC1', type: 'socket_wall', x: 20, y: 150, rot: 90, label: 'PC1', value: '' },
         { id: 'PC2', type: 'socket_wall', x: 315, y: 80, rot: 270, label: 'PC2', value: '' },
@@ -353,8 +356,11 @@ const EXAMPLES = [
         { id: 'PC5', type: 'socket_wall', x: 500, y: 500, rot: 0, label: 'PC5', value: '' },
         { id: 'PC6', type: 'socket_wall', x: 620, y: 20, rot: 180, label: 'PC6', value: '' },
         { id: 'PC7', type: 'socket_wall', x: 700, y: 20, rot: 180, label: 'PC7', value: '' },
+        { id: 'PC8', type: 'socket_wall', x: 315, y: 440, rot: 270, label: 'PC8', value: '' },
+        { id: 'PC9', type: 'socket_wall', x: 360, y: 180, rot: 90, label: 'PC9', value: '' },
         { id: 'SW1', type: 'switch_sa', x: 315, y: 320, rot: 0, label: 'SW1', value: '' },
         { id: 'SW2', type: 'switch_vv_wall', x: 170, y: 495, rot: 0, label: 'SW2', value: '' },
+        { id: 'SW3', type: 'switch_sa', x: 380, y: 330, rot: 0, label: 'SW3', value: '' },
         { id: 'DCL1', type: 'dcl', x: 170, y: 240, rot: 0, label: 'DCL1', value: '' },
         { id: 'DCL2', type: 'dcl', x: 570, y: 240, rot: 0, label: 'DCL2', value: '' },
         { id: 'BD1', type: 'jbox', x: 170, y: 40, rot: 0, label: 'BD1', value: '' },
@@ -384,6 +390,9 @@ const EXAMPLES = [
         { id: 'g12', kind: 'conduit', points: [{ x: 570, y: 40 }, { x: 570, y: 240 }] },
         { id: 'g13', kind: 'conduit', points: [{ x: 570, y: 40 }, { x: 620, y: 40 }, { x: 620, y: 20 }] },
         { id: 'g14', kind: 'conduit', points: [{ x: 620, y: 40 }, { x: 700, y: 40 }, { x: 700, y: 20 }] },
+        { id: 'g15', kind: 'conduit', points: [{ x: 315, y: 320 }, { x: 315, y: 440 }] },
+        { id: 'g16', kind: 'conduit', points: [{ x: 570, y: 40 }, { x: 360, y: 40 }, { x: 360, y: 180 }] },
+        { id: 'g17', kind: 'conduit', points: [{ x: 380, y: 460 }, { x: 380, y: 330 }] },
       ],
     },
   },

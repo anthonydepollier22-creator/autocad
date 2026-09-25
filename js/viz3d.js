@@ -407,6 +407,7 @@ const BUILDERS3D = {
   },
   wall_light: (v, c) => { v.box(c.x, 52, c.y, 18, 12, 9, '#ffd75e', -(c.rot || 0)); },
   jbox: (v, c) => { v.box(c.x, 70, c.y, 14, 9, 9, '#d8dade', -(c.rot || 0)); },
+  room: () => {}, // l'étiquette n'a pas de volume : la pièce se voit à son sol
   logic_in: (v, c) => { v.box(c.x, 0, c.y, 24, 10, 24, c.high ? '#2f9e57' : C3D.dark, -(c.rot || 0)); },
   logic_out: (v, c) => {
     v.cyl(c.x, 0, c.y, 8, 8, c.__on ? '#2f9e57' : C3D.dark);
@@ -449,10 +450,29 @@ function buildBoard(viz, components, wires, symbols) {
   const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
   const W = maxX - minX, D = maxZ - minZ;
 
-  // Sol : PCB vert (schéma) ou dalle parquet (maison) — calque de fond
+  // Sol : PCB vert (schéma) ou dalle (maison) — calque de fond
   viz.setLayer(0);
-  viz.box(cx, -8, cz, W, 8, D, houseMode ? '#c8ad85' : C3D.pcb);
-  if (houseMode) {
+  const info = houseMode && typeof computeRooms === 'function' ? computeRooms(components, wires) : null;
+  const floored = info ? info.rooms.map((r) => !r.leaked && r.sharedWith === null) : [];
+  const hasRooms = floored.some(Boolean);
+  viz.box(cx, -8, cz, W, 8, D, houseMode ? (hasRooms ? '#ab9677' : '#c8ad85') : C3D.pcb);
+  if (hasRooms) {
+    // Revêtement propre à chaque pièce : parquet ou carrelage selon son type
+    viz.setLayer(0.5);
+    info.rooms.forEach((room, i) => {
+      if (!floored[i]) return;
+      const col = _floorColor(room);
+      for (const r of roomRuns(info, i)) {
+        viz.poly([[r.x, 0.2, r.y], [r.x + r.w, 0.2, r.y], [r.x + r.w, 0.2, r.y + r.h], [r.x, 0.2, r.y + r.h]], col);
+      }
+    });
+    viz.setLayer(0.6);
+    info.rooms.forEach((room, i) => {
+      if (!floored[i]) return;
+      const tile = room.type && room.type.floor === 'tile';
+      _floorSeams(viz, info, i, tile ? 30 : 40, tile, tile ? '#c3c9d0' : '#b4946a');
+    });
+  } else if (houseMode) {
     // lames de parquet
     for (let x = minX + 40; x < maxX; x += 40) viz.box(x, 0.05, cz, 1, 0.4, D, '#b89a72');
   } else {
@@ -516,4 +536,49 @@ function _traceSeg(viz, a, b) {
   if (len < 1) return;
   const ang = (Math.atan2(dz, dx) * 180) / Math.PI;
   viz.box((a.x + b.x) / 2, 0, (a.y + b.y) / 2, len + 4, 1.4, 5, C3D.copper, -ang);
+}
+
+// ---- Sols du plan de maison -----------------------------------------------
+const _FLOORS = {
+  chambre: '#cfae7e', sejour: '#d8b98a', circ: '#c9aa7c',
+  cuisine: '#e3e6ea', sdb: '#dbe7ee', wc: '#e3e6ea',
+};
+function _floorColor(room) {
+  return (room.type && _FLOORS[room.type.key]) || '#d2b384';
+}
+
+// Joints du revêtement de la pièce i : lames (dans un sens) ou carreaux
+// (dans les deux sens), découpés aux contours exacts de la pièce.
+function _floorSeams(viz, info, i, pitch, both, color) {
+  const S = info.step, k = Math.round(pitch / S), y = 0.35, t = 0.7;
+  const own = (gx, gy) => info.owner[gy * info.nx + gx] === i;
+  for (let gx = 0; gx < info.nx; gx++) {
+    if ((Math.round((info.x0 + gx * S) / S)) % k !== 0) continue;
+    const x = info.x0 + gx * S;
+    let start = -1;
+    for (let gy = 0; gy <= info.ny; gy++) {
+      const inside = gy < info.ny && own(gx, gy);
+      if (inside && start < 0) start = gy;
+      if (!inside && start >= 0) {
+        const z1 = info.y0 + start * S - S / 2, z2 = info.y0 + gy * S - S / 2;
+        viz.poly([[x - t, y, z1], [x + t, y, z1], [x + t, y, z2], [x - t, y, z2]], color);
+        start = -1;
+      }
+    }
+  }
+  if (!both) return;
+  for (let gy = 0; gy < info.ny; gy++) {
+    if ((Math.round((info.y0 + gy * S) / S)) % k !== 0) continue;
+    const z = info.y0 + gy * S;
+    let start = -1;
+    for (let gx = 0; gx <= info.nx; gx++) {
+      const inside = gx < info.nx && own(gx, gy);
+      if (inside && start < 0) start = gx;
+      if (!inside && start >= 0) {
+        const x1 = info.x0 + start * S - S / 2, x2 = info.x0 + gx * S - S / 2;
+        viz.poly([[x1, y, z - t], [x2, y, z - t], [x2, y, z + t], [x1, y, z + t]], color);
+        start = -1;
+      }
+    }
+  }
 }

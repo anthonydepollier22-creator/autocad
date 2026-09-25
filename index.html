@@ -26,6 +26,7 @@
     </a>
     <div class="nav-links">
       <a href="#fonctions">Fonctionnalités</a>
+      <a href="#maison">Maison</a>
       <a href="#exemples">Exemples</a>
       <a href="#trois-d">3D</a>
       <a class="nav-cta" href="app.html">Ouvrir l’éditeur</a>
@@ -49,7 +50,7 @@
         <a class="btn-ghost" href="#exemples">Voir les exemples</a>
       </div>
       <div class="hero-stats">
-        <div><b>62</b><span>symboles<br />dont normes NF</span></div>
+        <div><b>63</b><span>symboles<br />dont normes NF</span></div>
         <div><b>4</b><span>types<br />d’analyses</span></div>
         <div><b>13</b><span>circuits<br />d’exemple</span></div>
         <div><b>3D</b><span>vue carte<br />interactive</span></div>
@@ -70,7 +71,7 @@
       <div class="step">
         <span class="step-n">1</span>
         <h3>Dessine</h3>
-        <p>Choisis parmi 62 symboles (CEI, NF C 15-100, mobilier), trace murs et goulottes, pose-les sur la grille magnétique.</p>
+        <p>Choisis parmi 63 symboles (CEI, NF C 15-100, mobilier), trace murs et goulottes, pose-les sur la grille magnétique.</p>
       </div>
       <div class="step">
         <span class="step-n">2</span>
@@ -120,6 +121,34 @@
         <div class="f-ico"><svg viewBox="0 0 24 24"><path d="M13 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z"/><path d="M13 3v5h5"/><path d="M9 13h6M9 17h6"/></svg></div>
         <h3>Normes &amp; exports</h3>
         <p>Symboles CEI &amp; <b>NF C 15-100</b>, <b>plan de maison</b> (murs, GTL, tableau, goulottes, mobilier) avec métré automatique, export PNG / SVG / PDF / CSV.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Plan de maison -->
+  <section class="section house-sec" id="maison">
+    <div class="house-grid">
+      <div class="house-text">
+        <div class="eyebrow">Plan de maison</div>
+        <h2>De la maison au tableau électrique</h2>
+        <p class="house-lead">Tracez les murs, placez le mobilier puis l’appareillage : ÉlectriCAD reconnaît les pièces, calcule leur surface et contrôle l’installation selon la NF&nbsp;C&nbsp;15-100, en direct.</p>
+        <ul class="house-list">
+          <li><b>Pièces et surfaces automatiques</b>, cotations des murs en mètres</li>
+          <li><b>Contrôle NF C 15-100</b> : prises exigées selon la surface, éclairage, GTL et tableau</li>
+          <li><b>Goulottes, GTL, tableau</b> et appareillage normalisé, métré exportable</li>
+          <li><b>Visite en 3D</b> : murs, parquet, mobilier et goulottes en volume</li>
+        </ul>
+        <div class="hero-actions">
+          <a class="btn-hero" href="app.html?ex=maison">
+            <svg viewBox="0 0 24 24"><path d="M7.5 4.5l12 7.5-12 7.5z"/></svg>
+            Ouvrir le plan d’exemple
+          </a>
+          <a class="btn-ghost" href="app.html?ex=maison&amp;3d=1">Visiter en 3D</a>
+        </div>
+      </div>
+      <div class="house-visual">
+        <canvas id="house3d"></canvas>
+        <div class="house-badge" id="house-badge" hidden></div>
       </div>
     </div>
   </section>
@@ -183,6 +212,7 @@
 
   <script src="js/symbols.js"></script>
   <script src="js/netlist.js"></script>
+  <script src="js/plan.js"></script>
   <script src="js/examples.js"></script>
   <script src="js/viz3d.js"></script>
   <script src="js/landing.js"></script>

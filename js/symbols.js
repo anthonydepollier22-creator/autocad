@@ -634,6 +634,22 @@ function orBody(ctx) {
 // ----- Plan de maison : architecture, mobilier, implantation électrique ----
 // Ces symboles (plan: true) sont ignorés par la simulation et l'ERC.
 Object.assign(SYMBOLS, {
+  room: {
+    name: 'Pièce (nom + surface)', category: 'Architecture', prefix: '', plan: true, noBom: true, ownLabel: true,
+    terminals: [], bbox: { x: -50, y: -22, w: 100, h: 44 },
+    draw(ctx, c) {
+      ctx.save();
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '600 15px sans-serif';
+      ctx.fillText((c && c.value) || 'Pièce', 0, -8);
+      ctx.font = '12px sans-serif';
+      ctx.globalAlpha *= 0.75;
+      const a = c && c.__area;
+      ctx.fillText(a ? a.toFixed(1).replace('.', ',') + ' m²' : c && c.__leak ? 'pièce non fermée' : '— m²', 0, 10);
+      ctx.restore();
+    },
+  },
   door: {
     name: 'Porte', category: 'Architecture', prefix: '', plan: true, noBom: true,
     terminals: [], bbox: { x: -44, y: -76, w: 88, h: 82 },

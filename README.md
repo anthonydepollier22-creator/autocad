@@ -12,8 +12,11 @@ Aucune installation, aucun serveur : il suffit d'ouvrir `index.html` dans un nav
 - **Site vitrine** : https://anthonydepollier22-creator.github.io/autocad/
 - **Éditeur** : https://anthonydepollier22-creator.github.io/autocad/app.html
 
+![Site vitrine — section maison](docs/screenshot-accueil-maison.png)
+
 Liens directs : `app.html?ex=divider` (charge un exemple : `led`, `lowpass`, `bjt`,
-`halfadder`…), `&theme=light` force le thème clair, `&3d=1` ouvre la vue 3D.
+`halfadder`, `maison`…), `&theme=light` force le thème clair, `&3d=1` ouvre la vue 3D,
+`&tab=norm` ouvre le rapport NF C 15-100.
 
 ## 🧊 Vue 3D
 
@@ -44,8 +47,27 @@ Dessine une **maison complète** et implante l'installation dedans :
   boîtes de dérivation — le tout compté dans la **nomenclature (métré)** ;
 - La **vue 3D devient la maison en volume** : murs extrudés, sol parquet,
   goulottes en plinthe, meubles et appareillage 3D ;
-- Exemple fourni : **« Maison T2 — implantation élec. »** (`?ex=maison`),
-  murs/goulottes exclus de la simulation et de l'ERC (aucun faux positif).
+- **Pièces et surfaces automatiques** : pose l'étiquette *Pièce* dans une zone
+  fermée par les murs (portes et fenêtres comptent comme fermées) → la pièce se
+  colore et sa **surface en m²** s'affiche ; une pièce ouverte est signalée
+  « non fermée » ;
+- **Cotations** : chaque mur porte sa longueur en mètres (100 unités = 1 m), et la
+  longueur s'affiche en direct pendant le tracé ;
+- **Onglet « Norme »** : contrôle **pièce par pièce** de la NF C 15-100
+  (version simplifiée) — prises exigées selon le type et la surface (séjour :
+  1 par 4 m², minimum 5 ; chambre : 3 ; cuisine : 6 dont 4 au-dessus du plan de
+  travail…), point lumineux et commande, présence de la GTL et du tableau à
+  proximité. Pastille verte / orange / rouge sur l'onglet, clic sur une pièce pour
+  la cibler ; le type est reconnu d'après le nom (*Séjour*, *Chambre 2*, *SdB*…) ;
+- La **vue 3D devient la maison en volume**, avec un **sol par pièce** (parquet
+  ou carrelage selon le type) ;
+- Exemple fourni : **« Maison T2 — implantation élec. »** (`?ex=maison`, 41 m²,
+  conforme), murs/goulottes exclus de la simulation et de l'ERC (aucun faux
+  positif). `?ex=maison&tab=norm` ouvre directement le rapport de conformité.
+
+![Plan de maison et contrôle NF C 15-100](docs/screenshot-norme.png)
+
+![Maison en 3D](docs/screenshot-maison-3d.png)
 
 ## ⚡ Animation du courant
 
@@ -67,9 +89,10 @@ Le paramètre `&sim=dc|trans|bode|logic` lance l'analyse au chargement.
 
 - **Thème sombre et clair** (bascule en un clic, mémorisé), icônes vectorielles,
   survol des composants, bornes matérialisées en mode câblage.
-- **Bibliothèque d'exemples intégrée** : 8 circuits classiques prêts à simuler
+- **Bibliothèque d'exemples intégrée** : 13 schémas prêts à simuler
   (lampe + interrupteur, diviseur, LED, charge RC, filtre passe-bas, redresseur,
-  transistor, demi-additionneur logique), avec vignettes, niveaux et type d'analyse.
+  transistor, demi-additionneur, tableau NF, afficheur 7 segments, diviseur de
+  fréquence, compteur, maison T2), avec vignettes, niveaux et type d'analyse.
   Chaque exemple est **validé numériquement par les tests**.
 - **Liens partageables** : `?ex=<id>` charge un exemple, `?theme=light|dark` force
   le thème — pratique pour un cours ou un TP.
@@ -169,18 +192,40 @@ python3 -m http.server 8000
 
 ```
 .
-├── index.html        # Interface (barre d'outils, palette, plan, propriétés)
+├── index.html         # Site vitrine (héros 3D, galerie, maison, composants 3D)
+├── app.html           # Éditeur (barre d'outils, palette, plan, propriétés)
+├── sw.js, manifest.webmanifest  # Application installable (PWA, hors ligne)
 ├── css/
-│   └── styles.css     # Thème sombre type CAO
-└── js/
-    ├── symbols.js     # Bibliothèque de symboles électriques (dessin vectoriel)
-    ├── netlist.js     # Connectivité électrique (nets), jonctions, nomenclature
-    ├── simulate.js    # Simulation analogique : DC non-linéaire, transitoire, AC (Bode), ERC
-    ├── digital.js     # Simulation logique (portes) + chronogramme
-    ├── svg.js         # Export vectoriel SVG (réutilise le dessin des symboles)
-    ├── editor.js      # Moteur CAO : vue, modèle, outils, historique, rendu
-    └── ui.js          # Câblage de l'interface et opérations fichier
+│   ├── styles.css     # Éditeur — thèmes sombre et clair
+│   └── landing.css    # Site vitrine
+├── js/
+│   ├── symbols.js     # Bibliothèque de symboles (dessin vectoriel)
+│   ├── netlist.js     # Connectivité électrique (nets), jonctions, nomenclature
+│   ├── plan.js        # Plan de maison : pièces, surfaces, cotations, NF C 15-100
+│   ├── simulate.js    # Simulation analogique : DC non-linéaire, transitoire, Bode, ERC
+│   ├── digital.js     # Simulation logique (portes, bascules) + chronogramme
+│   ├── examples.js    # Bibliothèque d'exemples
+│   ├── viz3d.js       # Moteur 3D maison (carte électronique / maison en volume)
+│   ├── svg.js         # Export vectoriel SVG
+│   ├── editor.js      # Moteur CAO : vue, modèle, outils, historique, rendu
+│   ├── ui.js          # Câblage de l'interface et opérations fichier
+│   └── landing.js     # Animations du site vitrine
+└── tests/
+    └── run.js         # Suite de tests (node tests/run.js)
 ```
+
+## ✅ Tests
+
+```bash
+node tests/run.js
+```
+
+34 vérifications sans dépendance : valeurs numériques de chaque simulation
+(loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
+vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
+les cas non conformes), construction 3D de tous les exemples et contenu des
+exports SVG. Le déploiement GitHub Pages **exécute ces tests d'abord** : une
+régression bloque la mise en ligne.
 
 ## 🧱 Format de fichier
 

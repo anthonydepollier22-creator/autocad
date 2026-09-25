@@ -299,3 +299,44 @@ a { color: inherit; }
   .hero-actions, .hero-stats { justify-content: center; }
   .nav-links a:not(.nav-cta) { display: none; }
 }
+
+/* ---------- Plan de maison ---------- */
+.house-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 52px; align-items: center; }
+.house-text .eyebrow, .house-text h2 { text-align: left; }
+.house-text h2 { line-height: 1.15; margin-bottom: 16px; }
+.house-lead { color: var(--muted); font-size: 16px; margin: 0 0 22px; }
+.house-list { list-style: none; padding: 0; margin: 0 0 30px; display: grid; gap: 12px; }
+.house-list li { position: relative; padding-left: 32px; color: var(--muted); font-size: 14.5px; }
+.house-list li::before {
+  content: '✓'; position: absolute; left: 0; top: 1px;
+  width: 21px; height: 21px; border-radius: 6px; display: grid; place-items: center;
+  font-size: 12px; font-weight: 800; color: #4fd88a;
+  background: rgba(52, 196, 113, 0.12); border: 1px solid rgba(52, 196, 113, 0.3);
+}
+.house-list b { color: var(--text); }
+.house-visual { position: relative; }
+#house3d {
+  width: 100%; aspect-ratio: 10 / 8; display: block; cursor: grab;
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(255, 180, 84, 0.08), transparent 70%),
+    linear-gradient(180deg, rgba(18, 21, 29, 0.9), rgba(11, 13, 19, 0.6));
+  border: 1px solid var(--border); border-radius: 20px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
+}
+#house3d:active { cursor: grabbing; }
+.house-badge {
+  position: absolute; left: 16px; bottom: 16px;
+  font-size: 12.5px; font-weight: 650; padding: 8px 14px; border-radius: 30px;
+  background: rgba(11, 13, 19, 0.78); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--border-strong); color: var(--text);
+}
+.house-badge[hidden] { display: none; }
+.hb-ok { color: #4fd88a; font-weight: 800; margin-right: 3px; }
+.hb-ko { color: #ffc06a; font-weight: 800; margin-right: 3px; }
+@media (max-width: 900px) {
+  .house-grid { grid-template-columns: 1fr; gap: 32px; }
+  .house-text { text-align: center; }
+  .house-text .eyebrow, .house-text h2 { text-align: center; }
+  .house-list { text-align: left; }
+  .house-text .hero-actions { justify-content: center; }
+}

@@ -179,6 +179,7 @@ class Editor {
     const p = this.snapPt({ x: wx, y: wy });
     const c = { id: this.uid(), type, x: p.x, y: p.y, rot: this.placeRot, label: this.nextRef(type), value: '' };
     if (type === 'breaker' || type === 'rcd') c.closed = true; // conduisent par défaut
+    if (type === 'room') c.value = 'Pièce'; // à renommer : Chambre, Séjour, Cuisine…
     this.components.push(c);
     this.pushHistory();
     this.render();
@@ -555,11 +556,18 @@ class Editor {
     ctx.scale(this.view.scale, this.view.scale);
     const lw = 2 / this.view.scale;
 
+    // Plan de maison : sol de chaque pièce teinté selon son type
+    const plan = this._planInfo();
+    if (plan) this._drawRoomFills(plan);
+
     // Fils
     for (const w of this.wires) this._drawWire(w, this.selection.has(w.id), lw);
 
     // Composants
     for (const c of this.components) this._drawComponent(c, this.selection.has(c.id), lw);
+
+    // Cotations des murs (masquées quand on dézoome trop pour les lire)
+    if (plan && this.view.scale > 0.35) this._drawDims();
 
     // Points de jonction
     this._drawJunctions(lw);
@@ -594,6 +602,21 @@ class Editor {
       // marqueur d'accroche
       ctx.fillStyle = sp.onTerm ? this.colors.snap : this.colors.draft;
       circle(ctx, sp.x, sp.y, 4 / this.view.scale, true);
+      // longueur du mur en cours de tracé
+      if (this.tool === 'wall' && typeof fmtMeters === 'function') {
+        let len = 0;
+        for (let i = 1; i < route.length; i++) len += Math.hypot(route[i].x - route[i - 1].x, route[i].y - route[i - 1].y);
+        if (len > 0) {
+          const fs = 12 / this.view.scale;
+          ctx.font = `600 ${fs}px sans-serif`;
+          ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+          ctx.lineWidth = 3 / this.view.scale; ctx.strokeStyle = this.colors.bg;
+          const tx = sp.x + 10 / this.view.scale, ty = sp.y - 8 / this.view.scale;
+          ctx.strokeText(fmtMeters(len), tx, ty);
+          ctx.fillStyle = this.colors.draft;
+          ctx.fillText(fmtMeters(len), tx, ty);
+        }
+      }
     }
 
     // Aperçu du composant à placer
@@ -712,6 +735,51 @@ class Editor {
     ctx.fillText(text, x, y);
   }
 
+  // Pièces détectées (null s'il n'y a pas de murs) ; reporte la surface
+  // calculée sur les étiquettes pour qu'elles l'affichent.
+  _planInfo() {
+    const hasWalls = typeof computeRooms === 'function' && this.wires.some((w) => w.kind === 'wall');
+    const info = hasWalls ? computeRooms(this.components, this.wires) : null;
+    for (const c of this.components) {
+      if (c.type !== 'room') continue;
+      const r = info && info.rooms.find((x) => x.id === c.id);
+      c.__area = r ? r.area : null;
+      c.__leak = r ? r.leaked : false;
+    }
+    return info;
+  }
+
+  _drawRoomFills(info) {
+    const ctx = this.ctx;
+    const alpha = this.colors === CANVAS_THEMES.light ? 0.13 : 0.1;
+    info.rooms.forEach((room, i) => {
+      if (room.leaked || room.sharedWith !== null) return;
+      ctx.beginPath();
+      for (const r of roomRuns(info, i)) ctx.rect(r.x, r.y, r.w, r.h);
+      ctx.fillStyle = room.color;
+      ctx.globalAlpha = alpha;
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  _drawDims() {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3; ctx.lineJoin = 'round';
+    ctx.strokeStyle = this.colors.bg; ctx.fillStyle = this.colors.label;
+    for (const d of wallDimensions(this.wires)) {
+      ctx.save();
+      ctx.translate(d.x, d.y); ctx.rotate(d.angle);
+      ctx.strokeText(d.text, 0, 0);
+      ctx.fillText(d.text, 0, 0);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
   _drawComponent(c, selected, lw) {
     const ctx = this.ctx;
     const sym = SYMBOLS[c.type];
@@ -733,8 +801,8 @@ class Editor {
 
     ctx.restore();
 
-    // étiquette (redressée, hors rotation)
-    if (c.label || c.value) {
+    // étiquette (redressée, hors rotation) — sauf symboles qui dessinent la leur
+    if ((c.label || c.value) && !sym.ownLabel) {
       ctx.save();
       ctx.fillStyle = selected ? this.colors.labelSel : this.colors.label;
       ctx.font = `${11}px sans-serif`;
@@ -907,7 +975,8 @@ class Editor {
     for (const c of this.components) { const b = SYMBOLS[c.type].bbox; acc(c.x + b.x - 20, c.y + b.y - 20); acc(c.x + b.x + b.w + 20, c.y + b.y + b.h + 20); }
     for (const w of this.wires) for (const p of w.points) acc(p.x, p.y);
     if (!isFinite(minX)) { minX = 0; minY = 0; maxX = 400; maxY = 300; }
-    const pad = 30, scale = 2;
+    const info = this._planInfo();
+    const pad = info ? 50 : 30, scale = 2; // marge plus large pour les cotations
     const w = (maxX - minX + pad * 2), h = (maxY - minY + pad * 2);
     const cv = document.createElement('canvas');
     cv.width = w * scale; cv.height = h * scale;
@@ -915,23 +984,45 @@ class Editor {
     ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cv.width, cv.height);
     ctx.scale(scale, scale);
     ctx.translate(pad - minX, pad - minY);
-    ctx.lineWidth = 2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    // fils
-    ctx.strokeStyle = '#111';
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    // sols des pièces
+    if (info) {
+      info.rooms.forEach((room, i) => {
+        if (room.leaked || room.sharedWith !== null) return;
+        ctx.beginPath();
+        for (const r of roomRuns(info, i)) ctx.rect(r.x, r.y, r.w, r.h);
+        ctx.fillStyle = room.color; ctx.globalAlpha = 0.14; ctx.fill(); ctx.globalAlpha = 1;
+      });
+    }
+    // fils, murs, goulottes
     for (const wi of this.wires) {
-      ctx.beginPath(); ctx.moveTo(wi.points[0].x, wi.points[0].y);
-      for (let i = 1; i < wi.points.length; i++) ctx.lineTo(wi.points[i].x, wi.points[i].y);
-      ctx.stroke();
+      const path = () => {
+        ctx.beginPath(); ctx.moveTo(wi.points[0].x, wi.points[0].y);
+        for (let i = 1; i < wi.points.length; i++) ctx.lineTo(wi.points[i].x, wi.points[i].y);
+        ctx.stroke();
+      };
+      if (wi.kind === 'wall') { ctx.strokeStyle = '#1f2733'; ctx.lineWidth = 9; path(); }
+      else if (wi.kind === 'conduit') {
+        ctx.strokeStyle = '#6b7788'; ctx.lineWidth = 8; path();
+        ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4.5; path();
+      } else { ctx.strokeStyle = '#111'; ctx.lineWidth = 2; path(); }
     }
     // composants
     for (const c of this.components) {
       const sym = SYMBOLS[c.type];
       ctx.save(); ctx.translate(c.x, c.y); ctx.rotate((c.rot * Math.PI) / 180);
       ctx.strokeStyle = '#111'; ctx.fillStyle = '#111'; ctx.lineWidth = 2;
-      sym.draw(ctx); ctx.restore();
-      if (c.label || c.value) {
-        ctx.fillStyle = '#333'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+      sym.draw(ctx, c); ctx.restore();
+      if ((c.label || c.value) && !sym.ownLabel) {
+        ctx.fillStyle = '#333'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
         ctx.fillText([c.label, c.value].filter(Boolean).join(' '), c.x, c.y - sym.bbox.h / 2 - 12);
+      }
+    }
+    // cotations
+    if (info) {
+      ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#444';
+      for (const d of wallDimensions(this.wires)) {
+        ctx.save(); ctx.translate(d.x, d.y); ctx.rotate(d.angle); ctx.fillText(d.text, 0, 0); ctx.restore();
       }
     }
     return cv.toDataURL('image/png');

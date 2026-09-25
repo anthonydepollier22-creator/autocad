@@ -100,7 +100,7 @@
       <div id="view3d" class="view3d" hidden>
         <canvas id="canvas3d"></canvas>
         <div class="view3d-bar">
-          <span class="view3d-title">Vue 3D de la carte</span>
+          <span class="view3d-title" id="view3d-title">Vue 3D de la carte</span>
           <span class="view3d-hint">Glisse pour tourner · molette pour zoomer</span>
           <button id="btn-3d-photo" class="icon-btn" data-icon="image" title="Exporter la vue en PNG"></button>
           <button id="btn-3d-close" class="icon-btn" title="Fermer (Échap)">✕</button>
@@ -114,6 +114,7 @@
         <button class="tab active" data-tab="props">Propriétés</button>
         <button class="tab" data-tab="bom">Nomenclature</button>
         <button class="tab" data-tab="sim">Simulation</button>
+        <button class="tab" data-tab="norm">Norme</button>
       </div>
 
       <!-- Onglet Propriétés -->
@@ -121,10 +122,10 @@
         <div id="props-empty" class="props-empty">Aucune sélection</div>
         <div id="props" class="props" style="display:none">
           <div class="prop-type" id="prop-type"></div>
-          <label>Référence
+          <label id="prop-label-wrap">Référence
             <input type="text" id="prop-label" placeholder="R1" />
           </label>
-          <label>Valeur
+          <label><span id="prop-value-lbl">Valeur</span>
             <input type="text" id="prop-value" placeholder="1 kΩ" />
           </label>
           <label id="prop-switch-wrap" class="check-row" style="display:none">
@@ -146,6 +147,7 @@
             <li><kbd>R</kbd> pivoter · <kbd>Suppr</kbd> effacer · <b>double-clic</b> : basculer un interrupteur ou une entrée logique</li>
             <li><kbd>Molette</kbd> zoom · <kbd>Espace</kbd>+glisser : déplacer la vue</li>
             <li>Outil <b>Fil</b> : clique les points, double-clic pour terminer. <kbd>Maj</kbd> inverse le coude.</li>
+            <li>Plan de maison : <kbd>M</kbd> mur · <kbd>G</kbd> goulotte · pose une étiquette <b>Pièce</b> dans chaque pièce pour sa surface et le contrôle NF.</li>
             <li><kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> annuler / refaire · <kbd>Ctrl+D</kbd> dupliquer · <kbd>Ctrl+A</kbd> tout sélectionner</li>
           </ul>
         </div>
@@ -155,6 +157,11 @@
       <div class="tab-panel" data-panel="bom" style="display:none">
         <div class="bom-actions"><button id="btn-csv">Exporter CSV</button></div>
         <div id="bom-table" class="bom-table"></div>
+      </div>
+
+      <!-- Onglet Norme (plan de maison) -->
+      <div class="tab-panel" data-panel="norm" style="display:none">
+        <div id="norm-report" class="norm-report"></div>
       </div>
 
       <!-- Onglet Simulation -->
@@ -208,6 +215,7 @@
 
   <script src="js/symbols.js"></script>
   <script src="js/netlist.js"></script>
+  <script src="js/plan.js"></script>
   <script src="js/simulate.js"></script>
   <script src="js/digital.js"></script>
   <script src="js/svg.js"></script>

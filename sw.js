@@ -4,11 +4,11 @@
  * toujours quand on est en ligne, et l'application reste utilisable hors-ligne.
  */
 
-const CACHE = 'electricad-v1';
+const CACHE = 'electricad-v2';
 const ASSETS = [
   'index.html', 'app.html',
   'css/styles.css', 'css/landing.css',
-  'js/symbols.js', 'js/netlist.js', 'js/simulate.js', 'js/digital.js',
+  'js/symbols.js', 'js/netlist.js', 'js/plan.js', 'js/simulate.js', 'js/digital.js',
   'js/svg.js', 'js/viz3d.js', 'js/examples.js', 'js/editor.js', 'js/ui.js',
   'js/landing.js',
   'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png',

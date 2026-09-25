@@ -29,6 +29,10 @@ jobs:
       - name: Récupération du code
         uses: actions/checkout@v4
 
+      # Une régression (simulation, norme, 3D, exports) bloque la mise en ligne
+      - name: Tests
+        run: node tests/run.js
+
       - name: Configuration de Pages
         uses: actions/configure-pages@v5
 

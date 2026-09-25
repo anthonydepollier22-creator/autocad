@@ -63,10 +63,13 @@ class SVGContext {
   }
   fillText(text, x, y) {
     const p = this._ap(x, y);
-    const size = parseInt(this.font, 10) || 12;
+    // this.font peut commencer par une graisse (« 600 15px sans-serif »)
+    const m = /(\d+(?:\.\d+)?)px/.exec(this.font);
+    const size = m ? +m[1] : 12;
+    const weight = /^\s*(bold|[5-9]00)\b/.exec(this.font) ? ' font-weight="bold"' : '';
     const anchor = this.textAlign === 'center' ? 'middle' : this.textAlign === 'right' ? 'end' : 'start';
     const mid = this.textBaseline === 'middle' ? ` dy="0.35em"` : '';
-    this.out.push(`<text x="${this._n(p.x)}" y="${this._n(p.y)}"${mid} font-family="sans-serif" font-size="${size}" fill="${this.fillStyle}" text-anchor="${anchor}">${_esc(text)}</text>`);
+    this.out.push(`<text x="${this._n(p.x)}" y="${this._n(p.y)}"${mid} font-family="sans-serif" font-size="${size}"${weight} fill="${this.fillStyle}" text-anchor="${anchor}">${_esc(text)}</text>`);
   }
   _n(v) { return Math.round(v * 100) / 100; }
 }
@@ -79,18 +82,37 @@ function buildSVG(components, wires, symbols, meta) {
   for (const c of components) { const b = symbols[c.type].bbox; acc(c.x + b.x, c.y + b.y); acc(c.x + b.x + b.w, c.y + b.y + b.h); }
   for (const w of wires) for (const p of w.points) acc(p.x, p.y);
   if (!isFinite(minX)) { minX = 0; minY = 0; maxX = 400; maxY = 300; }
-  const pad = 40;
+  const isPlan = wires.some((w) => w.kind === 'wall') && typeof computeRooms === 'function';
+  const pad = isPlan ? 55 : 40; // marge plus large pour les cotations
   minX -= pad; minY -= pad; maxX += pad; maxY += pad + 60; // marge basse pour le cartouche
   const W = maxX - minX, H = maxY - minY;
 
   const ctx = new SVGContext();
   ctx.strokeStyle = '#111'; ctx.fillStyle = '#111'; ctx.lineWidth = 2;
 
-  // Fils
+  // Sols des pièces (plan de maison)
+  if (isPlan) {
+    const info = computeRooms(components, wires);
+    info.rooms.forEach((room, i) => {
+      if (room.leaked || room.sharedWith !== null) return;
+      const d = roomRuns(info, i).map((r) => `M${r.x} ${r.y}h${r.w}v${r.h}h${-r.w}Z`).join('');
+      if (d) ctx.out.push(`<path d="${d}" fill="${room.color}" fill-opacity="0.14" stroke="none"/>`);
+    });
+  }
+
+  // Fils, murs, goulottes
+  const pathOf = (wi) => wi.points.map((p, i) => (i ? 'L' : 'M') + p.x + ' ' + p.y).join('');
   for (const wi of wires) {
-    ctx.beginPath();
-    wi.points.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
-    ctx.stroke();
+    if (wi.kind === 'wall') {
+      ctx.out.push(`<path d="${pathOf(wi)}" fill="none" stroke="#1f2733" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>`);
+    } else if (wi.kind === 'conduit') {
+      ctx.out.push(`<path d="${pathOf(wi)}" fill="none" stroke="#6b7788" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>`);
+      ctx.out.push(`<path d="${pathOf(wi)}" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>`);
+    } else {
+      ctx.beginPath();
+      wi.points.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.stroke();
+    }
   }
   // Points de jonction
   for (const j of computeJunctions(components, wires, symbols)) {
@@ -103,9 +125,17 @@ function buildSVG(components, wires, symbols, meta) {
     ctx.strokeStyle = '#111'; ctx.fillStyle = '#111'; ctx.lineWidth = 2;
     sym.draw(ctx, c); ctx.restore();
     const txt = [c.label, c.value].filter(Boolean).join(' ');
-    if (txt) {
-      ctx.fillStyle = '#333'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
+    if (txt && !sym.ownLabel) {
+      ctx.fillStyle = '#333'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
       ctx.fillText(txt, c.x, c.y - sym.bbox.h / 2 - 12);
+    }
+  }
+
+  // Cotations des murs
+  if (isPlan) {
+    for (const d of wallDimensions(wires)) {
+      const deg = Math.round((d.angle * 180) / Math.PI);
+      ctx.out.push(`<text x="0" y="0" dy="0.35em" transform="translate(${ctx._n(d.x)} ${ctx._n(d.y)}) rotate(${deg})" font-family="sans-serif" font-size="11" fill="#444" text-anchor="middle">${_esc(d.text)}</text>`);
     }
   }
 

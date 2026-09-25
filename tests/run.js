@@ -1,0 +1,157 @@
+/*
+ * Suite de tests ÉlectriCAD — sans dépendance : `node tests/run.js`
+ *
+ * Charge les modules du navigateur dans un contexte isolé et vérifie la
+ * physique des exemples (valeurs attendues calculées à la main), la logique,
+ * le plan de maison (surfaces, conformité NF C 15-100), la 3D et les exports.
+ * Code de sortie non nul au moindre échec : le déploiement est alors bloqué.
+ */
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+const ROOT = path.join(__dirname, '..');
+const sb = { Math, JSON, console };
+vm.createContext(sb);
+for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'svg', 'viz3d']) {
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f + '.js'), 'utf8'), sb, { filename: f + '.js' });
+}
+const run = (code) => vm.runInContext(code, sb);
+
+let passed = 0, failed = 0, section = '';
+function group(name) { section = name; console.log('\n' + name); }
+function check(name, cond, info) {
+  if (cond) passed++; else failed++;
+  console.log(`  ${cond ? 'ok  ' : 'ÉCHEC'} ${name}${info !== undefined ? '  [' + info + ']' : ''}`);
+}
+function near(a, b, tol) { return typeof a === 'number' && Math.abs(a - b) <= tol; }
+// Évalue une expression dans le contexte avec un exemple chargé dans `d`
+function ex(id, body) {
+  return run(`(function(){ var d = getExampleData(${JSON.stringify(id)}); ${body} })()`);
+}
+
+// ---------------------------------------------------------------------------
+group('Symboles');
+const noop = () => {};
+sb.__ctx = new Proxy({}, { get: (t, p) => (p in t ? t[p] : noop), set: (t, p, v) => { t[p] = v; return true; } });
+const symErrors = run(`(function(){
+  var errs = [];
+  SYMBOLS.__order.forEach(function(k){
+    var s = SYMBOLS[k];
+    ['name','category','terminals','bbox','draw'].forEach(function(f){ if (!(f in s)) errs.push(k + ': ' + f + ' manquant'); });
+    if (!s.plan && !s.terminals.length) errs.push(k + ': aucune borne');
+    try { s.draw(__ctx, { closed: true, high: true, value: 'x' }); } catch (e) { errs.push(k + ': ' + e.message); }
+  });
+  return errs;
+})()`);
+check(`${run('SYMBOLS.__order.length')} symboles complets et dessinables`, symErrors.length === 0, symErrors.join(' | ') || undefined);
+
+// ---------------------------------------------------------------------------
+group('Simulation continue (DC)');
+let r = ex('lamp', 'return simulateDC(d.components, d.wires, SYMBOLS).compI.LA1 || 0;');
+check('Lampe, interrupteur ouvert : 0 A', Math.abs(r) < 1e-9, r);
+r = ex('lamp', "d.components.find(function(c){return c.id==='SW1';}).closed = true; return simulateDC(d.components, d.wires, SYMBOLS).compI.LA1;");
+check('Lampe, interrupteur fermé : 4,5 V / 100 Ω = 45 mA', near(r, 0.045, 1e-4), r);
+r = ex('divider', 'return simulateDC(d.components, d.wires, SYMBOLS).compI.R1;');
+check('Diviseur 9 V / 2 kΩ : 4,5 mA', near(r, 4.5e-3, 1e-5), r);
+r = ex('led', 'return simulateDC(d.components, d.wires, SYMBOLS).compI.D1;');
+check('LED + 330 Ω sous 5 V : ~10 mA (non linéaire)', r > 8e-3 && r < 12e-3, r);
+r = ex('bjt', 'return simulateDC(d.components, d.wires, SYMBOLS).compI.Q1;');
+check('Transistor β=100, Rb=100 kΩ : Ic ≈ 4,25 mA', near(r, 4.25e-3, 2e-4), r);
+r = ex('tableau', 'var s = simulateDC(d.components, d.wires, SYMBOLS); return [s.compI.LA1, s.compI.H1, Math.abs(s.compI.ID1)];');
+check('Tableau NF : lampe 2,3 A, sonnerie 4,6 A, différentiel 6,9 A',
+  near(r[0], 2.3, 0.01) && near(r[1], 4.6, 0.01) && near(r[2], 6.9, 0.02), r.map((x) => x.toFixed(2)).join(' / '));
+r = ex('tableau', "d.components.find(function(c){return c.id==='Q1';}).closed = false; var s = simulateDC(d.components, d.wires, SYMBOLS); return [s.compI.LA1 || 0, s.compI.H1];");
+check('Tableau NF : Q1 ouvert coupe la lampe, pas la sonnerie', Math.abs(r[0]) < 1e-8 && near(r[1], 4.6, 0.01));
+r = ex('tableau', "d.components.find(function(c){return c.id==='ID1';}).closed = false; var s = simulateDC(d.components, d.wires, SYMBOLS); return Math.abs(s.compI.LA1 || 0) + Math.abs(s.compI.H1 || 0);");
+check('Tableau NF : différentiel ouvert coupe tout', r < 1e-7, r);
+
+// ---------------------------------------------------------------------------
+group('Transitoire et fréquentiel');
+r = ex('rc', "var net = buildNets(d.components, d.wires, SYMBOLS).terminalNet.C1[0]; var res = simulateTransient(d.components, d.wires, SYMBOLS, { time: 5, steps: 500 }); var s = res.series.find(function(x){return x.net===net;}); return s.values[res.t.findIndex(function(t){return t>=1;})];");
+check('Charge RC : 5 V × (1 − e⁻¹) ≈ 3,16 V à t = τ', near(r, 3.16, 0.1), r);
+r = ex('rectifier', "var net = buildNets(d.components, d.wires, SYMBOLS).terminalNet.R1[0]; var res = simulateTransient(d.components, d.wires, SYMBOLS, { f: 50, time: 40, steps: 800 }); var v = res.series.find(function(x){return x.net===net;}).values; return [Math.min.apply(null, v), Math.max.apply(null, v)];");
+check('Redresseur : alternances négatives bloquées, crête ≈ 9,3 V', r[0] > -0.5 && r[1] > 8.5 && r[1] < 10, r.map((x) => x.toFixed(2)).join(' / '));
+r = ex('lowpass', "var net = buildNets(d.components, d.wires, SYMBOLS).terminalNet.C1[0]; var res = simulateAC(d.components, d.wires, SYMBOLS, { fmin: 1, fmax: 1e6, pts: 200 }); var s = res.series.find(function(x){return x.net===net;}); var fc = 1/(2*Math.PI*1000*1e-6), bi = 0; res.freqs.forEach(function(f,i){ if (Math.abs(f-fc) < Math.abs(res.freqs[bi]-fc)) bi = i; }); return [s.mag[bi], s.phase[bi]];");
+check('Filtre RC : −3 dB et −45° à fc = 159 Hz', near(r[0], -3.01, 0.5) && near(r[1], -45, 6), r.map((x) => x.toFixed(1)).join(' dB / ') + '°');
+
+// ---------------------------------------------------------------------------
+group('Logique');
+const trans = "function tr(v){ var n = 0; for (var i = 1; i < v.length; i++) if (v[i] !== v[i-1]) n++; return n; }";
+function halfAdder(a, b) {
+  return ex('halfadder', `d.components.find(function(c){return c.id==='A';}).high = ${a}; d.components.find(function(c){return c.id==='B';}).high = ${b};
+    var tn = buildNets(d.components, d.wires, SYMBOLS).terminalNet, res = simulateDigital(d.components, d.wires, SYMBOLS, {});
+    var last = function(net){ var s = res.signals.find(function(x){return x.net===net;}); return s.values[s.values.length-1]; };
+    return [last(tn.U1[2]), last(tn.U2[2])];`);
+}
+check('Demi-additionneur : table de vérité complète',
+  [[false, false, 0, 0], [true, false, 1, 0], [false, true, 1, 0], [true, true, 0, 1]].every(([a, b, s, c]) => {
+    const o = halfAdder(a, b); return o[0] === s && o[1] === c;
+  }));
+r = ex('sevenseg', "simulateDigital(d.components, d.wires, SYMBOLS, {}); return d.components.find(function(c){return c.id==='AFF1';}).__digit;");
+check('Afficheur 7 segments : 1001 → 9', r === 9, r);
+r = ex('divfreq', trans + " var tn = buildNets(d.components, d.wires, SYMBOLS).terminalNet, res = simulateDigital(d.components, d.wires, SYMBOLS, {}); var sig = function(net){ return res.signals.find(function(x){return x.net===net;}).values; }; return [tr(sig(tn.CK[0])), tr(sig(tn.U1[2]))];");
+check('Bascule D rebouclée : fréquence divisée par 2', Math.abs(r[0] / 2 - r[1]) <= 1, r.join(' → '));
+r = ex('counter', trans + " var tn = buildNets(d.components, d.wires, SYMBOLS).terminalNet, res = simulateDigital(d.components, d.wires, SYMBOLS, {}); var sig = function(net){ return res.signals.find(function(x){return x.net===net;}).values; }; return [tr(sig(tn.CK[0])), tr(sig(tn.U1[2])), tr(sig(tn.U2[2]))];");
+check('Compteur 2 bits : Q0 à f/2, Q1 à f/4', Math.abs(r[0] / 2 - r[1]) <= 1 && Math.abs(r[0] / 4 - r[2]) <= 1, r.join(' → '));
+
+// ---------------------------------------------------------------------------
+group('Flux de courant animé');
+r = ex('divider', 'var fl = computeWireFlows(d.components, d.wires, SYMBOLS, simulateDC(d.components, d.wires, SYMBOLS)); return Math.max.apply(null, fl.map(function(e){return Math.abs(e.I);}));');
+check('Diviseur : 4,5 mA dans la boucle', near(r, 4.5e-3, 5e-5), r);
+r = ex('lamp', 'var fl = computeWireFlows(d.components, d.wires, SYMBOLS, simulateDC(d.components, d.wires, SYMBOLS)); return Math.max.apply(null, fl.map(function(e){return Math.abs(e.I);}));');
+check('Lampe éteinte : aucun flux', r < 1e-6, r);
+
+// ---------------------------------------------------------------------------
+group('Plan de maison — pièces et NF C 15-100');
+r = ex('maison', 'var info = computeRooms(d.components, d.wires); return info.rooms.map(function(x){ return [x.name, x.area]; });');
+const area = (n) => (r.find((x) => x[0] === n) || [])[1];
+check('Chambre 3,40 × 5,20 m ≈ 17,7 m²', near(area('Chambre'), 17.68, 0.3), area('Chambre'));
+check('Séjour 4,60 × 5,20 m ≈ 23,9 m²', near(area('Séjour'), 23.92, 0.3), area('Séjour'));
+const nf = (filter) => ex('maison', (filter ? `d.components = d.components.filter(function(c){ return ${filter}; });` : '') + ' return checkNFC15100(d.components, d.wires);');
+const room = (rep, n) => rep.rooms.find((x) => x.name === n);
+r = nf();
+check('Exemple conforme : 0 non-conformité', r.ok && r.errors === 0 && r.warnings === 0, `${r.errors} err. / ${r.warnings} avert.`);
+check('Séjour : 6 prises exigées (1 par 4 m², min 5), 6 posées', room(r, 'Séjour').socketsReq === 6 && room(r, 'Séjour').sockets === 6);
+check('Chambre : 3 prises exigées, 3 posées', room(r, 'Chambre').socketsReq === 3 && room(r, 'Chambre').sockets === 3);
+r = nf("c.id !== 'PC9'");
+check('Prise retirée : séjour non conforme', room(r, 'Séjour').status === 'err' && !r.ok, room(r, 'Séjour').msgs.join());
+r = nf("c.id !== 'p2'");
+check('Porte intérieure retirée : pièces fusionnées signalées', r.rooms.some((x) => /même espace/.test(x.msgs.join())));
+r = nf("c.id !== 'p1'");
+check('Porte d’entrée retirée : chambre « non fermée »', room(r, 'Chambre').status === 'err' && /non fermée/.test(room(r, 'Chambre').msgs.join()));
+check('… et ses prises ne sont pas comptées dans le séjour', room(r, 'Séjour').sockets === 6 && room(r, 'Séjour').switches === 1);
+r = nf("c.type !== 'gtl'");
+check('GTL absente : erreur', !r.ok && r.global.some((g) => g.level === 'err' && /GTL/.test(g.msg)));
+r = run("[roomType('Séjour').key, roomType('Salle de bain').key, roomType('WC').key, roomType('Entrée').key, roomType('Cuisine').key, roomType('Grenier')]");
+check('Types de pièces reconnus d’après leur nom', r.join() === 'sejour,sdb,wc,circ,cuisine,', r.join());
+r = ex('maison', 'return wallDimensions(d.wires).map(function(x){ return x.text; });');
+check('Cotations en mètres (8,00 m, 5,20 m…)', r.includes('8,00 m') && r.includes('5,20 m'), r.join(' '));
+r = ex('maison', 'return [computeJunctions(d.components, d.wires, SYMBOLS).length, runERC(d.components, d.wires, SYMBOLS).filter(function(i){return i.level===\'err\';}).length];');
+check('Murs et goulottes hors électrique : 0 jonction, 0 erreur ERC', r[0] === 0 && r[1] === 0, r.join(' / '));
+
+// ---------------------------------------------------------------------------
+group('3D et exports');
+sb.__cv = { width: 600, height: 400, style: {}, getContext: () => sb.__ctx, getBoundingClientRect: () => ({ width: 600, height: 400 }), addEventListener: noop };
+r = run(`(function(){
+  var viz = new Viz3D(__cv, { interactive: false }), out = [];
+  EXAMPLES.forEach(function(e){ var d = getExampleData(e.id); buildBoard(viz, d.components, d.wires, SYMBOLS); out.push(viz.faces.length); });
+  return out;
+})()`);
+check(`Les ${r.length} exemples se construisent en 3D`, r.every((n) => n > 50), r.join(' '));
+r = run(`(function(){
+  var viz = new Viz3D(__cv, { interactive: false }), empty = [];
+  Object.keys(BUILDERS3D).forEach(function(k){
+    if (k[0] === '_' || k === 'room') return;
+    viz.clear(); BUILDERS3D[k](viz, { x: 0, y: 0, rot: 45, closed: true, high: true });
+    if (!viz.faces.length) empty.push(k);
+  });
+  return empty;
+})()`);
+check('Chaque composant a un volume 3D', r.length === 0, r.join(', ') || undefined);
+r = ex('maison', 'return buildSVG(d.components, d.wires, SYMBOLS, { title: "T2" });');
+check('Export SVG du plan : murs épais, sols, cotations, surfaces',
+  r.startsWith('<?xml') && r.includes('stroke-width="9"') && r.includes('fill-opacity="0.14"') && r.includes('5,20 m'));
+
+console.log(`\n${passed} réussis, ${failed} échoué${failed > 1 ? 's' : ''}`);
+process.exit(failed ? 1 : 0);

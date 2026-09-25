@@ -217,6 +217,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const propBox = document.getElementById('props');
   const labelInput = document.getElementById('prop-label');
   const valueInput = document.getElementById('prop-value');
+  const labelWrap = document.getElementById('prop-label-wrap');
+  const valueLbl = document.getElementById('prop-value-lbl');
   const propEmpty = document.getElementById('props-empty');
   const propType = document.getElementById('prop-type');
 
@@ -244,7 +246,76 @@ document.addEventListener('DOMContentLoaded', () => {
     tabs.forEach((x) => x.classList.toggle('active', x === t));
     panels.forEach((p) => (p.style.display = p.dataset.panel === activeTab ? '' : 'none'));
     if (activeTab === 'bom') renderBOM();
+    if (activeTab === 'norm') renderNorm(true);
   }));
+
+  // --- Contrôle NF C 15-100 (plan de maison) ------------------------------
+  const normBox = document.getElementById('norm-report');
+  const normTab = document.querySelector('.tab[data-tab="norm"]');
+  let normKey = null;
+  const STATUS_ICON = { ok: '✓', warn: '!', err: '✕' };
+  function renderNorm(force) {
+    const rep = checkNFC15100(editor.components, editor.wires);
+    const key = JSON.stringify(rep);
+    if (!force && key === normKey) return; // évite de reconstruire le panneau à chaque mouvement de souris
+    normKey = key;
+    if (!rep.hasPlan) {
+      normBox.innerHTML =
+        '<div class="norm-empty"><b>Aucun plan de maison</b>' +
+        '<p>Trace des murs (<kbd>M</kbd>), pose une étiquette <b>Pièce</b> dans chaque pièce, puis l’appareillage : ' +
+        'surfaces, prises exigées et éclairage sont contrôlés en direct.</p>' +
+        '<button id="norm-load-ex" class="btn-primary">Ouvrir l’exemple Maison T2</button></div>';
+      document.getElementById('norm-load-ex').addEventListener('click', () => loadExample(EXAMPLES.find((e) => e.id === 'maison')));
+      return;
+    }
+    const verdict = rep.errors ? 'err' : rep.warnings || !rep.rooms.length ? 'warn' : 'ok';
+    const title = rep.errors
+      ? `${rep.errors} non-conformité${rep.errors > 1 ? 's' : ''}`
+      : verdict === 'warn' ? 'À vérifier' : 'Installation conforme';
+    const area = rep.rooms.reduce((s, r) => s + (r.area || 0), 0);
+    const sockets = rep.rooms.reduce((s, r) => s + r.sockets, 0);
+    let html =
+      `<div class="norm-verdict v-${verdict}"><span class="nv-icon">${STATUS_ICON[verdict]}</span>` +
+      `<div><b>${title}</b><span>Contrôle simplifié NF C 15-100</span></div></div>` +
+      `<div class="norm-kpis"><div><b>${rep.rooms.length}</b><span>pièce${rep.rooms.length > 1 ? 's' : ''}</span></div>` +
+      `<div><b>${area.toFixed(1).replace('.', ',')}</b><span>m² habitables</span></div>` +
+      `<div><b>${sockets}</b><span>prise${sockets > 1 ? 's' : ''}</span></div></div>`;
+    for (const r of rep.rooms) {
+      const req = r.socketsReq;
+      const pct = req ? Math.min(100, (r.sockets / req) * 100) : 100;
+      html +=
+        `<div class="nr-card st-${r.status}" data-id="${r.id}" title="Cliquer pour centrer la pièce">` +
+        `<div class="nr-top"><span class="nr-dot" style="background:${r.color}"></span><b>${_escHtml(r.name)}</b>` +
+        `<span class="nr-area">${r.area ? fmtArea(r.area) : '—'}</span><span class="nr-st">${STATUS_ICON[r.status]}</span></div>`;
+      if (req !== null) {
+        html += `<div class="nr-row"><span>Prises</span><div class="nr-bar"><i style="width:${pct}%"></i></div><b>${r.sockets} / ${req}</b></div>`;
+      }
+      if (r.area) {
+        html += `<div class="nr-row"><span>Éclairage</span><em>${r.lights} point${r.lights > 1 ? 's' : ''} · ${r.switches} commande${r.switches > 1 ? 's' : ''}</em></div>`;
+      }
+      for (const m of r.msgs) html += `<div class="nr-msg">${_escHtml(m)}</div>`;
+      if (r.note && r.status !== 'err') html += `<div class="nr-note">${r.typeLabel} : ${r.note}</div>`;
+      html += '</div>';
+    }
+    html += '<ul class="erc">';
+    for (const g of rep.global) {
+      const ic = g.level === 'err' ? '❌' : g.level === 'warn' ? '⚠️' : '✅';
+      html += `<li${g.compId ? ' class="clickable" data-id="' + g.compId + '"' : ''}>${ic} ${_escHtml(g.msg)}</li>`;
+    }
+    html += '</ul><p class="norm-foot">Contrôle indicatif (nombre de prises, éclairage, GTL). Il ne remplace pas la vérification d’un professionnel ni l’attestation Consuel.</p>';
+    normBox.innerHTML = html;
+    normBox.querySelectorAll('[data-id]').forEach((el) => el.addEventListener('click', () => editor.focusComponent(el.dataset.id)));
+  }
+  function _escHtml(s) {
+    return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  }
+  // Pastille de statut sur l'onglet « Norme » (visible dès qu'il y a un plan)
+  function updateNormDot() {
+    const rep = checkNFC15100(editor.components, editor.wires);
+    const st = !rep.hasPlan ? '' : rep.errors ? 'err' : rep.warnings || !rep.rooms.length ? 'warn' : 'ok';
+    normTab.dataset.status = st;
+    return rep;
+  }
 
   // --- Nomenclature (BOM) ------------------------------------------------
   const bomTable = document.getElementById('bom-table');
@@ -519,6 +590,8 @@ document.addEventListener('DOMContentLoaded', () => {
     activeTab = name;
     tabs.forEach((x) => x.classList.toggle('active', x.dataset.tab === name));
     panels.forEach((p) => (p.style.display = p.dataset.panel === name ? '' : 'none'));
+    if (name === 'bom') renderBOM();
+    if (name === 'norm') renderNorm(true);
   }
 
   // --- Toast ---------------------------------------------------------------
@@ -550,6 +623,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const s = Math.min((W - 24) / (maxX - minX), (H - 20) / (maxY - minY), 0.6);
     ctx.translate(W / 2 - (minX + maxX) / 2 * s, H / 2 - (minY + maxY) / 2 * s);
     ctx.scale(s, s);
+    // Plan de maison : pièces teintées et surfaces sur les étiquettes
+    if (data.wires.some((w) => w.kind === 'wall')) {
+      const info = computeRooms(data.components, data.wires);
+      info.rooms.forEach((room, i) => {
+        if (room.leaked || room.sharedWith !== null) return;
+        ctx.beginPath();
+        for (const r of roomRuns(info, i)) ctx.rect(r.x, r.y, r.w, r.h);
+        ctx.fillStyle = room.color; ctx.globalAlpha = 0.16; ctx.fill(); ctx.globalAlpha = 1;
+        const lab = data.components.find((c) => c.id === room.id);
+        if (lab) lab.__area = room.area;
+      });
+    }
     const col = thumbColor();
     ctx.strokeStyle = col; ctx.fillStyle = col;
     ctx.lineWidth = 1.6 / s; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -599,8 +684,8 @@ document.addEventListener('DOMContentLoaded', () => {
     closeModal();
     let btnId;
     if (ex.sim === 'plan') {
-      showTab('bom'); // le métré de l'installation
-      showToast(`<b>${ex.name}</b> chargé — clique <b>3D</b> pour visiter la maison en volume !`);
+      showTab('norm'); // surfaces et conformité pièce par pièce
+      showToast(`<b>${ex.name}</b> chargé — conformité NF à droite, clique <b>3D</b> pour visiter la maison !`);
       btnId = 'btn-3d';
     } else {
       showTab('sim');
@@ -636,6 +721,8 @@ document.addEventListener('DOMContentLoaded', () => {
     viz3d.fit(radius);
     viz3d.autoRotate = true;
     viz3d.start();
+    const house = editor.wires.some((w) => w.kind === 'wall');
+    document.getElementById('view3d-title').textContent = house ? 'Vue 3D de la maison' : 'Vue 3D de la carte';
     if (!editor.components.length && !editor.wires.length) {
       showToast('Carte vide — pose des composants puis reviens en 3D !', 3200);
     }
@@ -670,9 +757,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const sel = [...editor.selection].map((id) => editor.components.find((c) => c.id === id)).filter(Boolean);
     if (sel.length === 1) {
       propBox.style.display = 'block'; propEmpty.style.display = 'none';
-      propType.textContent = SYMBOLS[sel[0].type].name;
-      labelInput.value = sel[0].label || '';
-      valueInput.value = sel[0].value || '';
+      const sym = SYMBOLS[sel[0].type];
+      propType.textContent = sym.name;
+      // ne pas écraser un champ en cours de saisie (onChange suit la souris)
+      if (document.activeElement !== labelInput) labelInput.value = sel[0].label || '';
+      if (document.activeElement !== valueInput) valueInput.value = sel[0].value || '';
+      // libellés adaptés : nom de pièce, note de circuit, ou rien pour le mobilier
+      const isRoom = sel[0].type === 'room';
+      const bare = sym.plan && !sym.prefix && !isRoom;
+      labelWrap.style.display = sym.plan && !sym.prefix ? 'none' : '';
+      valueInput.parentElement.style.display = bare ? 'none' : '';
+      valueLbl.textContent = isRoom ? 'Nom de la pièce' : sym.plan ? 'Circuit / remarque' : 'Valeur';
+      valueInput.placeholder = isRoom ? 'Chambre, Séjour, Cuisine…' : sym.plan ? 'ex. C3 – 16 A' : '1 kΩ';
       const isSwitch = SWITCHABLE.has(sel[0].type);
       switchWrap.style.display = isSwitch ? '' : 'none';
       closedChk.checked = !!sel[0].closed;
@@ -686,15 +782,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // cartouche
     if (document.activeElement !== metaTitle) metaTitle.value = editor.meta.title || '';
     if (document.activeElement !== metaAuthor) metaAuthor.value = editor.meta.author || '';
-    // nomenclature si visible
+    // nomenclature / norme si visibles
     if (activeTab === 'bom') renderBOM();
+    const normRep = updateNormDot();
+    if (activeTab === 'norm') renderNorm(false);
     // barre d'état
     statTool.textContent = editor.tool === 'place' && editor.placeType
       ? 'Placement : ' + SYMBOLS[editor.placeType].name
       : TOOL_NAMES[editor.tool] || editor.tool;
     statCoord.textContent = `X: ${Math.round(editor.mouse.wx)}  Y: ${Math.round(editor.mouse.wy)}`;
     statZoom.textContent = `Zoom: ${Math.round(editor.view.scale * 100)}%`;
-    statCount.textContent = `${editor.components.length} composants · ${editor.wires.length} fils`;
+    if (normRep.hasPlan && normRep.rooms.length) {
+      const area = normRep.rooms.reduce((s, r) => s + (r.area || 0), 0);
+      statCount.textContent = `${normRep.rooms.length} pièce${normRep.rooms.length > 1 ? 's' : ''} · ${fmtArea(area)} · ${editor.components.length} éléments`;
+    } else {
+      statCount.textContent = `${editor.components.length} composants · ${editor.wires.length} fils`;
+    }
     // écran d'accueil sur document vide
     emptyState.hidden = editor.components.length > 0 || editor.wires.length > 0 || editor.tool === 'place';
   };
@@ -711,10 +814,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const ex = EXAMPLES.find((e) => e.id === exParam);
     if (ex) {
       editor.load(getExampleData(ex.id));
-      showTab('sim');
-      showToast(`<b>${ex.name}</b> chargé — lance l'analyse « ${ex.simLabel} ».`);
+      if (ex.sim === 'plan') {
+        showTab('norm');
+        showToast(`<b>${ex.name}</b> chargé — conformité NF à droite, clique <b>3D</b> pour visiter la maison !`);
+      } else {
+        showTab('sim');
+        showToast(`<b>${ex.name}</b> chargé — lance l'analyse « ${ex.simLabel} ».`);
+      }
     }
   }
+  if (params.get('tab') && document.querySelector(`.tab[data-tab="${params.get('tab')}"]`)) showTab(params.get('tab'));
   if (params.get('modal') === 'examples') openModal();
   if (params.get('3d') === '1' && document.getElementById('btn-3d')) open3D();
   // ?sim=dc|logic|trans|bode : lance l'analyse au chargement
