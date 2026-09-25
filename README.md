@@ -45,8 +45,9 @@ Dessine une **maison complète** et implante l'installation dedans :
 - **Implantation NF C 15-100** : **GTL**, **tableau électrique**, prises murales
   2P+T, interrupteurs SA / va-et-vient, points lumineux **DCL**, appliques,
   boîtes de dérivation — le tout compté dans la **nomenclature (métré)** ;
-- La **vue 3D devient la maison en volume** : murs extrudés, sol parquet,
-  goulottes en plinthe, meubles et appareillage 3D ;
+- La **vue 3D devient la maison en volume** : murs extrudés, un sol par pièce
+  (parquet ou carrelage selon le type), goulottes en plinthe, meubles et
+  appareillage 3D ;
 - **Pièces et surfaces automatiques** : pose l'étiquette *Pièce* dans une zone
   fermée par les murs (portes et fenêtres comptent comme fermées) → la pièce se
   colore et sa **surface en m²** s'affiche ; une pièce ouverte est signalée
@@ -59,8 +60,6 @@ Dessine une **maison complète** et implante l'installation dedans :
   travail…), point lumineux et commande, présence de la GTL et du tableau à
   proximité. Pastille verte / orange / rouge sur l'onglet, clic sur une pièce pour
   la cibler ; le type est reconnu d'après le nom (*Séjour*, *Chambre 2*, *SdB*…) ;
-- La **vue 3D devient la maison en volume**, avec un **sol par pièce** (parquet
-  ou carrelage selon le type) ;
 - Exemple fourni : **« Maison T2 — implantation élec. »** (`?ex=maison`, 41 m²,
   conforme), murs/goulottes exclus de la simulation et de l'ERC (aucun faux
   positif). `?ex=maison&tab=norm` ouvre directement le rapport de conformité.
