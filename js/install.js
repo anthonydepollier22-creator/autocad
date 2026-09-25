@@ -260,26 +260,33 @@ function designInstallation(components, wires) {
     for (const l of levels) for (let i = 0; i < l.length; i += n) out.push(l.slice(i, i + n));
     return out;
   };
+  // Noms : « Éclairage 2 », ou par niveau dans une maison à étage (« Prises étage 1 »)
+  const LEVEL_NAMES = ['RDC', 'étage'];
+  const names = (base, groups) => groups.map((g, i) => {
+    if (split === null) return base + (groups.length > 1 ? ' ' + (i + 1) : '');
+    const L = levelOf(g[0]), same = groups.filter((h) => levelOf(h[0]) === L);
+    return base + ' ' + LEVEL_NAMES[L] + (same.length > 1 ? ' ' + (same.indexOf(g) + 1) : '');
+  });
   const circuits = design.circuits;
   const add = (o) => { o.id = 'C' + (circuits.length + 1); circuits.push(o); return o; };
   const roomsLabel = (list) => [...new Set(list.map((c) => roomName(roomOf(c))))].join(', ');
 
   // Éclairage : 8 points maximum par circuit (16 A, 1,5 mm²), commandes comprises
   const lights = byRoom(devs.filter((c) => LOADS[c.type] && LOADS[c.type].cls === 'light'));
-  const nLight = chunk(lights, 8).length;
+  const lightGroups = chunk(lights, 8), lightNames = names('Éclairage', lightGroups);
   const wired = new Set();
-  chunk(lights, 8).forEach((g, i) => {
+  lightGroups.forEach((g, i) => {
     const rooms = new Set(g.map(roomOf));
     const sw = devs.filter((c) => SWITCHES_PLAN.has(c.type) && rooms.has(roomOf(c)) && !wired.has(c.id));
     sw.forEach((c) => wired.add(c.id));
-    add({ kind: 'light', name: 'Éclairage' + (nLight > 1 ? ' ' + (i + 1) : ''), In: 16, S: 1.5, devices: g.concat(sw), rooms: roomsLabel(g), points: g.length });
+    add({ kind: 'light', name: lightNames[i], In: 16, S: 1.5, devices: g.concat(sw), rooms: roomsLabel(g), points: g.length });
   });
   // Prises : cuisine (6 max, circuit dédié), autres pièces (8 max) — 20 A, 2,5 mm²
   const sockets = byRoom(devs.filter((c) => c.type === 'socket_wall'));
   const kitchen = sockets.filter((c) => roomKey(roomOf(c)) === 'cuisine');
   const others = sockets.filter((c) => roomKey(roomOf(c)) !== 'cuisine');
-  const nOther = chunk(others, 8).length;
-  chunk(others, 8).forEach((g, i) => add({ kind: 'socket', name: 'Prises' + (nOther > 1 ? ' ' + (i + 1) : ''), In: 20, S: 2.5, devices: g, rooms: roomsLabel(g), points: g.length }));
+  const socketGroups = chunk(others, 8), socketNames = names('Prises', socketGroups);
+  socketGroups.forEach((g, i) => add({ kind: 'socket', name: socketNames[i], In: 20, S: 2.5, devices: g, rooms: roomsLabel(g), points: g.length }));
   chunk(kitchen, 6).forEach((g, i, all) => add({ kind: 'socket', name: 'Prises cuisine' + (all.length > 1 ? ' ' + (i + 1) : ''), In: 20, S: 2.5, devices: g, rooms: roomsLabel(g), points: g.length }));
   // Chauffage : 4 500 W maximum par circuit (20 A, 2,5 mm²)
   const rads = byRoom(devs.filter((c) => c.type === 'radiator'));
@@ -288,7 +295,8 @@ function designInstallation(components, wires) {
     const g = heat[heat.length - 1];
     if (g && g.P + loadPower(r) <= 4500 && levelOf(g.list[0]) === levelOf(r)) { g.list.push(r); g.P += loadPower(r); } else heat.push({ list: [r], P: loadPower(r) });
   }
-  heat.forEach((g, i) => add({ kind: 'heating', name: 'Chauffage' + (heat.length > 1 ? ' ' + (i + 1) : ''), In: 20, S: 2.5, devices: g.list, rooms: roomsLabel(g.list), points: g.list.length }));
+  const heatNames = names('Chauffage', heat.map((g) => g.list));
+  heat.forEach((g, i) => add({ kind: 'heating', name: heatNames[i], In: 20, S: 2.5, devices: g.list, rooms: roomsLabel(g.list), points: g.list.length }));
   // Circuits spécialisés : un par appareil
   for (const c of byRoom(devs.filter((c) => LOADS[c.type] && LOADS[c.type].cls === 'dedicated'))) {
     const s = LOADS[c.type];

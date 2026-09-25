@@ -13,7 +13,7 @@ const vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const sb = { Math, JSON, console, TextEncoder, TextDecoder };
 vm.createContext(sb);
-for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'day', 'materials', 'svg', 'viz3d', 'export3d', 'dossier']) {
+for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'day', 'materials', 'svg', 'viz3d', 'gl3d', 'export3d', 'dossier']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f + '.js'), 'utf8'), sb, { filename: f + '.js' });
 }
 const run = (code) => vm.runInContext(code, sb);
@@ -354,9 +354,10 @@ check('Vue Énergie : le sol de chaque pièce prend la teinte de sa puissance', 
 
 r = run(`(function(){
   var out = [];
-  ['studio', 't3', 't5'].forEach(function(k){
-    var d = buildHouse(k, { furnish: false, elec: false }), info = computeRooms(d.components, d.wires);
-    var pts = tourPath(d.components, d.wires);
+  ['studio', 't3', 't5', 'r1'].forEach(function(k){
+    var d = buildHouse(k, { furnish: false, elec: false }), info = computeRooms(d.components, d.wires), lv = d.meta.levels;
+    var pts = tourPath(d.components, d.wires, lv);
+    var lvOf = function(p){ if (!lv) return 0; var i = lv.findIndex(function(l){ return p.x >= l.x0 && p.x < l.x1; }); return i < 0 ? 0 : i; };
     var rooms = info.rooms.filter(function(r){ return !r.leaked && r.sharedWith === null; }).length;
     var stops = new Set(pts.filter(function(p){ return p.stop; }).map(function(p){ return p.room; })).size;
     // aucun segment du parcours ne traverse un mur (les portes sont des ouvertures)
@@ -367,7 +368,8 @@ r = run(`(function(){
     };
     var hits = 0;
     d.wires.filter(function(w){ return w.kind === 'wall'; }).forEach(function(w){
-      for (var i = 1; i < w.points.length; i++) for (var j = 1; j < pts.length; j++) if (cross(pts[j - 1], pts[j], w.points[i - 1], w.points[i])) hits++;
+      // (le passage d'un niveau à l'autre se fait par l'escalier : pas un segment du plan)
+      for (var i = 1; i < w.points.length; i++) for (var j = 1; j < pts.length; j++) if (lvOf(pts[j - 1]) === lvOf(pts[j]) && cross(pts[j - 1], pts[j], w.points[i - 1], w.points[i])) hits++;
     });
     out.push([k, stops, rooms, hits]);
   });
@@ -481,6 +483,25 @@ r = run(`(function(){
 })()`);
 check('Visite : on monte l’escalier jusqu’à l’étage (yeux à 2,80 + 1,62 m)', r.top[0] > 250 && r.top[1] && r.up[0] === 1 && !r.up[1] && Math.abs(r.up[2] - 442) <= 3, JSON.stringify(r.up));
 check('Visite : on redescend par la trémie jusqu’au rez-de-chaussée', r.mid[1] === true && r.end[0] === 0 && !r.end[1] && r.end[2] === 0 && r.seen === '1,0', r.seen);
+
+// ---------------------------------------------------------------------------
+group('Soleil selon la saison (46° N)');
+r = run(`(function(){
+  var g = Object.create(GL3D.prototype), deg = function(){ return Math.asin(g.sunDir[1]) * 180 / Math.PI; }, out = {};
+  g.setSeason('hiver');
+  g.setTime(12.75); out.wNoon = deg(); out.wSouth = g.sunDir[2] > 0 && Math.abs(g.sunDir[0]) < 1e-6;
+  g.setTime(8.2); out.wBefore = g.sunDir[1] < 0; g.setTime(8.8); out.wAfter = g.sunDir[1] > 0;
+  g.setTime(17.3); out.wNight = g.sunDir[1] < 0 && g.day < 0.5;
+  g.setSeason('ete');
+  g.setTime(14); out.sNoon = deg();
+  g.setTime(7); out.sNE = g.sunDir[0] > 0 && g.sunDir[2] < 0; // lever au nord-est
+  g.setTime(21.5); out.sEvening = g.sunDir[1] > 0;
+  g.setSeason(null); g.setTime(12); out.neutral = deg();
+  return out;
+})()`);
+check('Hiver : soleil au sud à 12 h 45, hauteur 20,6°, levé vers 8 h 30, couché vers 17 h', near(r.wNoon, 20.6, 0.2) && r.wSouth && r.wBefore && r.wAfter && r.wNight, r.wNoon.toFixed(1) + '°');
+check('Été : hauteur 67,4° à 14 h, lever au nord-est, encore levé à 21 h 30', near(r.sNoon, 67.4, 0.2) && r.sNE && r.sEvening, r.sNoon.toFixed(1) + '°');
+check('Sans saison : course du soleil habituelle (6 h – 18 h, 51° à midi)', near(r.neutral, 51.3, 0.2), r.neutral.toFixed(1) + '°');
 
 console.log(`\n${passed} réussis, ${failed} échoué${failed > 1 ? 's' : ''}`);
 process.exit(failed ? 1 : 0);

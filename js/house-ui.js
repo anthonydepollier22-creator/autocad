@@ -406,7 +406,8 @@ function initHouseUI(app) {
     if (viz && viz.setTime) viz.setTime(h % 24);
     $('v3-time').value = t;
     $('v3-time-lbl').textContent = hhmm(h);
-    $('v3-time-ico').textContent = h > 6.5 && h < 19.5 ? '☀' : '☾';
+    const sun = (day.saved && PV_SUN[day.season]) || [6.5, 19.5]; // lever / coucher de la saison simulée
+    $('v3-time-ico').textContent = h % 24 > sun[0] && h % 24 < sun[1] ? '☀' : '☾';
   }
   function dayStart() {
     const d = ensureDesign();
@@ -420,6 +421,7 @@ function initHouseUI(app) {
       day.instant = false;
       day.prevTime = v3.time;
       sim.events.length = 0;
+      if (viz && viz.setSeason) viz.setSeason(day.season); // soleil de la saison simulée
     }
     day.running = true;
     sim.speed = day.rate * 3600;
@@ -442,6 +444,7 @@ function initHouseUI(app) {
     sim.speed = 1;
     if (day.saved) dayRestoreStates(day.saved);
     day.saved = null;
+    if (viz && viz.setSeason) viz.setSeason(null);
     if (day.prevTime !== null) { v3.time = day.prevTime; daySetTime3D(day.prevTime); day.prevTime = null; }
     editor.autosave();
     if (completed && day.acc) {
@@ -701,13 +704,14 @@ function initHouseUI(app) {
     if (!tour.on) return;
     tour.on = false;
     viz.guided = false;
+    if (viz.walk && viz.walk.lift > 0) Object.assign(viz.walk, { stair: true, from: viz.walk.level }); // arrêté dans l'escalier
     cancelAnimationFrame(tour.raf);
     tourCaption('');
     const b = $('v3-tour');
     b.textContent = '▶ Visite guidée'; b.classList.remove('on'); b.setAttribute('aria-pressed', 'false');
   }
   function tourStart() {
-    const pts = tourPath(editor.components, editor.wires);
+    const pts = tourPath(editor.components, editor.wires, levels());
     if (pts.length < 2) { showToast('Visite guidée : il faut un plan avec des pièces fermées et des portes.'); return; }
     const info = computeRooms(editor.components, editor.wires);
     Object.assign(tour, { on: true, pts, i: 0, t: 0, wait: 0.6, fade: 0, last: performance.now(), room: -1, names: info.rooms.map((r) => r.name) });
@@ -728,7 +732,14 @@ function initHouseUI(app) {
       if (Object.values(viz.keys).some(Boolean) || viz.stick) { tourStop(); return; }
       const a = tour.pts[tour.i], b = tour.pts[tour.i + 1];
       if (!b) { tourCaption(''); tourStop(); showToast('Fin de la visite guidée.'); return; }
-      if (tour.i === 0 && tour.t === 0) { w.x = a.x; w.z = a.z; }
+      // points du parcours → 3D (l'étage est décalé ; l'escalier monte avec « lift »)
+      const P3 = (p) => { const L = levelAt(p.x); return { X: p.x + L.dx, Y: L.dy + (p.lift || 0), L }; };
+      const place = (p, q, t) => {
+        const A = P3(p), B = P3(q), L = t < 0.5 ? A.L : B.L;
+        const X = A.X + (B.X - A.X) * t, Y = A.Y + (B.Y - A.Y) * t;
+        w.level = L.i; w.x = X - L.dx; w.z = p.z + (q.z - p.z) * t; w.lift = Y - L.dy;
+      };
+      if (tour.i === 0 && tour.t === 0) place(a, a, 0);
       let yawTarget;
       if (tour.wait > 0) {
         tour.wait -= dt;
@@ -736,14 +747,14 @@ function initHouseUI(app) {
         if (tour.wait <= 0) tour.fade = 1.2; // le nom de la pièce s'efface peu après le départ
       } else {
         if (tour.fade > 0 && (tour.fade -= dt) <= 0) tourCaption('');
-        const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+        const A = P3(a), B = P3(b);
+        const len = Math.hypot(B.X - A.X, b.z - a.z, B.Y - A.Y) || 1;
         tour.t += (SPEED * dt) / len;
         const t = Math.min(1, tour.t);
-        w.x = a.x + (b.x - a.x) * t;
-        w.z = a.z + (b.z - a.z) * t;
+        place(a, b, t);
         w.phase += SPEED * dt * 0.045;
         w.bob = Math.sin(w.phase) * 1.2;
-        yawTarget = Math.atan2(-(b.x - a.x), -(b.z - a.z));
+        if (Math.hypot(B.X - A.X, b.z - a.z) > 5) yawTarget = Math.atan2(-(B.X - A.X), -(b.z - a.z));
         if (tour.t >= 1) { tour.i++; tour.t = 0; if (b.stop) { tour.wait = 1.6; tour.room = b.room; tour.fade = 0; tourCaption(tour.names[b.room] || ''); } }
       }
       if (yawTarget !== undefined) {
@@ -813,6 +824,7 @@ function initHouseUI(app) {
     if (!viz) {
       viz = createViz3D(cv3, { sky: true, time: v3.time });
       window.__viz3d = viz; // débogage et captures d'écran
+      if (day.saved && viz.setSeason) viz.setSeason(day.season);
       viz.onPick = onPick;
       viz.onHover = onHover;
       // Visite : changement de niveau par l'escalier

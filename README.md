@@ -109,7 +109,8 @@ Les deux niveaux sont dessinés côte à côte sur le plan, reliés par l'escali
   et compte pour sa vraie hauteur (3 m), pas pour l'écart entre les dessins — dans les
   longueurs de câble, les chutes de tension et la liste du matériel ;
 - les circuits d'éclairage et de prises sont **séparés par niveau** (aucun circuit ne
-  mélange rez-de-chaussée et étage), le chauffage aussi ;
+  mélange rez-de-chaussée et étage), le chauffage aussi, et nommés en conséquence
+  (« Éclairage RDC », « Prises étage 2 », « Chauffage étage 1 »…) ;
 - en 3D, l'étage est **posé sur le rez-de-chaussée** (plancher de 2,80 m, dalle, trémie
   ouverte au-dessus de la volée, garde-corps), sous la toiture ; un filtre **Tout /
   RDC / Étage** isole un niveau, et en **Rayons X** les câbles et le courant montent à
@@ -197,7 +198,10 @@ journée d'**hiver** ou d'**été** : réveil à 6 h 30, départ au travail, ret
 17 h 15, dîner, coucher. Les pièces s'éclairent quand il fait nuit, la plaque et le
 four tournent aux repas, lessive, vaisselle, **chauffe-eau et recharge de la voiture
 en heures creuses**, radiateurs le matin et le soir en hiver. En 3D, **le soleil suit
-l'horloge** et les lampes s'allument d'elles-mêmes ; le plan 2D aussi.
+l'horloge et la saison** — vraie course du soleil à 46° N en heure légale : en hiver,
+lever vers 8 h 30, 20,6° au sud à 12 h 45, nuit à 17 h ; en été, lever au nord-est
+vers 6 h 15, 67° à 14 h, coucher vers 21 h 45 — et les lampes s'allument d'elles-mêmes ;
+le plan 2D aussi.
 
 Le graphique empile l'énergie **heure par heure et par usage** (chauffage, cuisson et
 lavage, eau chaude, éclairage, froid et multimédia, recharge), bande des heures creuses
@@ -235,7 +239,8 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
 - **Journée** : 24 heures en 48 secondes, le soleil et les lampes suivent l'horloge ;
 - **Visite guidée** (en mode Visite) : la caméra parcourt toutes les pièces depuis
   l'entrée, en passant par les portes, et s'arrête dans chacune (nom de la pièce à
-  l'écran) ; une touche de déplacement rend la main ;
+  l'écran) — dans une maison à étage, elle finit par monter l'escalier et visiter
+  l'étage ; une touche de déplacement rend la main ;
 - **Énergie** : le sol de chaque pièce se teinte selon la puissance qu'elle consomme
   (échelle 0 → 4 kW), avec une étiquette en watts au-dessus de chaque pièce ;
 - **Export du modèle 3D** en glTF binaire (`.glb`, validé par l'outil officiel Khronos) :
@@ -462,7 +467,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-94 vérifications sans dépendance : valeurs numériques de chaque simulation
+97 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
@@ -472,7 +477,8 @@ calculée à la main** (ΔU = 2·ρ·L·I/S, temps de déclenchement thermique, 
 magnétique, différentiel, disjoncteur de branchement, énergie, va-et-vient), la 3D
 (lumières par pièce, rayons X, collisions de la visite), **la maison à étage**
 (montée de 3 m, circuits par niveau, étage posé à 2,80 m, trémie, filtre par niveau,
-montée et descente de l'escalier en visite)
+montée et descente de l'escalier en visite, visite guidée jusqu'à l'étage), la course
+du soleil selon la saison
 et les exports SVG. Le déploiement GitHub Pages **exécute ces tests d'abord** : une
 régression bloque la mise en ligne.
 

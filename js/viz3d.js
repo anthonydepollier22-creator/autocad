@@ -1573,7 +1573,7 @@ function _buildGarden(viz, components, info, ex) {
 // Visite guidée : parcours en profondeur des pièces à partir de l'entrée, en
 // passant par les portes (jamais à travers un mur). Points { x, z, room, stop }.
 // ---------------------------------------------------------------------------
-function tourPath(components, wires) {
+function tourPath(components, wires, levels) {
   const info = computeRooms(components, wires);
   if (!info || !info.owner) return [];
   const ok = (i) => i >= 0 && info.rooms[i] && !info.rooms[i].leaked && info.rooms[i].sharedWith === null;
@@ -1591,6 +1591,28 @@ function tourPath(components, wires) {
     (adj[a] = adj[a] || []).push({ to: b, d, n: [n[0], n[2]], s: 1 });
     (adj[b] = adj[b] || []).push({ to: a, d, n: [n[0], n[2]], s: -1 });
   }
+  // Maison à étage : l'escalier relie la pièce du bas de la volée au palier
+  // (visité en dernier : la visite finit à l'étage)
+  const lo = levels && levels.length > 1 && components.find((c) => c.type === 'stairs' && c.value !== 'haut');
+  const hi = lo && components.find((c) => c.type === 'stairs' && c.value === 'haut');
+  if (lo && hi) {
+    const rise = (levels[1].dy || 0) - (levels[0].dy || 0);
+    const [ax, az] = _lp(lo, 0, 157 + 55), a = roomAt(info, ax, az);
+    // sortie en haut : devant la volée, sinon sur le côté où le palier est libre
+    const exits = [[0, -157 - 50], [-52 - 42, -120], [52 + 42, -120]].map(([lx, ly]) => _lp(hi, lx, ly));
+    const ex = exits.find(([x, z]) => ok(roomAt(info, x, z)));
+    if (ok(a) && ex) {
+      const b = roomAt(info, ex[0], ex[1]);
+      const path = [
+        { x: ax, z: az, room: a, stop: false },
+        { x: _lp(lo, 0, 150)[0], z: _lp(lo, 0, 150)[1], room: a, stop: false, lift: 0 },
+        { x: _lp(lo, 0, -97)[0], z: _lp(lo, 0, -97)[1], room: a, stop: false, lift: rise },
+        { x: ex[0], z: ex[1], room: b, stop: false, lift: 0 },
+      ];
+      (adj[a] = adj[a] || []).push({ to: b, stairs: path });
+      (adj[b] = adj[b] || []).push({ to: a, stairs: path.slice().reverse().map((p) => ({ ...p, room: p === path[0] ? a : b })) });
+    }
+  }
   const start = _walkStart(components, info, { minX: 0, minZ: 0, maxX: 0, maxZ: 0 });
   const r0 = roomAt(info, start.x, start.z);
   if (!ok(r0)) return [];
@@ -1599,6 +1621,7 @@ function tourPath(components, wires) {
   if (c0) pts.push({ ...c0, room: r0, stop: true });
   const seen = new Set([r0]);
   const via = (e, from, to) => {
+    if (e.stairs) { for (const p of e.stairs) pts.push({ ...p }); return; }
     // côté « from » de la porte, seuil, côté « to »
     const k = e.s; // n pointe vers la pièce a (s = 1 : from = a)
     pts.push({ x: e.d.x + e.n[0] * 60 * k, z: e.d.y + e.n[1] * 60 * k, room: from, stop: false });
@@ -1606,7 +1629,7 @@ function tourPath(components, wires) {
     pts.push({ x: e.d.x - e.n[0] * 60 * k, z: e.d.y - e.n[1] * 60 * k, room: to, stop: false });
   };
   const visit = (r) => {
-    const edges = (adj[r] || []).slice().sort((p, q) => (info.rooms[q.to].area || 0) - (info.rooms[p.to].area || 0));
+    const edges = (adj[r] || []).slice().sort((p, q) => (!!p.stairs - !!q.stairs) || (info.rooms[q.to].area || 0) - (info.rooms[p.to].area || 0));
     for (const e of edges) {
       if (seen.has(e.to)) continue;
       seen.add(e.to);
@@ -1614,8 +1637,8 @@ function tourPath(components, wires) {
       const c = center(e.to);
       if (c) pts.push({ ...c, room: e.to, stop: true });
       visit(e.to);
-      // retour par la même porte
-      via({ ...e, s: -e.s }, e.to, r);
+      // retour par la même porte (ou le même escalier)
+      via(e.stairs ? (adj[e.to] || []).find((x) => x.stairs && x.to === r) : { ...e, s: -e.s }, e.to, r);
     }
   };
   visit(r0);

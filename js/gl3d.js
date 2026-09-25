@@ -189,6 +189,10 @@ void main() {
   frag = vec4(vCol.rgb * a, a);
 }`;
 
+// Course du soleil par saison (journée type) : déclinaison et midi solaire
+// en heure légale (France, heure d'hiver / d'été)
+const GL3D_SEASONS = { hiver: { decl: -23.4, noon: 12.75 }, ete: { decl: 23.4, noon: 14.0 } };
+
 class GL3D extends Viz3D {
   static supported() {
     if (GL3D._ok === undefined) {
@@ -286,13 +290,28 @@ class GL3D extends Viz3D {
   }
 
   // ---- Heure du jour : soleil, ciel, ambiance ----
+  // Saison (journée type) : vraie course du soleil à 46° N, heure légale
+  setSeason(k) {
+    this.season = GL3D_SEASONS[k] || null;
+    this.setTime(this.time);
+  }
   setTime(h) {
     this.time = h;
-    const t = (h - 6) / 12;
-    const s = Math.sin(Math.PI * t);
-    const alt = s * 1.0;
-    const az = Math.PI * (0.1 + t * 0.8);
-    this.sunDir = _v3.norm([Math.cos(az) * Math.cos(alt), Math.sin(alt), 0.35 + Math.sin(az) * Math.cos(alt) * 0.6]);
+    let s;
+    if (this.season) {
+      // soleil dans le repère est / nord / zénith, puis en 3D : +x = est, +z = sud
+      const lat = (46 * Math.PI) / 180, d = (this.season.decl * Math.PI) / 180, H = ((h - this.season.noon) * 15 * Math.PI) / 180;
+      const up = Math.sin(lat) * Math.sin(d) + Math.cos(lat) * Math.cos(d) * Math.cos(H);
+      const east = -Math.cos(d) * Math.sin(H), north = Math.cos(lat) * Math.sin(d) - Math.sin(lat) * Math.cos(d) * Math.cos(H);
+      s = Math.asin(Math.max(-1, Math.min(1, up))); // hauteur (rad) : mêmes seuils que ci-dessous
+      this.sunDir = _v3.norm([east, Math.max(up, -0.2), -north]);
+    } else {
+      const t = (h - 6) / 12;
+      s = Math.sin(Math.PI * t);
+      const alt = s * 1.0;
+      const az = Math.PI * (0.1 + t * 0.8);
+      this.sunDir = _v3.norm([Math.cos(az) * Math.cos(alt), Math.sin(alt), 0.35 + Math.sin(az) * Math.cos(alt) * 0.6]);
+    }
     const day = _smooth(-0.1, 0.3, s), warm = 1 - _smooth(0.05, 0.55, s);
     this.day = day;
     this.sunCol = _v3.lerp([1.0, 0.92, 0.82], [1.0, 0.52, 0.28], warm).map((v) => v * 1.75 * _smooth(-0.02, 0.12, s));

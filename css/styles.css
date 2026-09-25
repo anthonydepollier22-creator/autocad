@@ -472,6 +472,7 @@ body.light .badge.sim-plan { color: #0f7a74; }
   display: inline-flex; gap: 2px; padding: 2px;
   background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
 }
+.seg[hidden] { display: none; }
 .seg button {
   border: none; background: transparent; color: var(--muted);
   font: inherit; font-size: 12px; font-weight: 600; min-height: 28px; padding: 0 9px;
