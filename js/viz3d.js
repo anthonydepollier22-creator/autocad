@@ -1335,7 +1335,7 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
   }
 
   // Rayons X : câbles de chaque circuit, échauffement et courant animé
-  if (opts.xray && design && design.ok) _buildCables(viz, components, design, snap, sim, nearWall, { place: (x) => { at(x); return shown(x); }, offOf, shown });
+  if (opts.xray && design && design.ok) _buildCables(viz, components, design, snap, sim, nearWall, { place: (x) => { at(x); return shown(x); }, offOf, shown, only: opts.circuit || null });
   viz.off = null;
 
   // Abords (terrasse, allées, haie, arbres) et toiture
@@ -1701,6 +1701,7 @@ const CABLE_COLORS = ['#ffb020', '#4f9dff', '#35d07f', '#ff5d7a', '#b18aec', '#6
 function _buildCables(viz, components, design, snap, sim, nearWall, lvl) {
   const place = (lvl && lvl.place) || (() => true), offOf = (lvl && lvl.offOf) || (() => null);
   const shown = (lvl && lvl.shown) || (() => true);
+  const only = lvl && lvl.only; // un circuit isolé : les autres s'estompent
   const net = design.net, byId = {};
   for (const c of components) byId[c.id] = c;
   const H = HOUSE3D.H;
@@ -1710,8 +1711,11 @@ function _buildCables(viz, components, design, snap, sim, nearWall, lvl) {
     const live = st ? st.live : true;
     const heat = st ? Math.min(1, Math.max(0, (st.heat - 0.2) / 1.1)) : 0;
     const base = CABLE_COLORS[k % CABLE_COLORS.length];
-    const col = !live ? '#5d6570' : heat > 0.05 ? _mix(base, '#ff2a14', heat) : base;
-    viz.em = live ? 0.55 + heat * 0.9 : 0;
+    const dim = !!only && ct.id !== only, pick = !!only && ct.id === only;
+    const col = dim ? '#8b939e' : !live ? '#5d6570' : heat > 0.05 ? _mix(base, '#ff2a14', heat) : base;
+    viz.em = dim ? 0 : live ? 0.55 + heat * 0.9 : 0;
+    viz.alpha = dim ? 0.14 : 1;
+    const th = pick ? 3.6 : 2.2; // circuit isolé : câble plus épais
     viz.obj = 'cable:' + ct.id;
     const lift = (k % 5) * 1.3;
     const level = (e) => {
@@ -1721,9 +1725,9 @@ function _buildCables(viz, components, design, snap, sim, nearWall, lvl) {
     const seg = (p, q, y) => {
       const len = Math.hypot(q.x - p.x, q.y - p.y);
       if (len < 0.5) return;
-      viz.box((p.x + q.x) / 2, y, (p.y + q.y) / 2, len + 2.2, 2.2, 2.2, col, (Math.atan2(q.y - p.y, q.x - p.x) * 180) / Math.PI);
+      viz.box((p.x + q.x) / 2, y, (p.y + q.y) / 2, len + th, th, th, col, (Math.atan2(q.y - p.y, q.x - p.x) * 180) / Math.PI);
     };
-    const riser = (p, y0, y1) => { if (Math.abs(y1 - y0) > 1) viz.box(p.x, Math.min(y0, y1), p.y, 2.2, Math.abs(y1 - y0), 2.2, col); };
+    const riser = (p, y0, y1) => { if (Math.abs(y1 - y0) > 1) viz.box(p.x, Math.min(y0, y1), p.y, th, Math.abs(y1 - y0), th, col); };
     for (const ei of ct.edges) {
       const e = net.edges[ei], y = level(e);
       if (e.riser) {
@@ -1750,8 +1754,16 @@ function _buildCables(viz, components, design, snap, sim, nearWall, lvl) {
       seg(p, { x: c.x, y: c.y }, top);
       const h = (typeof MOUNT_H !== 'undefined' && MOUNT_H[c.type] ? MOUNT_H[c.type] * 100 : 30);
       riser({ x: c.x, y: c.y }, top, Math.min(h, H - 4));
+      if (pick) { // repère lumineux au-dessus de chaque point du circuit isolé
+        const y0 = CEILING_OBJ.has(c.type) ? H - 60 : Math.min(h, H - 4) + 18;
+        viz.em = 1.3;
+        viz.box(c.x, y0, c.y, 1.6, 30, 1.6, base);
+        viz.box(c.x, y0 + 30, c.y, 9, 9, 9, base, 45);
+        viz.em = live ? 0.55 + heat * 0.9 : 0;
+      }
     }
-    viz.em = 0; viz.obj = null; viz.off = null;
+    viz.em = 0; viz.obj = null; viz.off = null; viz.alpha = 1;
+    if (dim) return; // pas de courant animé sur les circuits estompés
     // Courant animé : du tableau vers chaque appareil qui consomme
     if (!snap || !live || !tb) return;
     for (const id of ct.devices) {

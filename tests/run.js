@@ -246,6 +246,19 @@ r = run(`(function(){
 check('Lampes allumées → sources de lumière rattachées à leur pièce', r[0] > 0 && r[1] === r[0] && r[2], `${r[0]} lampes, ${r[1]} lumières`);
 check('Rayons X : câbles de chaque circuit et courant animé vers les appareils en marche', r[3] > 100 && r[4] > 0, `${r[3]} faces de câble, ${r[4]} flux`);
 r = run(`(function(){
+  var d = buildHouse('t3'), des = designInstallation(d.components, d.wires), sim = new InstallSim(); sim.setDesign(des);
+  d.components.forEach(function(c){ if (c.type === 'switch_sa') c.closed = true; });
+  var snap = sim.step(0.1, d.components, d.wires), viz = new Viz3D(__cv, { interactive: false });
+  var ct = des.circuits.find(function(c){ return c.kind === 'light'; });
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { xray: true, circuit: ct.id, sim: { snap: snap, design: des, sim: sim } });
+  var mine = viz.faces.filter(function(f){ return f.obj === 'cable:' + ct.id; });
+  var others = viz.faces.filter(function(f){ return f.obj && String(f.obj).indexOf('cable:') === 0 && f.obj !== 'cable:' + ct.id; });
+  var marks = mine.filter(function(f){ return f.em > 1; }).length;
+  var flowsOk = viz.flows.length > 0;
+  return [mine.every(function(f){ return f.alpha === 1; }), others.length > 0 && others.every(function(f){ return f.alpha < 0.2 && !f.em; }), marks >= 6 * ct.devices.filter(function(id){ return des.route[id] && !des.route[id].off; }).length, flowsOk];
+})()`);
+check('Rayons X : un circuit isolé ressort (repère sur chaque point), les autres s’estompent', r.every(Boolean), r.join(' / '));
+r = run(`(function(){
   var scene = { colliders: { segs: [{ a: { x: 0, y: -500 }, b: { x: 0, y: 500 }, r: 5 }], polys: [] } };
   var p = collideCircle(scene, 8, 0, 22);
   return p.x;

@@ -647,6 +647,8 @@ body.light .board { background: linear-gradient(#e6e9ef, #dadfe7); }
 }
 .chip:hover { color: var(--text); border-color: var(--border-strong); }
 .chip.on { background: rgba(255, 176, 32, 0.16); color: #ffb020; border-color: rgba(255, 176, 32, 0.55); }
+.v3-select { max-width: 210px; padding-right: 6px; color: var(--text); }
+.v3-select[hidden] { display: none; }
 body.light .chip.on { color: #9a6206; }
 .v3-time {
   display: inline-flex; align-items: center; gap: 7px; min-height: 32px; padding: 0 10px;

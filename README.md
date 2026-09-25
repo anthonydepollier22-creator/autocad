@@ -228,7 +228,9 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   contre les murs et les meubles, mini-carte et pièces éclairées ;
 - Murs pleins, **coupés** (1,15 m) ou au sol ; **Rayons X** : murs translucides, câbles
   de chaque circuit (qui rougissent quand ils chauffent) et **courant qui circule**
-  du tableau jusqu'aux appareils en marche ;
+  du tableau jusqu'aux appareils en marche ; un menu **isole un circuit** : son câble
+  s'épaissit, un repère lumineux se dresse sur chacun de ses points et les autres
+  circuits s'estompent (calibre, section, longueur, ΔU et pièces desservies affichés) ;
 - **Clic** sur un interrupteur, une lampe, un appareil ou une prise : ça bascule ;
   bulle d'information au survol (circuit, section, longueur, tension, puissance) ;
 - **Extérieur** : toiture à deux pans en tuiles (33°, faîtage sur le grand côté,
@@ -476,7 +478,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-102 vérifications sans dépendance : valeurs numériques de chaque simulation
+103 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

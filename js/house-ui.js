@@ -774,7 +774,21 @@ function initHouseUI(app) {
   // ---- Vue 3D ---------------------------------------------------------------
   const view3d = $('view3d'), cv3 = $('canvas3d'), tip = $('v3-tip'), map = $('v3-map'), hud = $('v3-hud');
   let viz = null;
-  const v3 = { walls: 'full', xray: false, time: 15, energy: false, level: 'all', cut: null, cutAxis: 'x' };
+  const v3 = { walls: 'full', xray: false, time: 15, energy: false, level: 'all', cut: null, cutAxis: 'x', circuit: null };
+  // Rayons X : choix d'un circuit à isoler
+  function circuitSelect() {
+    const sel = $('v3-circuit'), d = v3.xray ? ensureDesign() : null;
+    sel.hidden = !(d && d.ok);
+    if (sel.hidden) return;
+    if (v3.circuit && !d.circuits.some((c) => c.id === v3.circuit)) v3.circuit = null;
+    const sig = d.circuits.map((c) => c.id + c.name).join('|');
+    if (sel.dataset.sig !== sig) { // seulement si les circuits ont changé (liste ouverte préservée)
+      sel.dataset.sig = sig;
+      sel.innerHTML = '<option value="">Tous les circuits</option>' +
+        d.circuits.map((c) => `<option value="${c.id}">${c.id} · ${esc(c.name)}</option>`).join('');
+    }
+    sel.value = v3.circuit || '';
+  }
   // Vue en coupe : plan vertical dont la position (0 → 1) parcourt la maison d'ouest en est
   function applyCut() {
     if (!viz) return;
@@ -830,6 +844,7 @@ function initHouseUI(app) {
       sim: d && d.ok ? { snap: sim.snap, design: d, sim } : null,
       energy: energy ? { color: (i) => energyColor(energy.P[i] || 0) } : null,
       pv: pvKwc(),
+      circuit: v3.xray ? v3.circuit : null,
       levels: levels(), level: walking ? 'all' : v3.level, // en visite : on peut monter à l'étage
     });
     const pvs = viz.scene && viz.scene.pv;
@@ -865,6 +880,7 @@ function initHouseUI(app) {
     viz.autoRotate = !house;
     tick(0);
     levelSeg();
+    circuitSelect();
     build3D(true);
     viz.start();
     $('view3d-title').textContent = house ? 'Vue 3D de la maison' : 'Vue 3D de la carte';
@@ -973,10 +989,20 @@ function initHouseUI(app) {
     cutCamera();
   });
   $('v3-cut').addEventListener('input', () => { if (v3.cut !== null) { v3.cut = +$('v3-cut').value / 1000; applyCut(); } });
+  $('v3-circuit').addEventListener('change', (e) => {
+    v3.circuit = e.target.value || null;
+    build3D(false);
+    const d = ensureDesign(), c = v3.circuit && d && d.ok && d.circuits.find((x) => x.id === v3.circuit);
+    if (c) {
+      const n = (v) => String(v).replace('.', ',');
+      showToast(`${c.id} · ${esc(c.name)} — ${c.In} A, ${n(c.S)} mm², ${n(c.length.toFixed(1))} m, ΔU ${n(c.dUpct.toFixed(1))} % · ${c.points} point${c.points > 1 ? 's' : ''} : ${esc(c.rooms || '')}`, 5200);
+    }
+  });
   $('v3-xray').addEventListener('click', () => {
     v3.xray = !v3.xray;
     $('v3-xray').classList.toggle('on', v3.xray);
     $('v3-xray').setAttribute('aria-pressed', v3.xray ? 'true' : 'false');
+    circuitSelect();
     build3D(false);
     if (v3.xray && !(design && design.ok)) showToast('Rayons X : les câbles apparaissent une fois le tableau posé (onglet Tableau → Implanter).');
   });
