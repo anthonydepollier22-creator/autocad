@@ -730,7 +730,9 @@ function initHouseUI(app) {
     }
   }
   function onHover(id, p) {
-    if (viz.hoverObj !== id) { viz.hoverObj = id; if (!viz._raf) viz.render(); }
+    // surbrillance : composants et câbles seulement (pas les murs, le toit, le jardin)
+    const hid = id && (byId(id) || String(id).startsWith('cable:')) ? id : null;
+    if (viz.hoverObj !== hid) { viz.hoverObj = hid; if (!viz._raf) viz.render(); }
     const c = id && byId(id);
     cv3.style.cursor = c && (SWITCH_ALL.has(c.type) || LOADS[c.type] || LIGHT_T.has(c.type) || c.type === 'panel_house') ? 'pointer' : '';
     if (!c) { tip.hidden = true; return; }
@@ -791,6 +793,13 @@ function initHouseUI(app) {
 
   $('btn-3d').addEventListener('click', open3D);
   $('btn-3d-close').addEventListener('click', close3D);
+  $('btn-3d-glb').addEventListener('click', () => {
+    if (!viz) return;
+    const title = editor.meta.title || (hasPlan() ? 'maison' : 'carte');
+    const glb = buildGLB(viz.faces, { name: title });
+    download(new Blob([glb], { type: 'model/gltf-binary' }), title + ' - 3D.glb');
+    showToast(`Modèle 3D exporté (${(glb.byteLength / 1048576).toFixed(1).replace('.', ',')} Mo) : s’ouvre dans Blender, la visionneuse 3D, SketchUp…`, 4200);
+  });
   $('btn-3d-photo').addEventListener('click', () => {
     if (viz && viz.render) viz.render();
     const a = document.createElement('a');

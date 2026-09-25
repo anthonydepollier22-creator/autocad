@@ -99,8 +99,10 @@ void main() {
   float room = 0.0;
   vec2 q = (vPos.xz + N.xz * 14.0 - uRoomBox.xy) * uRoomBox.zw;
   if (q.x >= 0.0 && q.x <= 1.0 && q.y >= 0.0 && q.y <= 1.0) room = floor(texture(uRoom, q).r * 255.0 + 0.5);
+  // Les lampes n'éclairent que l'intérieur : rien au-dessus du plafond (toiture)
+  int nl = vPos.y < 254.0 ? uNL : 0;
   for (int i = 0; i < 16; i++) {
-    if (i >= uNL) break;
+    if (i >= nl) break;
     vec3 L = uLP[i].xyz - vPos;
     float d = length(L), R = uLP[i].w;
     if (d > R) continue;
@@ -289,7 +291,7 @@ class GL3D extends Viz3D {
     this.sunCol = _v3.lerp([1.0, 0.92, 0.82], [1.0, 0.52, 0.28], warm).map((v) => v * 1.75 * _smooth(-0.02, 0.12, s));
     this.skyAmb = _v3.lerp([0.075, 0.08, 0.11], [0.4, 0.46, 0.56], day);
     this.groundAmb = _v3.lerp([0.035, 0.032, 0.035], [0.24, 0.22, 0.19], day);
-    const dusk = _smooth(0.0, 0.35, s) * (1 - _smooth(0.35, 0.75, s));
+    const dusk = _smooth(0.0, 0.3, s) * (1 - _smooth(0.2, 0.45, s)); // lumière dorée : la dernière heure
     this.skyTop = _v3.lerp(_v3.lerp([0.02, 0.03, 0.08], [0.33, 0.54, 0.8], day), [0.2, 0.24, 0.45], dusk * 0.8);
     this.skyHor = _v3.lerp(_v3.lerp([0.06, 0.08, 0.16], [0.8, 0.87, 0.94], day), [1.0, 0.62, 0.42], dusk * 0.9);
     this.exposure = 0.92 + (1 - day) * 0.45;

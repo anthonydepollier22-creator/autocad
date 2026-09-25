@@ -11,9 +11,9 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..');
-const sb = { Math, JSON, console };
+const sb = { Math, JSON, console, TextEncoder, TextDecoder };
 vm.createContext(sb);
-for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'day', 'svg', 'viz3d']) {
+for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'day', 'svg', 'viz3d', 'export3d']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f + '.js'), 'utf8'), sb, { filename: f + '.js' });
 }
 const run = (code) => vm.runInContext(code, sb);
@@ -295,6 +295,37 @@ check('T3 : 20 à 120 kWh un jour d’hiver, moins l’été (pas de chauffage)'
   `${r[0].toFixed(1)} / ${r[1].toFixed(1)} kWh`);
 check('Énergie par heure et par usage = total ; une part en heures creuses', r[5] < 1e-6 && r[4] > 0.1 && r[4] < 0.9, `${(r[4] * 100).toFixed(0)} % HC`);
 check('Pointe sous la puissance souscrite, coût au tarif base, maison remise dans son état', r[7] < r[8] && near(r[9], 0.2516, 1e-9) && r[6], `pointe ${Math.round(r[7])} W / ${r[8]} W`);
+
+// ---------------------------------------------------------------------------
+group('Extérieur et export 3D');
+r = run(`(function(){
+  var d = getExampleData('maison-t3'), viz = new Viz3D(__cv, { interactive: false });
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { walls: 'roof', ground: true });
+  var roof = viz.faces.filter(function(f){ return f.obj === 'roof'; });
+  var garden = viz.faces.filter(function(f){ return f.obj === 'garden'; });
+  var topRoof = Math.max.apply(null, roof.map(function(f){ return Math.max.apply(null, f.pts.map(function(p){ return p[1]; })); }));
+  viz.clear();
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { walls: 'full', ground: false });
+  var noRoof = viz.faces.filter(function(f){ return f.obj === 'roof' || f.obj === 'garden'; }).length;
+  return [roof.length, garden.length, topRoof, noRoof];
+})()`);
+check('Toiture à deux pans au-dessus des murs, jardin autour ; rien en mode « Murs » sans terrain', r[0] > 20 && r[1] > 50 && r[2] > 400 && r[2] < 600 && r[3] === 0, `${r[0]} faces de toit, faîtage ${Math.round(r[2])} cm, ${r[1]} faces de jardin`);
+r = run(`(function(){
+  var d = getExampleData('maison-t3'), viz = new Viz3D(__cv, { interactive: false });
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { walls: 'roof', ground: true });
+  var tris = viz.faces.reduce(function(s, f){ return s + f.pts.length - 2; }, 0);
+  var buf = buildGLB(viz.faces, { name: 'Appartement T3' }), dv = new DataView(buf);
+  var jl = dv.getUint32(12, true);
+  var js = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 20, jl)));
+  var verts = js.meshes[0].primitives.reduce(function(s, p){ return s + js.accessors[p.attributes.POSITION].count; }, 0);
+  var bin = dv.getUint32(20 + jl, true);
+  var mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
+  js.meshes[0].primitives.forEach(function(p){ var a = js.accessors[p.attributes.POSITION]; for (var k = 0; k < 3; k++) { mn[k] = Math.min(mn[k], a.min[k]); mx[k] = Math.max(mx[k], a.max[k]); } });
+  return [dv.getUint32(0, true) === 0x46546c67, dv.getUint32(4, true), dv.getUint32(8, true) === buf.byteLength, verts === tris * 3, bin === js.buffers[0].byteLength,
+    js.materials.length === js.meshes[0].primitives.length, js.nodes[0].name, mx[1] - mn[1], js.materials.every(function(m){ return m.doubleSided; })];
+})()`);
+check('Export .glb : en-tête glTF 2.0, JSON + binaire, un matériau par primitive, tous les triangles', r[0] && r[1] === 2 && r[2] && r[3] && r[4] && r[5] && r[8], r.slice(0, 6).join(' / '));
+check('Export .glb : nom accentué, dimensions en mètres (hauteur totale 5 à 7 m avec arbres et toit)', r[6] === 'Appartement T3' && r[7] > 4 && r[7] < 8, `${r[7].toFixed(2)} m`);
 
 console.log(`\n${passed} réussis, ${failed} échoué${failed > 1 ? 's' : ''}`);
 process.exit(failed ? 1 : 0);

@@ -168,7 +168,16 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   de chaque circuit (qui rougissent quand ils chauffent) et **courant qui circule**
   du tableau jusqu'aux appareils en marche ;
 - **Clic** sur un interrupteur, une lampe, un appareil ou une prise : ça bascule ;
-  bulle d'information au survol (circuit, section, longueur, tension, puissance).
+  bulle d'information au survol (circuit, section, longueur, tension, puissance) ;
+- **Extérieur** : toiture à deux pans en tuiles (33°, faîtage sur le grand côté,
+  débords, rives, pignons, cheminée), terrasse en bois et salon de jardin devant le
+  séjour, allée jusqu'à la porte d'entrée, entrée de garage, haie et arbres autour du
+  terrain — les lampes n'éclairent jamais le dessous du toit ;
+- **Journée** : 24 heures en 48 secondes, le soleil et les lampes suivent l'horloge ;
+- **Export du modèle 3D** en glTF binaire (`.glb`, validé par l'outil officiel Khronos) :
+  s'ouvre dans Blender, la visionneuse 3D de Windows, Aperçu, SketchUp ou un moteur de jeu.
+
+![Extérieur : toiture, terrasse, jardin](docs/screenshot-exterieur.png)
 
 ![Rayons X](docs/screenshot-rayons-x.png)
 
@@ -370,6 +379,7 @@ python3 -m http.server 8000
 │   ├── examples.js    # Bibliothèque d'exemples
 │   ├── viz3d.js       # Scène 3D (carte / maison), caméra, visite, repli canvas 2D
 │   ├── gl3d.js        # Rendu WebGL2 : ombres, jour/nuit, lampes, vitrages, sélection
+│   ├── export3d.js    # Export du modèle 3D en glTF binaire (.glb)
 │   ├── svg.js         # Export vectoriel SVG
 │   ├── editor.js      # Moteur CAO : vue, modèle, outils, historique, rendu
 │   ├── house-ui.js    # Nouvelle maison, onglet Tableau, contrôle de la vue 3D
@@ -386,7 +396,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-70 vérifications sans dépendance : valeurs numériques de chaque simulation
+73 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 5 types de maison** (pièces fermées, conformes, mobilier

@@ -991,11 +991,12 @@ function _traceSeg(viz, a, b) {
 
 function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
   const mode = opts.walls || 'full';
-  const H = mode === 'full' ? HOUSE3D.H : mode === 'cut' ? HOUSE3D.CUT : HOUSE3D.LOW;
+  const full = mode === 'full' || mode === 'roof'; // « roof » : extérieur, toiture posée
+  const H = full ? HOUSE3D.H : mode === 'cut' ? HOUSE3D.CUT : HOUSE3D.LOW;
   const info = typeof computeRooms === 'function' ? computeRooms(components, walls) : null;
   const snap = opts.sim && opts.sim.snap, design = opts.sim && opts.sim.design, sim = opts.sim && opts.sim.sim;
   const scene = viz.scene = {
-    wallH: H, cut: mode !== 'full', cutTop: mode === 'full' ? null : '#4b5361', rooms: info,
+    wallH: H, cut: !full, cutTop: full ? null : '#4b5361', rooms: info,
     walls: [], colliders: { segs: [], polys: [] }, worktops: [], start: null, breakers: [],
   };
   // Segments de mur (épaisseur extérieure / intérieure)
@@ -1034,7 +1035,7 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
   const floored = info ? info.rooms.map((r) => !r.leaked && r.sharedWith === null) : [];
   viz.setLayer(0);
   if (opts.ground) {
-    const g = 900;
+    const g = 2600; // jusqu'à l'horizon (le brouillard fond le bord)
     viz.poly([[b.minX - g, -11, b.minZ - g], [b.maxX + g, -11, b.minZ - g], [b.maxX + g, -11, b.maxZ + g], [b.minX - g, -11, b.maxZ + g]], '#8ea56d');
   }
   viz.box(b.cx, -10, b.cz, b.W, 10, b.D, '#b3a792');
@@ -1090,7 +1091,7 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
   viz.alpha = 1; viz.obj = null;
 
   // Plafond (visite)
-  if (opts.ceiling && info && mode === 'full') {
+  if (opts.ceiling && info && full) {
     viz.obj = 'ceiling';
     info.rooms.forEach((room, i) => {
       if (!floored[i]) return;
@@ -1111,10 +1112,10 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
       if (len < 1) continue;
       const ang = (Math.atan2(c.y - a.y, c.x - a.x) * 180) / Math.PI;
       const high = !nearWall({ x: (a.x + c.x) / 2, y: (a.y + c.y) / 2 });
-      if (high && mode !== 'full' && !opts.xray) continue;
+      if (high && !full && !opts.xray) continue;
       const y = high ? ceilY : 1;
       const a0 = viz.alpha;
-      if (high && mode !== 'full') viz.alpha = Math.min(viz.alpha, 0.45);
+      if (high && !full) viz.alpha = Math.min(viz.alpha, 0.45);
       viz.box((a.x + c.x) / 2, y, (a.y + c.y) / 2, len + 5, 7, 5, '#e9ecf0', ang);
       if (high) for (const p of [a, c]) if (nearWall(p)) viz.box(p.x, 1, p.y, 5, ceilY - 1, 5, '#e9ecf0', ang);
       viz.alpha = a0;
@@ -1139,11 +1140,201 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
   // Rayons X : câbles de chaque circuit, échauffement et courant animé
   if (opts.xray && design && design.ok) _buildCables(viz, components, design, snap, sim, nearWall);
 
+  // Abords (terrasse, allées, haie, arbres) et toiture
+  const ext = scene.walls.filter((w) => w.ext);
+  if (ext.length) {
+    const ex = { minX: Infinity, minZ: Infinity, maxX: -Infinity, maxZ: -Infinity };
+    for (const w of ext) for (const p of [w.a, w.b]) {
+      ex.minX = Math.min(ex.minX, p.x); ex.maxX = Math.max(ex.maxX, p.x);
+      ex.minZ = Math.min(ex.minZ, p.y); ex.maxZ = Math.max(ex.maxZ, p.y);
+    }
+    if (opts.ground) _buildGarden(viz, components, info, ex);
+    if (mode === 'roof') _buildRoof(viz, ex);
+  }
+
   // Lumières : pièce de chaque lampe (le moteur WebGL ne l'éclaire que là)
   for (const l of viz.lights) l.room = info ? roomAt(info, l.x, l.z) : -1;
 
   // Point de départ de la visite : derrière la porte d'entrée
   scene.start = _walkStart(components, info, b);
+}
+
+// ---------------------------------------------------------------------------
+// Toiture : deux pans de tuiles (pente 33°), faîtage le long du grand côté,
+// débords, rives, pignons, cheminée
+// ---------------------------------------------------------------------------
+function _buildRoof(viz, ex) {
+  const o = 38, t = Math.tan((33 * Math.PI) / 180), yWall = HOUSE3D.H + 6;
+  const alongX = ex.maxX - ex.minX >= ex.maxZ - ex.minZ;
+  // repère local : u le long du faîtage, v en travers
+  const P = (u, v, y) => (alongX ? [u, y, v] : [v, y, u]);
+  const eu0 = alongX ? ex.minX : ex.minZ, eu1 = alongX ? ex.maxX : ex.maxZ;
+  const ev0 = alongX ? ex.minZ : ex.minX, ev1 = alongX ? ex.maxZ : ex.maxX;
+  const half = (ev1 - ev0) / 2, vc = (ev0 + ev1) / 2;
+  const u0 = eu0 - o, u1 = eu1 + o, vA = ev0 - o, vB = ev1 + o;
+  const ridgeY = yWall + half * t, eaveY = yWall - o * t;
+  const yAt = (v) => ridgeY - Math.abs(v - vc) * t;
+  const TILE = '#a8573c', TILE_D = '#8e4731', RIDGE = '#7c3b2a', FASCIA = '#efe9df';
+  viz.setLayer(1);
+  viz.obj = 'roof';
+  // Pans
+  viz.poly([P(u0, vA, eaveY), P(u1, vA, eaveY), P(u1, vc, ridgeY), P(u0, vc, ridgeY)], TILE);
+  viz.poly([P(u0, vB, eaveY), P(u0, vc, ridgeY), P(u1, vc, ridgeY), P(u1, vB, eaveY)], TILE);
+  // Rangs de tuiles (tous les 34 cm), légèrement en relief
+  const run = half + o, rows = Math.floor(run / 34);
+  for (let k = 1; k < rows; k++) {
+    for (const edge of [vA, vB]) {
+      const dir = Math.sign(vc - edge), f0 = k / rows, f1 = f0 + 4 / run;
+      const va = edge + dir * f0 * run, vb = edge + dir * f1 * run;
+      viz.poly([P(u0, va, yAt(va) + 0.9), P(u1, va, yAt(va) + 0.9), P(u1, vb, yAt(vb) + 0.9), P(u0, vb, yAt(vb) + 0.9)], TILE_D);
+    }
+  }
+  // Faîtage
+  const uc = (u0 + u1) / 2;
+  const rc = P(uc, vc, ridgeY - 5);
+  viz.box(rc[0], rc[1], rc[2], alongX ? u1 - u0 + 6 : 18, 11, alongX ? 18 : u1 - u0 + 6, RIDGE);
+  // Rives et bandeaux d'égout
+  for (const v of [vA, vB]) {
+    const a = P(u0, v, eaveY - 14), b = P(u1, v, eaveY - 14), c = P(u1, v, eaveY), d = P(u0, v, eaveY);
+    viz.poly([a, b, c, d], FASCIA);
+  }
+  for (const u of [u0, u1]) {
+    viz.poly([P(u, vA, eaveY - 12), P(u, vA, eaveY), P(u, vc, ridgeY), P(u, vc, ridgeY - 12)], FASCIA);
+    viz.poly([P(u, vB, eaveY - 12), P(u, vB, eaveY), P(u, vc, ridgeY), P(u, vc, ridgeY - 12)], FASCIA);
+  }
+  // Sous-faces des débords
+  viz.poly([P(u0, vA, eaveY - 1), P(u1, vA, eaveY - 1), P(u1, ev0, yWall - 1), P(u0, ev0, yWall - 1)], '#d9d2c6');
+  viz.poly([P(u0, vB, eaveY - 1), P(u1, vB, eaveY - 1), P(u1, ev1, yWall - 1), P(u0, ev1, yWall - 1)], '#d9d2c6');
+  // Pignons, au nu extérieur des murs d'about
+  for (const u of [eu0 - HOUSE3D.T_EXT / 2, eu1 + HOUSE3D.T_EXT / 2]) {
+    viz.poly([P(u, ev0, HOUSE3D.H - 1), P(u, ev1, HOUSE3D.H - 1), P(u, ev1, yWall), P(u, vc, ridgeY - 1), P(u, ev0, yWall)], WALL_COL);
+  }
+  // Cheminée
+  const cu = eu0 + (eu1 - eu0) * 0.72, cv = vc + (vB - vc) * 0.32, base = yAt(cv) - 18;
+  const cp = P(cu, cv, base);
+  viz.box(cp[0], base, cp[2], 52, ridgeY + 52 - base, 52, '#b8a998', 0, '#6d6258');
+  viz.obj = null;
+}
+
+// ---------------------------------------------------------------------------
+// Abords : terrasse bois devant le séjour, allée d'entrée, entrée de garage,
+// haie autour du terrain, arbres
+// ---------------------------------------------------------------------------
+function _buildGarden(viz, components, info, ex) {
+  const M = 520; // marge du terrain autour de la maison
+  const lot = { minX: ex.minX - M, minZ: ex.minZ - M, maxX: ex.maxX + M, maxZ: ex.maxZ + M };
+  const GY = -9.8;
+  // Côté de la maison le plus proche d'un point : 'N' (z min), 'S', 'W' (x min), 'E'
+  const sideOf = (x, z) => {
+    const d = { N: Math.abs(z - ex.minZ), S: Math.abs(z - ex.maxZ), W: Math.abs(x - ex.minX), E: Math.abs(x - ex.maxX) };
+    return Object.keys(d).reduce((a, k) => (d[k] < d[a] ? k : a), 'N');
+  };
+  const out = { N: [0, -1], S: [0, 1], W: [-1, 0], E: [1, 0] };
+  const openings = []; // passages dans la haie { side, c, w }
+  viz.obj = 'garden';
+  viz.setLayer(0.2);
+
+  // Bande (allée) du mur jusqu'à la haie
+  const strip = (x, z, side, w, col, joints) => {
+    const [dx, dz] = out[side];
+    const x0 = dx ? (dx > 0 ? ex.maxX + 10 : lot.minX) : x - w / 2, x1 = dx ? (dx > 0 ? lot.maxX : ex.minX - 10) : x + w / 2;
+    const z0 = dz ? (dz > 0 ? ex.maxZ + 10 : lot.minZ) : z - w / 2, z1 = dz ? (dz > 0 ? lot.maxZ : ex.minZ - 10) : z + w / 2;
+    viz.poly([[x0, GY, z0], [x1, GY, z0], [x1, GY, z1], [x0, GY, z1]], col);
+    if (joints) {
+      viz.setLayer(0.25);
+      const len = dx ? x1 - x0 : z1 - z0;
+      for (let k = 60; k < len; k += 60) {
+        const p = dx ? x0 + k : z0 + k;
+        if (dx) viz.poly([[p, GY + 0.2, z0], [p + 2, GY + 0.2, z0], [p + 2, GY + 0.2, z1], [p, GY + 0.2, z1]], joints);
+        else viz.poly([[x0, GY + 0.2, p], [x1, GY + 0.2, p], [x1, GY + 0.2, p + 2], [x0, GY + 0.2, p + 2]], joints);
+      }
+      viz.setLayer(0.2);
+    }
+    openings.push({ side, c: dx ? z : x, w: w + 20 });
+  };
+  // Entrée de garage (enrobé) et allée piétonne (dalles) jusqu'à la porte d'entrée
+  const gd = components.find((c) => c.type === 'garage_door');
+  if (gd) strip(gd.x, gd.y, sideOf(gd.x, gd.y), 300, '#77787a', '#6a6b6d');
+  const onEdge = (c) => Math.min(Math.abs(c.x - ex.minX), Math.abs(c.x - ex.maxX), Math.abs(c.y - ex.minZ), Math.abs(c.y - ex.maxZ)) < 15;
+  const entry = components.find((c) => c.type === 'door' && onEdge(c));
+  if (entry) strip(entry.x, entry.y, sideOf(entry.x, entry.y), 120, '#cfc6b6', '#b9ae9b');
+
+  // Terrasse en bois devant le séjour (côté extérieur le plus proche)
+  const sej = info ? info.rooms.findIndex((r) => r.type && r.type.key === 'sejour' && !r.leaked && r.sharedWith === null) : -1;
+  if (sej >= 0) {
+    let rx0 = Infinity, rz0 = Infinity, rx1 = -Infinity, rz1 = -Infinity;
+    for (const r of roomRuns(info, sej)) { rx0 = Math.min(rx0, r.x); rz0 = Math.min(rz0, r.y); rx1 = Math.max(rx1, r.x + r.w); rz1 = Math.max(rz1, r.y + r.h); }
+    const d = { N: rz0 - ex.minZ, S: ex.maxZ - rz1, W: rx0 - ex.minX, E: ex.maxX - rx1 };
+    const side = Object.keys(d).reduce((a, k) => (d[k] < d[a] ? k : a), 'N');
+    if (d[side] < 40) {
+      const D = 260, inset = 30;
+      const [dx, dz] = out[side];
+      const x0 = dx ? (dx > 0 ? ex.maxX + 10 : ex.minX - 10 - D) : rx0 + inset, x1 = dx ? (dx > 0 ? ex.maxX + 10 + D : ex.minX - 10) : rx1 - inset;
+      const z0 = dz ? (dz > 0 ? ex.maxZ + 10 : ex.minZ - 10 - D) : rz0 + inset, z1 = dz ? (dz > 0 ? ex.maxZ + 10 + D : ex.minZ - 10) : rz1 - inset;
+      viz.setLayer(1);
+      viz.box((x0 + x1) / 2, -11, (z0 + z1) / 2, x1 - x0, 13, z1 - z0, '#b3875a', 0, '#bf9264');
+      // lames
+      viz.setLayer(1.1);
+      const alongX = !dx; // lames parallèles au mur
+      const n = Math.floor((alongX ? z1 - z0 : x1 - x0) / 15);
+      for (let k = 1; k < n; k++) {
+        if (alongX) { const z = z0 + k * 15; viz.poly([[x0, 2.2, z], [x1, 2.2, z], [x1, 2.2, z + 1.5], [x0, 2.2, z + 1.5]], '#94704a'); }
+        else { const x = x0 + k * 15; viz.poly([[x, 2.2, z0], [x + 1.5, 2.2, z0], [x + 1.5, 2.2, z1], [x, 2.2, z1]], '#94704a'); }
+      }
+      // salon de jardin : table et deux chaises
+      const tx = (x0 + x1) / 2 + (alongX ? (x1 - x0) * 0.22 : 0), tz = (z0 + z1) / 2 + (alongX ? 0 : (z1 - z0) * 0.22);
+      viz.setLayer(1);
+      viz.cyl(tx, 2, tz, 4, 70, '#3b3f45', { seg: 8 });
+      viz.cyl(tx, 72, tz, 48, 3, '#e9e5dc', { seg: 18 });
+      for (const s of [-1, 1]) {
+        const cx = tx + (alongX ? s * 78 : 0), cz = tz + (alongX ? 0 : s * 78);
+        viz.box(cx, 2, cz, 44, 44, 44, '#3b3f45', 0, '#565b63');
+        viz.box(cx + (alongX ? s * 20 : 0), 46, cz + (alongX ? 0 : s * 20), alongX ? 5 : 44, 42, alongX ? 44 : 5, '#565b63');
+      }
+    }
+  }
+
+  // Haie tout autour du terrain, interrompue par les allées
+  viz.setLayer(1);
+  const HEDGE = ['#4d7a3c', '#557f41', '#48733a'];
+  const hedgeSide = (side) => {
+    const horiz = side === 'N' || side === 'S';
+    const a0 = horiz ? lot.minX : lot.minZ, a1 = horiz ? lot.maxX : lot.maxZ;
+    const fixed = side === 'N' ? lot.minZ : side === 'S' ? lot.maxZ : side === 'W' ? lot.minX : lot.maxX;
+    const gaps = openings.filter((g) => g.side === side);
+    let k = 0;
+    for (let a = a0; a < a1 - 1; a += 180) {
+      const b = Math.min(a1, a + 180), m = (a + b) / 2;
+      if (gaps.some((g) => Math.abs(m - g.c) < g.w / 2 + 90)) continue;
+      const hh = 105 + ((k++ * 37) % 3) * 9;
+      if (horiz) viz.box(m, -11, fixed, b - a + 8, hh, 60, HEDGE[k % 3], 0, _shade(HEDGE[k % 3], 1.12));
+      else viz.box(fixed, -11, m, 60, hh, b - a + 8, HEDGE[k % 3], 0, _shade(HEDGE[k % 3], 1.12));
+    }
+  };
+  for (const side of ['N', 'S', 'W', 'E']) hedgeSide(side);
+
+  // Arbres (positions fixes, loin des allées)
+  const spots = [
+    [lot.minX + 170, lot.minZ + 170], [lot.maxX - 170, lot.minZ + 170], [lot.minX + 170, lot.maxZ - 170], [lot.maxX - 170, lot.maxZ - 170],
+    [(ex.minX + ex.maxX) / 2 - (ex.maxX - ex.minX) * 0.3, lot.maxZ - 200], [(ex.minX + ex.maxX) / 2 + (ex.maxX - ex.minX) * 0.3, lot.minZ + 200],
+  ];
+  const clear = (x, z) => !openings.some((g) => {
+    const along = g.side === 'N' || g.side === 'S' ? x : z;
+    const across = g.side === 'N' ? z < ex.minZ : g.side === 'S' ? z > ex.maxZ : g.side === 'W' ? x < ex.minX : x > ex.maxX;
+    return across && Math.abs(along - g.c) < g.w / 2 + 150;
+  });
+  spots.forEach(([x, z], i) => {
+    if (!clear(x, z)) return;
+    const s = 0.85 + ((i * 53) % 5) * 0.08;
+    viz.cyl(x, -11, z, 11 * s, 150 * s, '#6b4f36', { seg: 8, r2: 7 * s });
+    const green = ['#4c7d3e', '#5b8a45', '#467338'];
+    for (const [dx, dy, dz, r] of [[0, 150, 0, 85], [-40, 185, 25, 62], [38, 195, -20, 58], [8, 235, 6, 52]]) {
+      viz.dome(x + dx * s, (dy - r * 0.55) * s - 11, z + dz * s, r * s, green[(i + dy) % 3], { seg: 10, rings: 4, sy: 1.15 });
+      viz.dome(x + dx * s, (dy - r * 0.55) * s - 11, z + dz * s, r * s * 0.98, _shade(green[(i + dy) % 3], 0.8), { seg: 10, rings: 2, sy: -0.55 });
+    }
+  });
+  viz.obj = null;
+  viz.setLayer(1);
 }
 
 function _walkStart(components, info, b) {

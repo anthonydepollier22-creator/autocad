@@ -123,6 +123,7 @@
               <button data-w="full" class="on" title="Murs pleine hauteur (2,50 m)">Murs</button>
               <button data-w="cut" title="Murs coupés à 1,15 m">Coupés</button>
               <button data-w="low" title="Plan au sol">Plan</button>
+              <button data-w="roof" title="Toiture, terrasse, jardin : la maison vue de l'extérieur">Extérieur</button>
             </div>
             <button id="v3-xray" class="chip" aria-pressed="false" title="Rayons X : câbles de chaque circuit et courant qui circule">Rayons X</button>
             <button id="v3-day" class="chip" aria-pressed="false" title="Journée type : 24 heures en 48 secondes — soleil, lumières, appareils, chauffage">Journée</button>
@@ -132,6 +133,7 @@
               <b id="v3-time-lbl" class="num">15:00</b>
             </label>
           </div>
+          <button id="btn-3d-glb" class="icon-btn" data-icon="cube" title="Exporter le modèle 3D (.glb) : Blender, visionneuse 3D, SketchUp…"></button>
           <button id="btn-3d-photo" class="icon-btn" data-icon="image" title="Exporter la vue en PNG"></button>
           <button id="btn-3d-close" class="icon-btn" title="Fermer (Échap)">✕</button>
         </div>
@@ -291,6 +293,7 @@
   <script src="js/svg.js"></script>
   <script src="js/viz3d.js"></script>
   <script src="js/gl3d.js"></script>
+  <script src="js/export3d.js"></script>
   <script src="js/examples.js"></script>
   <script src="js/houses.js"></script>
   <script src="js/install.js"></script>
