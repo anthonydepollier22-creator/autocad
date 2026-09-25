@@ -744,6 +744,18 @@ class Editor {
       ctx.strokeStyle = selected || hovered ? col : this.colors.comp;
       ctx.lineWidth = 9;
       path();
+    } else if (w.kind === 'conduit' && w.riser) {
+      // Montée d'étage : relie les deux plans (tirets) ; sa longueur réelle est la hauteur d'étage
+      ctx.strokeStyle = selected || hovered ? col : this.colors.label;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([12, 9]);
+      path();
+      ctx.setLineDash([]);
+      const m = riserLabelAt(w, this.wires);
+      ctx.font = '600 20px sans-serif';
+      ctx.fillStyle = selected || hovered ? col : this.colors.label;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(`montée ${fmtMeters(w.len || 300)}`, m.x, m.y - 8);
     } else if (w.kind === 'conduit') {
       // Goulotte / chemin de câbles : double ligne (tube creux)
       ctx.strokeStyle = selected || hovered ? col : this.colors.label;
@@ -1093,6 +1105,7 @@ class Editor {
         ctx.stroke();
       };
       if (wi.kind === 'wall') { ctx.strokeStyle = '#1f2733'; ctx.lineWidth = 9; path(); }
+      else if (wi.kind === 'conduit' && wi.riser) { ctx.strokeStyle = '#6b7788'; ctx.lineWidth = 2; ctx.setLineDash([12, 9]); path(); ctx.setLineDash([]); }
       else if (wi.kind === 'conduit') {
         ctx.strokeStyle = '#6b7788'; ctx.lineWidth = 8; path();
         ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4.5; path();

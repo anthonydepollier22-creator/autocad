@@ -254,7 +254,7 @@ check('Visite : le visiteur ne traverse pas les murs (cercle repoussé à R + e/
 r = run(`(function(){
   var viz = new Viz3D(__cv, { interactive: false }), empty = [];
   Object.keys(BUILDERS3D).forEach(function(k){
-    if (k[0] === '_' || k === 'room') return;
+    if (k[0] === '_' || k === 'room' || k === 'level_title') return;
     viz.clear(); BUILDERS3D[k](viz, { x: 0, y: 0, rot: 45, closed: true, high: true });
     if (!viz.faces.length) empty.push(k);
   });
@@ -404,6 +404,58 @@ r = run(`(function(){
   return [html.indexOf('<!DOCTYPE html>') === 0, h2, svgs, html.indexOf('T3 &lt;test&gt;') > 0, html.indexOf('C1') > 0, html.indexOf('Production solaire') > 0];
 })()`);
 check('Dossier : plan, norme, tableau, matériel, journée ; titre échappé', r[0] && r[1] === 5 && r[2] === 3 && r[3] && r[4] && r[5], `${r[1]} sections, ${r[2]} SVG`);
+
+// ---------------------------------------------------------------------------
+group('Maison à étage (R+1)');
+r = run(`(function(){
+  var d = buildHouse('r1'), lv = d.meta.levels, des = designInstallation(d.components, d.wires);
+  var levelOf = function(x){ var i = lv.findIndex(function(l){ return x >= l.x0 && x < l.x1; }); return i < 0 ? 0 : i; };
+  var byId = {}; d.components.forEach(function(c){ byId[c.id] = c; });
+  var risers = d.wires.filter(function(w){ return w.kind === 'conduit' && w.riser; });
+  var mixed = des.circuits.filter(function(ct){
+    if (ct.kind !== 'light' && ct.kind !== 'socket') return false;
+    var ls = {}; ct.devices.forEach(function(id){ if (byId[id]) ls[levelOf(byId[id].x)] = 1; });
+    return Object.keys(ls).length > 1;
+  }).map(function(ct){ return ct.name; });
+  var up = des.circuits.filter(function(ct){ return ct.devices.some(function(id){ return byId[id] && levelOf(byId[id].x) === 1; }); });
+  var viaRiser = up.every(function(ct){ return ct.edges.some(function(ei){ return des.net.edges[ei].riser; }) && ct.length >= 3; });
+  var stairs = d.components.filter(function(c){ return c.type === 'stairs'; }).map(function(c){ return c.value; }).sort().join('/');
+  return { levels: lv.length, stairs: stairs, risers: risers.length, riserLen: risers.every(function(w){ return w.len === 300; }),
+    mixed: mixed, up: up.length, viaRiser: viaRiser, ok: des.ok, n: des.circuits.length };
+})()`);
+check('Deux niveaux, un escalier (bas / haut), montée de 3 m entre les goulottes', r.levels === 2 && r.stairs === 'bas/haut' && r.risers > 0 && r.riserLen, `${r.risers} montée(s)`);
+check('Circuits d’éclairage et de prises par niveau (aucun ne mélange rez-de-chaussée et étage)', r.ok && r.mixed.length === 0, r.mixed.join(', ') || `${r.n} circuits`);
+check('Circuits de l’étage : passent par la montée, longueur comptée', r.up > 0 && r.viaRiser, `${r.up} circuits à l’étage`);
+r = run(`(function(){
+  var d = buildHouse('r1'), lv = d.meta.levels, des = designInstallation(d.components, d.wires), sim = new InstallSim(); sim.setDesign(des);
+  d.components.forEach(function(c){ if (c.type === 'switch_sa') c.closed = true; });
+  var snap = sim.step(0.1, d.components, d.wires), viz = new Viz3D(__cv, { interactive: false });
+  var dx = lv[1].dx, dy = lv[1].dy;
+  var all = function(level, extra){ var o = { walls: 'cut', levels: lv, level: level, ground: false, xray: true, sim: { snap: snap, design: des, sim: sim } }; for (var k in extra) o[k] = extra[k]; buildBoard(viz, d.components, d.wires, SYMBOLS, o); return viz.faces; };
+  var minY = function(f){ return Math.min.apply(null, f.pts.map(function(p){ return p[1]; })); };
+  var maxY = function(f){ return Math.max.apply(null, f.pts.map(function(p){ return p[1]; })); };
+  var f = all('all'), upper = f.filter(function(x){ return x.dx === dx; });
+  var elevated = upper.length > 500 && upper.every(function(x){ return minY(x) >= dy - 24 - 0.01; });
+  var riser = f.some(function(x){ return String(x.obj).indexOf('cable:') === 0 && x.dx === 0 && minY(x) < 20 && maxY(x) > dy; });
+  var flowsUp = viz.flows.some(function(fl){ return fl.pts.some(function(p){ return p[1] > dy; }); });
+  // trémie : aucun sol de l'étage au-dessus de la volée
+  var st = d.components.find(function(c){ return c.type === 'stairs' && c.value === 'haut'; });
+  var hx = st.x + dx, hz = st.y;
+  var covered = upper.some(function(x){
+    if (Math.abs(minY(x) - maxY(x)) > 0.01 || Math.abs(minY(x) - dy) > 1) return false;
+    var xs = x.pts.map(function(p){ return p[0]; }), zs = x.pts.map(function(p){ return p[2]; });
+    return hx > Math.min.apply(null, xs) && hx < Math.max.apply(null, xs) && hz > Math.min.apply(null, zs) && hz < Math.max.apply(null, zs);
+  });
+  var f0 = all(0), only0 = f0.every(function(x){ return x.dx === 0; });
+  var f1 = all(1), only1 = f1.every(function(x){ return x.dx === dx || maxY(x) <= 0.01 || minY(x) >= dy - 24 - 0.01; });
+  var lamps = all('all').length && viz.lights.filter(function(l){ return l.y > dy; }).length;
+  return [elevated, upper.length, riser, flowsUp, covered, only0, only1, lamps];
+})()`);
+check('3D : l’étage est posé sur le rez-de-chaussée (décalé de 2,80 m, dalle comprise)', r[0], `${r[1]} faces à l’étage`);
+check('3D : trémie ouverte au-dessus de l’escalier', r[4] === false);
+check('3D rayons X : câbles et courant montent à l’étage par la colonne', r[2] && r[3]);
+check('3D : filtre par niveau (rez-de-chaussée seul, étage seul)', r[5] && r[6]);
+check('3D : les lampes de l’étage éclairent à l’étage', r[7] > 0, `${r[7]} lampes`);
 
 console.log(`\n${passed} réussis, ${failed} échoué${failed > 1 ? 's' : ''}`);
 process.exit(failed ? 1 : 0);

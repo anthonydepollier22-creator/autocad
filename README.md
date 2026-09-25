@@ -16,7 +16,7 @@ Windows, macOS, Linux et Android — entièrement hors ligne.
 ![Site vitrine : la maison générée en direct](docs/screenshot-accueil.png)
 
 La page d'accueil est elle-même une démonstration : elle génère une maison en direct
-(studio → T5, dans un *worker*), l'affiche en 3D avec le curseur de l'heure, en plan
+(du studio à la maison à étage, dans un *worker*), l'affiche en 3D avec le curseur de l'heure, en plan
 ou en tableau, puis détaille le plan annoté, le contrôle NF C 15-100 pièce par pièce
 et un **banc d'essai** où l'on surcharge une ligne jusqu'au déclenchement du
 disjoncteur (mêmes lois physiques que l'éditeur).
@@ -78,9 +78,11 @@ une diffusion directe, pas au Play Store.
 
 ## 🏠 Types de maison — générés, meublés, implantés, câblés
 
-Le bouton **Maison** propose cinq types : **Studio** (29 m²), **Appartement T2**
-(48 m²), **Appartement T3** (79 m²), **Maison T4 de plain-pied** (104 m²) et
-**Maison T5 + garage** (157 m² + garage avec borne de recharge). En un clic :
+Le bouton **Maison** propose six types : **Studio** (29 m²), **Appartement T2**
+(48 m²), **Appartement T3** (79 m²), **Maison T4 de plain-pied** (104 m²),
+**Maison T5 + garage** (157 m² + garage avec borne de recharge) et **Maison à étage**
+(R+1, 156 m² : séjour, cuisine, bureau et escalier en bas, trois chambres et salle de
+bains en haut). En un clic :
 
 - **Plan** : murs extérieurs (20 cm) et cloisons (10 cm) déduits des pièces, portes
   ouvrant dans le bon sens (WC vers l'extérieur), fenêtres, porte de garage ;
@@ -97,6 +99,25 @@ Le bouton **Maison** propose cinq types : **Studio** (29 m²), **Appartement T2*
 - **Goulottes** tracées automatiquement : plus courts chemins sur la grille des pièces
   (Dijkstra, pénalité de virage), qui suivent les plinthes, passent les seuils et
   partagent un tronc commun depuis le tableau.
+
+### Maison à étage (R+1)
+
+Les deux niveaux sont dessinés côte à côte sur le plan, reliés par l'escalier
+(« bas » au rez-de-chaussée, « haut » à l'étage, avec sa trémie) :
+
+- les goulottes montent par l'escalier : une **montée** en tirets relie les deux plans
+  et compte pour sa vraie hauteur (3 m), pas pour l'écart entre les dessins — dans les
+  longueurs de câble, les chutes de tension et la liste du matériel ;
+- les circuits d'éclairage et de prises sont **séparés par niveau** (aucun circuit ne
+  mélange rez-de-chaussée et étage), le chauffage aussi ;
+- en 3D, l'étage est **posé sur le rez-de-chaussée** (plancher de 2,80 m, dalle, trémie
+  ouverte au-dessus de la volée, garde-corps), sous la toiture ; un filtre **Tout /
+  RDC / Étage** isole un niveau, et en **Rayons X** les câbles et le courant montent à
+  l'étage par la colonne de l'escalier.
+
+![Maison à étage](docs/screenshot-etage.png)
+
+![Maison à étage en rayons X](docs/screenshot-etage-rayons-x.png)
 
 Les mêmes outils marchent sur **votre propre plan** : onglet Tableau → *Implanter*,
 *Goulottes*, *Meubler*. Tous les types sortent conformes (0 erreur, 0 avertissement)
@@ -437,15 +458,17 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-82 vérifications sans dépendance : valeurs numériques de chaque simulation
+92 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
-les cas non conformes), **les 5 types de maison** (pièces fermées, conformes, mobilier
+les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
 sans chevauchement, chaque appareil desservi, génération déterministe), **la conception
 du tableau** (différentiels selon la surface, 32 A / 6 mm², abonnement), **la physique
 calculée à la main** (ΔU = 2·ρ·L·I/S, temps de déclenchement thermique, Icc et
 magnétique, différentiel, disjoncteur de branchement, énergie, va-et-vient), la 3D
-(lumières par pièce, rayons X, collisions de la visite) et les exports SVG. Le déploiement GitHub Pages **exécute ces tests d'abord** : une
+(lumières par pièce, rayons X, collisions de la visite), **la maison à étage**
+(montée de 3 m, circuits par niveau, étage posé à 2,80 m, trémie, filtre par niveau)
+et les exports SVG. Le déploiement GitHub Pages **exécute ces tests d'abord** : une
 régression bloque la mise en ligne.
 
 ## 🧱 Format de fichier

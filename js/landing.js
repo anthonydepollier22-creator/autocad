@@ -213,7 +213,7 @@ function boardHTML(design) {
 // Démonstration du héros
 // ---------------------------------------------------------------------------
 const HOUSE_CHIPS = [
-  ['studio', 'Studio'], ['t2', 'T2'], ['t3', 'T3'], ['t4', 'T4'], ['t5', 'T5 + garage'],
+  ['studio', 'Studio'], ['t2', 'T2'], ['t3', 'T3'], ['t4', 'T4'], ['t5', 'T5 + garage'], ['r1', 'R+1'],
 ];
 const demo = { key: 't5', tab: '3d', hour: 17.75, scene: null, H: null, viz: null, token: 0, visible: true };
 
@@ -232,7 +232,7 @@ function build3D(first) {
   const H = demo.H, viz = demo.viz;
   if (!H || !viz) return;
   demo.scene = applyScene(demo.hour, H.doc, H.info);
-  const r = buildBoard(viz, H.doc.components, H.doc.wires, SYMBOLS, { walls: 'full', ground: true, sim: simSnapshot(H), keepCamera: !first });
+  const r = buildBoard(viz, H.doc.components, H.doc.wires, SYMBOLS, { walls: 'full', ground: true, sim: simSnapshot(H), keepCamera: !first, levels: H.doc.meta && H.doc.meta.levels });
   if (first) viz.fit(r * 0.8);
   viz.dirty = true;
   if (!viz._raf) viz.render();

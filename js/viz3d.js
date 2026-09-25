@@ -52,12 +52,20 @@ class Viz3D {
   setLayer(n) { this._layer = n; }
   poly(pts, color) {
     this.dirty = true;
+    // étage : décalage de la géométrie (le plan de l'étage est dessiné à côté du rez-de-chaussée)
+    const o = this.off;
+    if (o) pts = pts.map((p) => [p[0] + o.dx, p[1] + o.dy, p[2]]);
     this.faces.push({
       pts, color: this._rgb(color), layer: this._layer === undefined ? 1 : this._layer,
-      obj: this.obj, em: this.em, alpha: this.alpha,
+      obj: this.obj, em: this.em, alpha: this.alpha, dx: o ? o.dx : 0,
     });
   }
-  addLight(l) { this.lights.push(l); }
+  addLight(l) {
+    const o = this.off;
+    l.px = l.x; l.pz = l.z; // position dans le plan (pièce de la lampe)
+    if (o) { l.x += o.dx; l.y += o.dy; }
+    this.lights.push(l);
+  }
 
   box(cx, cy, cz, sx, sy, sz, color, ry, top) {
     const x0 = -sx / 2, x1 = sx / 2, y0 = 0, y1 = sy, z0 = -sz / 2, z1 = sz / 2;
@@ -714,6 +722,28 @@ const BUILDERS3D = {
     _lb(v, c, 0, -10, 112, 3, 54, 64, c.__on ? '#7fa6d8' : '#121417');
     v.em = e0;
   },
+  // Escalier droit : 14 marches de 22 cm de giron jusqu'au plancher de l'étage (2,80 m),
+  // limon et main courante ; « haut » : garde-corps autour de la trémie
+  stairs: (v, c) => {
+    const rail = '#e8e4dc';
+    if (c.value === 'haut') {
+      _lb(v, c, -52, 0, 4, 314, 0, 100, rail);
+      _lb(v, c, 52, 0, 4, 314, 0, 100, rail);
+      _lb(v, c, 0, 157, 104, 4, 0, 100, rail); // au-dessus du bas de la volée ; on arrive côté -y
+      return;
+    }
+    const rise = 280 / 15, go = 310 / 14;
+    for (let i = 0; i < 14; i++) {
+      const yc = 155 - (i + 0.5) * go;
+      _lb(v, c, 0, yc, 100, go, 0, (i + 1) * rise, '#e3ddd2', '#b98b5e');
+    }
+    // main courante inclinée (côté +x), sur poteaux
+    const top = (i) => (i + 1) * rise + 90;
+    for (const i of [0, 6, 13]) _lb(v, c, 48, 155 - (i + 0.5) * go, 4, 4, (i + 1) * rise, 90, '#7a5a3e');
+    const [ax, az] = _lp(c, 48, 155 - 0.5 * go), [bx, bz] = _lp(c, 48, 155 - 13.5 * go);
+    v.poly([[ax, top(0) - 3, az], [bx, top(13) - 3, bz], [bx, top(13) + 3, bz], [ax, top(0) + 3, az]], '#7a5a3e');
+  },
+  level_title: () => {}, // simple légende du plan
   plant: (v, c) => {
     v.cyl(c.x, 0, c.y, 15, 30, '#b5653d', { r2: 17 });
     for (const [dx, dz, y, r] of [[0, 0, 44, 20], [-10, 6, 60, 15], [9, -6, 70, 14], [3, 8, 84, 10]]) v.dome(c.x + dx, y - r * 0.6, c.y + dz, r, '#4f8a4b', { sy: 1.2 });
@@ -921,7 +951,7 @@ for (const g of ['gate_and', 'gate_or', 'gate_not', 'gate_nand', 'gate_nor', 'ga
 // Hauteurs des objets fixés au plafond (non coupés avec les murs)
 const CEILING_OBJ = new Set(['dcl', 'vmc', 'smoke_detector']);
 // Meubles qui arrêtent le visiteur
-const SOLID_FURNITURE = new Set([
+const SOLID_FURNITURE = new Set(['stairs', 
   'bed', 'sofa', 'table', 'counter', 'wardrobe', 'desk', 'tv_unit', 'fridge', 'oven', 'cooktop', 'washer', 'dryer',
   'dishwasher', 'water_heater', 'shower', 'bathtub', 'washbasin', 'toilet', 'car', 'gtl', 'plant',
 ]);
@@ -939,17 +969,24 @@ function buildBoard(viz, components, wires, symbols, opts) {
   const elec = wires.filter((w) => !w.kind || w.kind === 'wire');
   const houseMode = walls.length > 0;
 
-  // Bornes
+  // Maison à étage : plans des niveaux côte à côte, empilés en 3D
+  const levels = houseMode && opts.levels && opts.levels.length > 1 ? opts.levels : null;
+  const levelOf = (x) => {
+    if (!levels) return 0;
+    const i = levels.findIndex((l) => x >= l.x0 && x < l.x1);
+    return i < 0 ? 0 : i;
+  };
+  // Bornes (celles du rez-de-chaussée : les étages s'empilent au-dessus)
   let minX = Infinity, minZ = Infinity, maxX = -Infinity, maxZ = -Infinity;
-  const acc = (x, z) => { minX = Math.min(minX, x); minZ = Math.min(minZ, z); maxX = Math.max(maxX, x); maxZ = Math.max(maxZ, z); };
-  for (const c of components) { const b = symbols[c.type].bbox; acc(c.x + b.x, c.y + b.y); acc(c.x + b.x + b.w, c.y + b.y + b.h); }
+  const acc = (x, z) => { if (levelOf(x) !== 0) return; minX = Math.min(minX, x); minZ = Math.min(minZ, z); maxX = Math.max(maxX, x); maxZ = Math.max(maxZ, z); };
+  for (const c of components) { const b = symbols[c.type].bbox; if (levelOf(c.x) === 0) { acc(c.x + b.x, c.y + b.y); acc(c.x + b.x + b.w, c.y + b.y + b.h); } }
   for (const w of wires) for (const p of w.points) acc(p.x, p.y);
   if (!isFinite(minX)) { minX = -140; minZ = -100; maxX = 140; maxZ = 100; }
   const pad = houseMode ? 30 : 46;
   minX -= pad; minZ -= pad; maxX += pad; maxZ += pad;
   const cx = (minX + maxX) / 2, cz = (minZ + maxZ) / 2;
   const W = maxX - minX, D = maxZ - minZ;
-  if (!opts.keepCamera) viz.target = [cx, 0, cz];
+  if (!opts.keepCamera) viz.target = [cx, levels ? 130 : 0, cz]; // maison à étage : on vise mi-hauteur
   viz.bounds = { minX, minZ, maxX, maxZ };
   viz.outerBounds = null;
 
@@ -958,8 +995,9 @@ function buildBoard(viz, components, wires, symbols, opts) {
     _buildPCB(viz, components, elec, symbols, { minX, minZ, maxX, maxZ, cx, cz, W, D });
     return Math.max(W, D) / 2 + 30;
   }
-  _buildHouse(viz, components, walls, conduits, symbols, opts, { minX, minZ, maxX, maxZ, cx, cz, W, D });
-  return Math.max(W, D) / 2 + 40;
+  _buildHouse(viz, components, walls, conduits, symbols, opts, { minX, minZ, maxX, maxZ, cx, cz, W, D, levels, levelOf });
+  viz.off = null;
+  return Math.max(W, D) / 2 + 40 + (levels ? 90 : 0);
 }
 
 function _buildPCB(viz, components, elec, symbols, b) {
@@ -994,6 +1032,10 @@ function _traceSeg(viz, a, b) {
 }
 
 function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
+  const levelOf = b.levelOf || (() => 0), lv = b.levels;
+  const offOf = (x) => { const L = lv && lv[levelOf(x)]; return L && (L.dx || L.dy) ? { dx: L.dx || 0, dy: L.dy || 0 } : null; };
+  const at = (x) => { viz.off = offOf(x); }; // place la géométrie qui suit sur le bon niveau
+  const shown = (x) => opts.level === undefined || opts.level === null || opts.level === 'all' || levelOf(x) === opts.level;
   const mode = opts.walls || 'full';
   const full = mode === 'full' || mode === 'roof'; // « roof » : extérieur, toiture posée
   const H = full ? HOUSE3D.H : mode === 'cut' ? HOUSE3D.CUT : HOUSE3D.LOW;
@@ -1037,6 +1079,12 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
 
   // Terrain, dalle, sols des pièces
   const floored = info ? info.rooms.map((r) => !r.leaked && r.sharedWith === null) : [];
+  // Trémies : l'escalier « haut » de l'étage ouvre le plancher au-dessus de la volée
+  const holes = lv ? components.filter((c) => c.type === 'stairs' && c.value === 'haut' && levelOf(c.x) > 0).map((c) => {
+    const f = _footprint3(c, 0), xs = f.map((p) => p.x), zs = f.map((p) => p.y);
+    return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) };
+  }) : [];
+  const inHole = holes.length ? (x, z) => holes.some((h) => x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1) : null;
   viz.setLayer(0);
   if (opts.ground) {
     const g = 2600; // jusqu'à l'horizon (le brouillard fond le bord)
@@ -1045,20 +1093,38 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
   viz.box(b.cx, -10, b.cz, b.W, 10, b.D, '#b3a792');
   if (info) {
     viz.setLayer(0.5);
+    const labX = (room) => { const l = components.find((c) => c.id === room.id); return l ? l.x : 0; };
     info.rooms.forEach((room, i) => {
-      if (!floored[i]) return;
+      if (!floored[i] || !shown(labX(room))) return;
+      at(labX(room));
       const col = opts.energy ? opts.energy.color(i) : _floorColor(room);
-      for (const r of roomRuns(info, i)) {
+      for (const r of _cutRects(roomRuns(info, i), holes)) {
         viz.poly([[r.x, 0.3, r.y], [r.x + r.w, 0.3, r.y], [r.x + r.w, 0.3, r.y + r.h], [r.x, 0.3, r.y + r.h]], col);
       }
     });
     viz.setLayer(0.6);
     info.rooms.forEach((room, i) => {
-      if (!floored[i] || opts.energy) return;
+      if (!floored[i] || opts.energy || !shown(labX(room))) return;
+      at(labX(room));
       const k = room.type && room.type.floor;
       if (k === 'concrete') return;
       const tile = k === 'tile';
-      _floorSeams(viz, info, i, tile ? 30 : 40, tile, _shade(_floorColor(room), tile ? 0.9 : 0.86));
+      _floorSeams(viz, info, i, tile ? 30 : 40, tile, _shade(_floorColor(room), tile ? 0.9 : 0.86), inHole);
+    });
+    viz.off = null;
+  }
+  // Planchers des étages (dalle vue de dessous et en rive)
+  if (lv) {
+    lv.forEach((L, k) => {
+      if (!k || !shown(L.x0)) return;
+      const ws = scene.walls.filter((w) => levelOf((w.a.x + w.b.x) / 2) === k);
+      if (!ws.length) return;
+      const xs = ws.flatMap((w) => [w.a.x, w.b.x]), zs = ws.flatMap((w) => [w.a.y, w.b.y]);
+      const x0 = Math.min(...xs) - 10, x1 = Math.max(...xs) + 10, z0 = Math.min(...zs) - 10, z1 = Math.max(...zs) + 10;
+      at(L.x0);
+      viz.setLayer(0.4);
+      for (const r of _cutRects([{ x: x0, y: z0, w: x1 - x0, h: z1 - z0 }], holes)) viz.box(r.x + r.w / 2, -24, r.y + r.h / 2, r.w, 24, r.h, '#d8d2c6');
+      viz.off = null;
     });
   }
   viz.setLayer(1);
@@ -1068,6 +1134,9 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
   viz.alpha = opts.xray ? 0.16 : 1;
   viz.obj = 'wall';
   for (const w of scene.walls) {
+    const mx = (w.a.x + w.b.x) / 2;
+    if (!shown(mx)) continue;
+    at(mx);
     const dx = w.b.x - w.a.x, dz = w.b.y - w.a.y, len = Math.hypot(dx, dz);
     const ux = dx / len, uz = dz / len, ang = (Math.atan2(dz, dx) * 180) / Math.PI;
     const ops = [];
@@ -1092,16 +1161,19 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
     }
     piece(s, len, 0, H);
   }
-  viz.alpha = 1; viz.obj = null;
+  viz.alpha = 1; viz.obj = null; viz.off = null;
 
   // Plafond (visite)
   if (opts.ceiling && info && full) {
     viz.obj = 'ceiling';
     info.rooms.forEach((room, i) => {
       if (!floored[i]) return;
+      const lab = components.find((c) => c.id === room.id);
+      if (lab && !shown(lab.x)) return;
+      at(lab ? lab.x : 0);
       for (const r of roomRuns(info, i)) viz.poly([[r.x, H, r.y + r.h], [r.x + r.w, H, r.y + r.h], [r.x + r.w, H, r.y], [r.x, H, r.y]], '#f6f4ef');
     });
-    viz.obj = null;
+    viz.obj = null; viz.off = null;
   }
 
   // Goulottes : en plinthe le long des murs, en moulure au plafond ailleurs
@@ -1110,8 +1182,11 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
   viz.obj = 'conduit';
   if (opts.xray) viz.alpha = 0.35;
   for (const w of conduits) {
+    if (w.riser) continue; // colonne montante : dans la cage d'escalier
     for (let i = 0; i < w.points.length - 1; i++) {
       const a = w.points[i], c = w.points[i + 1];
+      if (!shown((a.x + c.x) / 2)) continue;
+      at((a.x + c.x) / 2);
       const len = Math.hypot(c.x - a.x, c.y - a.y);
       if (len < 1) continue;
       const ang = (Math.atan2(c.y - a.y, c.x - a.x) * 180) / Math.PI;
@@ -1125,13 +1200,14 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
       viz.alpha = a0;
     }
   }
-  viz.alpha = 1; viz.obj = null;
+  viz.alpha = 1; viz.obj = null; viz.off = null;
 
   // Composants (menuiseries translucides en rayons X)
   const JOINERY = new Set(['door', 'window_a', 'garage_door']);
   for (const c of components) {
     const sym = symbols[c.type];
-    if (!sym) continue;
+    if (!sym || !shown(c.x)) continue;
+    at(c.x);
     viz.obj = c.id;
     viz.alpha = opts.xray && JOINERY.has(c.type) ? 0.16 : 1;
     if (!(mode === 'low' && CEILING_OBJ.has(c.type))) {
@@ -1140,24 +1216,36 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
     viz.obj = null; viz.alpha = 1;
     if (SOLID_FURNITURE.has(c.type)) scene.colliders.polys.push(_footprint3(c, c.type === 'plant' ? -6 : 0));
   }
+  viz.off = null;
 
   // Rayons X : câbles de chaque circuit, échauffement et courant animé
-  if (opts.xray && design && design.ok) _buildCables(viz, components, design, snap, sim, nearWall);
+  if (opts.xray && design && design.ok) _buildCables(viz, components, design, snap, sim, nearWall, { place: (x) => { at(x); return shown(x); }, offOf, shown });
+  viz.off = null;
 
   // Abords (terrasse, allées, haie, arbres) et toiture
-  const ext = scene.walls.filter((w) => w.ext);
-  if (ext.length) {
+  const extOf = (k) => {
+    const ws = scene.walls.filter((w) => w.ext && levelOf((w.a.x + w.b.x) / 2) === k);
+    if (!ws.length) return null;
     const ex = { minX: Infinity, minZ: Infinity, maxX: -Infinity, maxZ: -Infinity };
-    for (const w of ext) for (const p of [w.a, w.b]) {
+    for (const w of ws) for (const p of [w.a, w.b]) {
       ex.minX = Math.min(ex.minX, p.x); ex.maxX = Math.max(ex.maxX, p.x);
       ex.minZ = Math.min(ex.minZ, p.y); ex.maxZ = Math.max(ex.maxZ, p.y);
     }
-    if (opts.ground) _buildGarden(viz, components, info, ex);
-    if (mode === 'roof') _buildRoof(viz, ex, opts.pv || 0);
+    return ex;
+  };
+  const ex0 = extOf(0);
+  if (ex0) {
+    if (opts.ground) _buildGarden(viz, components.filter((c) => levelOf(c.x) === 0), info, ex0);
+    const top = lv ? lv.length - 1 : 0, exT = extOf(top);
+    if (mode === 'roof' && exT && (shown(lv ? lv[top].x0 : 0) || !lv)) {
+      at(lv ? lv[top].x0 : 0);
+      _buildRoof(viz, exT, opts.pv || 0);
+      viz.off = null;
+    }
   }
 
   // Lumières : pièce de chaque lampe (le moteur WebGL ne l'éclaire que là)
-  for (const l of viz.lights) l.room = info ? roomAt(info, l.x, l.z) : -1;
+  for (const l of viz.lights) l.room = info ? roomAt(info, l.px !== undefined ? l.px : l.x, l.pz !== undefined ? l.pz : l.z) : -1;
 
   // Point de départ de la visite : derrière la porte d'entrée
   scene.start = _walkStart(components, info, b);
@@ -1471,7 +1559,9 @@ function _walkStart(components, info, b) {
 }
 
 const CABLE_COLORS = ['#ffb020', '#4f9dff', '#35d07f', '#ff5d7a', '#b18aec', '#6ad7d0', '#ff8a3d', '#e6e05a', '#5ce0c6', '#f58ad8'];
-function _buildCables(viz, components, design, snap, sim, nearWall) {
+function _buildCables(viz, components, design, snap, sim, nearWall, lvl) {
+  const place = (lvl && lvl.place) || (() => true), offOf = (lvl && lvl.offOf) || (() => null);
+  const shown = (lvl && lvl.shown) || (() => true);
   const net = design.net, byId = {};
   for (const c of components) byId[c.id] = c;
   const H = HOUSE3D.H;
@@ -1497,6 +1587,17 @@ function _buildCables(viz, components, design, snap, sim, nearWall) {
     const riser = (p, y0, y1) => { if (Math.abs(y1 - y0) > 1) viz.box(p.x, Math.min(y0, y1), p.y, 2.2, Math.abs(y1 - y0), 2.2, col); };
     for (const ei of ct.edges) {
       const e = net.edges[ei], y = level(e);
+      if (e.riser) {
+        // montée vers l'étage : colonne verticale dans la trémie de l'escalier
+        const dyOf = (v) => (offOf(net.pos[v].x) || { dy: 0 }).dy;
+        const [lo, hi] = dyOf(e.a) <= dyOf(e.b) ? [e.a, e.b] : [e.b, e.a];
+        const up = shown(net.pos[hi].x);
+        if (!place(net.pos[lo].x) && !up) continue;
+        const y0 = shown(net.pos[lo].x) ? 3 + lift : dyOf(hi) - dyOf(lo) - 24; // étage seul : depuis le dessous de la dalle
+        riser(net.pos[lo], y0, up ? dyOf(hi) - dyOf(lo) + 3 + lift : H - 4);
+        continue;
+      }
+      if (!place((net.pos[e.a].x + net.pos[e.b].x) / 2)) continue;
       seg(net.pos[e.a], net.pos[e.b], y);
       if (y > 50) for (const v of [e.a, e.b]) if (nearWall(net.pos[v])) riser(net.pos[v], 3 + lift, y);
     }
@@ -1504,19 +1605,20 @@ function _buildCables(viz, components, design, snap, sim, nearWall) {
     for (const id of ct.devices) {
       const c = byId[id], r = design.route[id];
       if (!c || !r || r.off || r.node === undefined) continue;
+      if (!place(c.x)) continue;
       const p = net.pos[r.node];
       const top = CEILING_OBJ.has(c.type) ? H - 14 - lift : 3 + lift;
       seg(p, { x: c.x, y: c.y }, top);
       const h = (typeof MOUNT_H !== 'undefined' && MOUNT_H[c.type] ? MOUNT_H[c.type] * 100 : 30);
       riser({ x: c.x, y: c.y }, top, Math.min(h, H - 4));
     }
-    viz.em = 0; viz.obj = null;
+    viz.em = 0; viz.obj = null; viz.off = null;
     // Courant animé : du tableau vers chaque appareil qui consomme
     if (!snap || !live || !tb) return;
     for (const id of ct.devices) {
       const dv = snap.devices[id], r = design.route[id], c = byId[id];
-      if (!dv || !dv.P || !r || r.off || !c) continue;
-      const pts = _flowPath(net, r, design, tb, c, nearWall, lift);
+      if (!dv || !dv.P || !r || r.off || !c || !shown(c.x) || !shown(tb.x)) continue;
+      const pts = _flowPath(net, r, design, tb, c, nearWall, lift, offOf);
       if (pts.length < 2) continue;
       const I = dv.P / Math.max(1, dv.U);
       viz.flows.push({ pts, speed: 50 + 280 * Math.min(1, I / 12), color: [1, 0.8, 0.4], size: 6 + Math.min(5, I / 3) });
@@ -1524,31 +1626,35 @@ function _buildCables(viz, components, design, snap, sim, nearWall) {
   });
 }
 // Polyligne 3D du tableau jusqu'à l'appareil en suivant les câbles
-function _flowPath(net, r, design, tb, c, nearWall, lift) {
+function _flowPath(net, r, design, tb, c, nearWall, lift, offOf) {
   const H = HOUSE3D.H;
+  // point du plan → point 3D du bon niveau (l'étage est décalé en x et surélevé)
+  const O = (x, y, z) => { const o = offOf && offOf(x); return o ? [x + o.dx, y + o.dy, z] : [x, y, z]; };
   const nodes = [];
   let v = r.node;
   nodes.push(v);
   for (const ei of r.edges) { const e = net.edges[ei]; v = e.a === v ? e.b : e.a; nodes.push(v); }
   nodes.reverse(); // tableau → appareil
-  const pts = [[tb.x, 140, tb.y]];
+  const pts = [O(tb.x, 140, tb.y)];
+  const dyOf = (x) => { const o = offOf && offOf(x); return o ? o.dy : 0; };
   const yOf = (i) => {
     if (i === 0) return 3 + lift;
     const p = net.pos[nodes[i - 1]], q = net.pos[nodes[i]];
+    if (dyOf(p.x) !== dyOf(q.x)) return 3 + lift; // montée d'étage
     return nearWall({ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }) ? 3 + lift : H - 14 - lift;
   };
-  let prevY = 3 + lift;
-  nodes.forEach((n, i) => {
-    const p = net.pos[n], y = i ? yOf(i) : 3 + lift;
-    if (Math.abs(y - prevY) > 1) pts.push([pts[pts.length - 1][0], y, pts[pts.length - 1][2]]);
-    pts.push([p.x, y, p.y]);
-    prevY = y;
-  });
+  let prevY = O(tb.x, 3 + lift, tb.y)[1];
+  const to = (q) => {
+    const L = pts[pts.length - 1];
+    if (Math.abs(q[1] - prevY) > 1) pts.push([L[0], q[1], L[2]]);
+    pts.push(q);
+    prevY = q[1];
+  };
+  nodes.forEach((n, i) => { const p = net.pos[n]; to(O(p.x, yOf(i), p.y)); });
   const top = CEILING_OBJ.has(c.type) ? H - 14 - lift : 3 + lift;
-  if (Math.abs(top - prevY) > 1) pts.push([pts[pts.length - 1][0], top, pts[pts.length - 1][2]]);
-  pts.push([c.x, top, c.y]);
+  to(O(c.x, top, c.y));
   const h = typeof MOUNT_H !== 'undefined' && MOUNT_H[c.type] ? MOUNT_H[c.type] * 100 : 30;
-  pts.push([c.x, Math.min(h, H - 4), c.y]);
+  pts.push(O(c.x, Math.min(h, H - 4), c.y));
   return pts;
 }
 
@@ -1562,6 +1668,24 @@ function _dSeg(px, py, a, b) {
   let t = l2 ? ((px - a.x) * dx + (py - a.y) * dy) / l2 : 0;
   t = Math.max(0, Math.min(1, t));
   return Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy));
+}
+// Rectangles {x, y, w, h} privés des trous {x0, x1, z0, z1} (trémies)
+function _cutRects(rects, holes) {
+  let out = rects;
+  for (const h of holes) {
+    const next = [];
+    for (const r of out) {
+      const rx1 = r.x + r.w, ry1 = r.y + r.h;
+      if (h.x1 <= r.x || h.x0 >= rx1 || h.z1 <= r.y || h.z0 >= ry1) { next.push(r); continue; }
+      const zA = Math.max(r.y, h.z0), zB = Math.min(ry1, h.z1);
+      if (zA > r.y) next.push({ x: r.x, y: r.y, w: r.w, h: zA - r.y });
+      if (zB < ry1) next.push({ x: r.x, y: zB, w: r.w, h: ry1 - zB });
+      if (h.x0 > r.x) next.push({ x: r.x, y: zA, w: h.x0 - r.x, h: zB - zA });
+      if (h.x1 < rx1) next.push({ x: h.x1, y: zA, w: rx1 - h.x1, h: zB - zA });
+    }
+    out = next;
+  }
+  return out;
 }
 function _mix(a, b, t) {
   const pa = parseInt(a.slice(1), 16), pb = parseInt(b.slice(1), 16);
@@ -1585,9 +1709,9 @@ function _floorColor(room) {
 
 // Joints du revêtement de la pièce i : lames (dans un sens) ou carreaux
 // (dans les deux sens), découpés aux contours exacts de la pièce.
-function _floorSeams(viz, info, i, pitch, both, color) {
+function _floorSeams(viz, info, i, pitch, both, color, hole) {
   const S = info.step, k = Math.round(pitch / S), y = 0.5, t = 0.7;
-  const own = (gx, gy) => info.owner[gy * info.nx + gx] === i;
+  const own = (gx, gy) => info.owner[gy * info.nx + gx] === i && !(hole && hole(info.x0 + gx * S, info.y0 + gy * S));
   for (let gx = 0; gx < info.nx; gx++) {
     if ((Math.round((info.x0 + gx * S) / S)) % k !== 0) continue;
     const x = info.x0 + gx * S;

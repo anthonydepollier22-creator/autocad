@@ -661,6 +661,41 @@ Object.assign(SYMBOLS, {
       ctx.stroke();
     },
   },
+  // Escalier droit (15 marches de 18,7 cm) : montée vers le côté local -y ;
+  // valeur « haut » : l'arrivée à l'étage (trémie, garde-corps)
+  stairs: {
+    name: 'Escalier droit', category: 'Architecture', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -52, y: -157, w: 104, h: 314 },
+    draw(ctx, c) {
+      const top = c && c.value === 'haut';
+      ctx.beginPath(); ctx.rect(-50, -155, 100, 310); ctx.stroke();
+      ctx.save();
+      if (top) ctx.setLineDash([6, 5]);
+      for (let i = 1; i < 14; i++) line(ctx, -50, 155 - i * 22, 50, 155 - i * 22);
+      ctx.restore();
+      // ligne de foulée et flèche de montée
+      line(ctx, 0, 140, 0, -135);
+      line(ctx, 0, -135, -9, -118); line(ctx, 0, -135, 9, -118);
+      ctx.beginPath(); ctx.arc(0, 140, 5, 0, Math.PI * 2); ctx.stroke();
+      if (top) { line(ctx, -50, -155, 50, 155); }
+    },
+  },
+  level_title: {
+    name: 'Titre de niveau', category: 'Architecture', prefix: '', plan: true, noBom: true, ownLabel: true,
+    terminals: [], bbox: { x: -170, y: -24, w: 340, h: 48 },
+    draw(ctx, c) {
+      ctx.save();
+      ctx.fillStyle = ctx.strokeStyle;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.font = '700 26px sans-serif';
+      const t = ((c && c.value) || 'Niveau').toUpperCase();
+      ctx.fillText(t, 0, -2);
+      const m = ctx.measureText ? ctx.measureText(t) : null;
+      const w = Math.min(320, m && m.width ? m.width : 200);
+      line(ctx, -w / 2, 18, w / 2, 18);
+      ctx.restore();
+    },
+  },
   garage_door: {
     name: 'Porte de garage (sectionnelle)', category: 'Architecture', prefix: '', plan: true, noBom: true,
     terminals: [], bbox: { x: -124, y: -10, w: 248, h: 20 },

@@ -62,6 +62,7 @@ function materialList(components, wires, design) {
     }
   }
   const conduitLen = wires.filter((w) => w.kind === 'conduit').reduce((s, w) => {
+    if (w.riser) return s + (w.len || 300); // montée d'étage : hauteur réelle, pas l'écart entre les plans
     for (let i = 1; i < w.points.length; i++) s += Math.hypot(w.points[i].x - w.points[i - 1].x, w.points[i].y - w.points[i - 1].y);
     return s;
   }, 0) / PLAN_UNITS_PER_M;

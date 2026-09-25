@@ -85,16 +85,21 @@ function _proj(p, a, b) {
 }
 
 function _buildNetwork(wires, anchors) {
+  // Colonne montante (maison à étage) : un segment dont la longueur de câble est
+  // la hauteur à gravir (w.len), pas la distance entre les deux plans
   const segs = [];
   for (const w of wires) {
     if (w.kind !== 'conduit') continue;
-    for (let i = 0; i < w.points.length - 1; i++) segs.push([w.points[i], w.points[i + 1]]);
+    for (let i = 0; i < w.points.length - 1; i++) {
+      const a = w.points[i], b = w.points[i + 1], d = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      segs.push([a, b, w.riser ? (w.len || 300) / d : 1]);
+    }
   }
   const verts = [];
   for (const [a, b] of segs) verts.push(a, b);
   // 1. découpe aux sommets posés sur un autre segment (jonctions en T)
   let pieces = [];
-  for (const [a, b] of segs) {
+  for (const [a, b, f] of segs) {
     if (Math.hypot(b.x - a.x, b.y - a.y) < 1e-6) continue;
     const ts = [0, 1];
     for (const p of verts) {
@@ -107,13 +112,15 @@ function _buildNetwork(wires, anchors) {
       pieces.push([
         { x: a.x + (b.x - a.x) * ts[i], y: a.y + (b.y - a.y) * ts[i] },
         { x: a.x + (b.x - a.x) * ts[i + 1], y: a.y + (b.y - a.y) * ts[i + 1] },
+        f,
       ]);
     }
   }
   // 2. raccordement de chaque ancre (appareil, tableau) au segment le plus proche
   const att = anchors.map((p) => {
     let best = null;
-    pieces.forEach(([a, b], i) => {
+    pieces.forEach(([a, b, f], i) => {
+      if (f !== 1) return; // on ne se raccorde pas à la colonne montante
       const q = _proj(p, a, b);
       if (!best || q.d < best.d) best = { i, ...q };
     });
@@ -128,14 +135,14 @@ function _buildNetwork(wires, anchors) {
     return nodes.get(k);
   };
   const edges = [];
-  pieces.forEach(([a, b], i) => {
+  pieces.forEach(([a, b, f], i) => {
     const ts = [...new Set(cuts[i])].sort((x, y) => x - y);
     for (let k = 0; k < ts.length - 1; k++) {
       const p = { x: a.x + (b.x - a.x) * ts[k], y: a.y + (b.y - a.y) * ts[k] };
       const q = { x: a.x + (b.x - a.x) * ts[k + 1], y: a.y + (b.y - a.y) * ts[k + 1] };
-      const len = Math.hypot(q.x - p.x, q.y - p.y);
+      const len = Math.hypot(q.x - p.x, q.y - p.y) * f;
       if (len < 1e-3) continue;
-      edges.push({ a: node(p), b: node(q), len });
+      edges.push({ a: node(p), b: node(q), len, riser: f !== 1 });
     }
   });
   const anchorNode = att.map((q) => (q ? { node: node(q), stub: q.d } : null));
@@ -237,7 +244,22 @@ function designInstallation(components, wires) {
     const da = ra >= 0 ? roomDist[ra] : 1e9, db = rb >= 0 ? roomDist[rb] : 1e9;
     return da - db || ra - rb || route[a.id].len - route[b.id].len;
   });
-  const chunk = (list, n) => { const out = []; for (let i = 0; i < list.length; i += n) out.push(list.slice(i, i + n)); return out; };
+  // Maison à étage : jamais un circuit à cheval sur deux niveaux (plans côte à côte,
+  // séparés au milieu des deux escaliers)
+  let split = null;
+  if (components.some((c) => c.type === 'stairs' && c.value === 'haut')) {
+    // milieu du plus grand vide entre les murs : la séparation des deux plans
+    const xs = [...new Set(wires.filter((w) => w.kind === 'wall').flatMap((w) => w.points.map((p) => p.x)))].sort((a, b) => a - b);
+    let gap = 0;
+    for (let i = 1; i < xs.length; i++) if (xs[i] - xs[i - 1] > gap) { gap = xs[i] - xs[i - 1]; split = (xs[i] + xs[i - 1]) / 2; }
+  }
+  const levelOf = (c) => (split !== null && c.x >= split ? 1 : 0);
+  const chunk = (list, n) => {
+    const out = [];
+    const levels = split === null ? [list] : [list.filter((c) => levelOf(c) === 0), list.filter((c) => levelOf(c) === 1)];
+    for (const l of levels) for (let i = 0; i < l.length; i += n) out.push(l.slice(i, i + n));
+    return out;
+  };
   const circuits = design.circuits;
   const add = (o) => { o.id = 'C' + (circuits.length + 1); circuits.push(o); return o; };
   const roomsLabel = (list) => [...new Set(list.map((c) => roomName(roomOf(c))))].join(', ');
@@ -264,7 +286,7 @@ function designInstallation(components, wires) {
   const heat = [];
   for (const r of rads) {
     const g = heat[heat.length - 1];
-    if (g && g.P + loadPower(r) <= 4500) { g.list.push(r); g.P += loadPower(r); } else heat.push({ list: [r], P: loadPower(r) });
+    if (g && g.P + loadPower(r) <= 4500 && levelOf(g.list[0]) === levelOf(r)) { g.list.push(r); g.P += loadPower(r); } else heat.push({ list: [r], P: loadPower(r) });
   }
   heat.forEach((g, i) => add({ kind: 'heating', name: 'Chauffage' + (heat.length > 1 ? ' ' + (i + 1) : ''), In: 20, S: 2.5, devices: g.list, rooms: roomsLabel(g.list), points: g.list.length }));
   // Circuits spécialisés : un par appareil
@@ -313,9 +335,14 @@ function designInstallation(components, wires) {
         dU = Math.max(dU, (2 * RHO_CU * route[c.id].len * (ct.power / U_NOM)) / ct.S);
       }
     }
+    ct.limit = ct.kind === 'light' ? 3 : 5;
+    // Prises trop loin du tableau : disjoncteur 16 A sur le même 2,5 mm² (ΔU calculée à In)
+    if (ct.kind === 'socket' && ct.In === 20 && (dU / U_NOM) * 100 > ct.limit) {
+      ct.In = 16; ct.derated = true;
+      dU = (2 * RHO_CU * far * ct.In) / ct.S;
+    }
     ct.dU = dU;
     ct.dUpct = (dU / U_NOM) * 100;
-    ct.limit = ct.kind === 'light' ? 3 : 5;
     ct.ok = ct.dUpct <= ct.limit;
     ct.far = far;
     ct.devices = ct.devices.map((c) => c.id);

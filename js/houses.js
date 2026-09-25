@@ -121,6 +121,37 @@ const HOUSE_TYPES = [
       [1640, 780], [0, 380],
     ],
   },
+  (() => {
+    const E = 1400; // décalage du plan de l'étage
+    const up = (r) => [r[0] + E, r[1], r[2] + E, r[3]];
+    return {
+      key: 'r1', name: 'Maison à étage', tag: 'R+1 · 5 pièces', desc: 'Rez-de-chaussée : séjour, cuisine, bureau, entrée avec escalier, WC, cellier. Étage : trois chambres, salle de bains, palier.',
+      levels: [{ name: 'Rez-de-chaussée', x0: -300, x1: 1200 }, { name: 'Étage', x0: 1200, x1: 2700, dx: -E, dy: 280 }],
+      stairs: [[845, 720, 90, 'bas'], [845 + E, 720, 90, 'haut']],
+      rooms: [
+        { name: 'Séjour', r: [0, 0, 600, 480], items: ['tv_unit', 'sofa', 'table', 'plant'] },
+        { name: 'Cuisine', r: [600, 0, 1000, 380], items: ['fridge', 'counter', 'cooktop', 'dishwasher', 'oven'] },
+        { name: 'Entrée', r: [600, 380, 1000, 780], items: [] },
+        { name: 'WC', r: [400, 480, 600, 640], items: ['toilet'] },
+        { name: 'Cellier', r: [400, 640, 600, 780], items: ['water_heater'] },
+        { name: 'Bureau', r: [0, 480, 400, 780], items: ['desk', 'plant'] },
+        { name: 'Chambre 1', r: up([0, 0, 600, 380]), items: ['bed', 'wardrobe', 'plant'] },
+        { name: 'Couloir', r: up([0, 380, 600, 480]), items: [] },
+        { name: 'Chambre 2', r: up([600, 0, 1000, 380]), items: ['bed', 'wardrobe', 'desk'] },
+        { name: 'Chambre 3', r: up([0, 480, 350, 780]), items: ['bed', 'wardrobe'] },
+        { name: 'Salle de bains', r: up([350, 480, 600, 780]), items: ['bathtub', 'washbasin', 'toilet', 'washer'] },
+        { name: 'Palier', r: up([600, 380, 1000, 780]), items: [] },
+      ],
+      doors: [
+        [1000, 480, 'Entrée'], [600, 430, 'Séjour'], [800, 380, 'Cuisine'], [600, 560, 'WC'], [600, 710, 'Cellier'], [200, 480, 'Bureau'],
+        [600 + E, 430, 'Couloir'], [300 + E, 380, 'Chambre 1'], [800 + E, 380, 'Chambre 2'], [175 + E, 480, 'Chambre 3'], [475 + E, 480, 'Salle de bains'],
+      ],
+      windows: [
+        [150, 0], [450, 0], [0, 240], [800, 0], [1000, 190], [0, 630], [200, 780], [500, 780],
+        [150 + E, 0], [450 + E, 0], [0 + E, 190], [800 + E, 0], [1000 + E, 190], [0 + E, 630], [175 + E, 780], [475 + E, 780], [1000 + E, 560],
+      ],
+    };
+  })(),
 ];
 
 // Mobilier par défaut selon le type de pièce (pour meubler un plan dessiné)
@@ -142,6 +173,7 @@ const FURNITURE_BY_TYPE = {
 //  pref  : center | corner | adjacent (même groupe) | window | farDoor | near
 //  mode  : wall (défaut) | free (au milieu) | facing (face à la TV) | car
 const FURN = {
+  stairs: { front: 70 },
   bed: { pref: 'farDoor', front: 50, sides: 45 },
   wardrobe: { tall: true, pref: 'corner', front: 60 },
   desk: { pref: 'window', front: 20 },
@@ -593,6 +625,17 @@ function buildHouse(key, opts) {
     _addComp(doc, 'door', x, y, rot);
   });
   for (const [x, y] of T.windows) _addComp(doc, 'window_a', x, y, _onHorizontalEdge(rects, x, y) ? 0 : 90);
+  // Maison à étage : niveaux (dessinés côte à côte), titres et escalier
+  if (T.levels) {
+    doc.meta.levels = T.levels.map((l) => ({ ...l }));
+    const y0 = Math.min(...rects.map((r) => r[1]));
+    for (const l of T.levels) {
+      const xs = rects.filter((r) => r[0] >= l.x0 && r[2] <= l.x1);
+      const cx = (Math.min(...xs.map((r) => r[0])) + Math.max(...xs.map((r) => r[2]))) / 2;
+      _addComp(doc, 'level_title', cx, y0 - 130, 0, l.name);
+    }
+    for (const [x, y, rot, v] of T.stairs || []) _addComp(doc, 'stairs', x, y, rot, v);
+  }
 
   const missed = [];
   buildHouse.lastMissed = missed;
@@ -1070,6 +1113,15 @@ function autoConduits(doc) {
   const targets = doc.components.filter((c) => WIRED_TYPES.has(c.type))
     .map((c) => ({ c, cell: targetCell(c) })).filter((t) => t.cell >= 0);
 
+  // Maison à étage : l'escalier relie les deux plans (colonne montante)
+  const RISE = 300; // cm de câble pour monter d'un niveau
+  const tele = new Map();
+  const lo = doc.components.find((c) => c.type === 'stairs' && c.value !== 'haut');
+  const hi = doc.components.find((c) => c.type === 'stairs' && c.value === 'haut');
+  if (lo && hi) {
+    const a = cellOf(lo.x, lo.y), b = cellOf(hi.x, hi.y);
+    if (a >= 0 && b >= 0) { tele.set(a, b); tele.set(b, a); }
+  }
   const inTree = new Uint8Array(N);
   inTree[source] = 1;
   const DX = [1, -1, 0, 0], DY = [0, 0, 1, -1];
@@ -1107,6 +1159,11 @@ function autoConduits(doc) {
         const nd = dcur + c, ns = m * 4 + d;
         if (nd < dist[ns]) { dist[ns] = nd; prev[ns] = s; h.push(nd, ns); }
       }
+      const t = tele.get(k);
+      if (t !== undefined) {
+        const nd = dcur + (inTree[t] ? 0.15 : RISE / S), ns = t * 4 + dir;
+        if (nd < dist[ns]) { dist[ns] = nd; prev[ns] = s; h.push(nd, ns); }
+      }
     }
     return null;
   };
@@ -1122,16 +1179,30 @@ function autoConduits(doc) {
     const cells = route(t.cell);
     if (!cells || cells.length < 2) continue;
     for (const k of cells) inTree[k] = 1;
-    // polyligne simplifiée (sommets aux changements de direction)
-    const pts = cells.map(cellXY);
-    const out = [pts[0]];
-    for (let i = 1; i < pts.length - 1; i++) {
-      const a = out[out.length - 1], b = pts[i], c = pts[i + 1];
-      if ((b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x) !== 0) out.push(b);
+    // morceaux de part et d'autre d'un passage par l'escalier (colonne montante)
+    const parts = [[]];
+    cells.forEach((k, i) => {
+      if (i && tele.get(cells[i - 1]) === k) {
+        const p = cellXY(cells[i - 1]), q = cellXY(k);
+        doc.wires.push({ id: _uid(doc, 'g'), kind: 'conduit', riser: true, len: RISE, points: [p, q] });
+        length += RISE;
+        parts.push([]);
+      }
+      parts[parts.length - 1].push(k);
+    });
+    for (const part of parts) {
+      if (part.length < 2) continue;
+      // polyligne simplifiée (sommets aux changements de direction)
+      const pts = part.map(cellXY);
+      const out = [pts[0]];
+      for (let i = 1; i < pts.length - 1; i++) {
+        const a = out[out.length - 1], b = pts[i], c = pts[i + 1];
+        if ((b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x) !== 0) out.push(b);
+      }
+      out.push(pts[pts.length - 1]);
+      for (let i = 1; i < out.length; i++) length += Math.hypot(out[i].x - out[i - 1].x, out[i].y - out[i - 1].y);
+      doc.wires.push({ id: _uid(doc, 'g'), kind: 'conduit', points: out });
     }
-    out.push(pts[pts.length - 1]);
-    for (let i = 1; i < out.length; i++) length += Math.hypot(out[i].x - out[i - 1].x, out[i].y - out[i - 1].y);
-    doc.wires.push({ id: _uid(doc, 'g'), kind: 'conduit', points: out });
     count++;
   }
   _clean(doc);
@@ -1140,7 +1211,7 @@ function autoConduits(doc) {
 
 // Ajoute les maisons générées à la bibliothèque d'exemples
 if (typeof EXAMPLES !== 'undefined') {
-  for (const [key, level] of [['t3', 'Avancé'], ['t5', 'Expert']]) {
+  for (const [key, level] of [['t3', 'Avancé'], ['t5', 'Expert'], ['r1', 'Expert']]) {
     const T = HOUSE_TYPES.find((h) => h.key === key);
     let cache = null;
     EXAMPLES.push({

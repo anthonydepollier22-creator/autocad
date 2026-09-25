@@ -51,18 +51,18 @@ const _GLSL_MAIN_VS = `#version 300 es
 layout(location=0) in vec3 aPos;
 layout(location=1) in vec3 aNor;
 layout(location=2) in vec4 aCol;
-layout(location=3) in vec2 aExt;
+layout(location=3) in vec3 aExt;
 uniform mat4 uVP, uSunVP;
-out vec3 vPos; out vec3 vNor; out vec4 vCol; out float vEm; out float vObj; out vec4 vSun;
+out vec3 vPos; out vec3 vNor; out vec4 vCol; out float vEm; out float vObj; out vec4 vSun; out float vDx;
 void main() {
-  vPos = aPos; vNor = aNor; vCol = aCol; vEm = aExt.x; vObj = aExt.y;
+  vPos = aPos; vNor = aNor; vCol = aCol; vEm = aExt.x; vObj = aExt.y; vDx = aExt.z;
   vSun = uSunVP * vec4(aPos + aNor * 1.2, 1.0);
   gl_Position = uVP * vec4(aPos, 1.0);
 }`;
 const _GLSL_MAIN_FS = `#version 300 es
 precision highp float;
 precision highp sampler2DShadow;
-in vec3 vPos; in vec3 vNor; in vec4 vCol; in float vEm; in float vObj; in vec4 vSun;
+in vec3 vPos; in vec3 vNor; in vec4 vCol; in float vEm; in float vObj; in vec4 vSun; in float vDx;
 uniform vec3 uEye, uSunDir, uSunCol, uSky, uGround;
 uniform float uShadowOn, uHover, uExposure;
 uniform sampler2DShadow uShadow;
@@ -102,7 +102,8 @@ void main() {
     light += uSunCol * ndl * sh;
   }
   float room = 0.0;
-  vec2 q = (vPos.xz + N.xz * 14.0 - uRoomBox.xy) * uRoomBox.zw;
+  // position dans le plan (les étages sont dessinés côte à côte, décalés en x)
+  vec2 q = (vPos.xz - vec2(vDx, 0.0) + N.xz * 14.0 - uRoomBox.xy) * uRoomBox.zw;
   if (q.x >= 0.0 && q.x <= 1.0 && q.y >= 0.0 && q.y <= 1.0) room = floor(texture(uRoom, q).r * 255.0 + 0.5);
   // Les lampes n'éclairent que l'intérieur : rien au-dessus du plafond (toiture)
   int nl = vPos.y < 254.0 ? uNL : 0;
@@ -268,11 +269,11 @@ class GL3D extends Viz3D {
     for (const [vao, vbo] of [[this.vaoO, this.vboO], [this.vaoT, this.vboT]]) {
       gl.bindVertexArray(vao);
       gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
-      const S = 12 * 4;
+      const S = 13 * 4; // position, normale, couleur, (émission, objet, décalage d'étage)
       gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, S, 0);
       gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 3, gl.FLOAT, false, S, 12);
       gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 4, gl.FLOAT, false, S, 24);
-      gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 2, gl.FLOAT, false, S, 40);
+      gl.enableVertexAttribArray(3); gl.vertexAttribPointer(3, 3, gl.FLOAT, false, S, 40);
     }
     gl.bindVertexArray(this.vaoT); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.iboT);
     gl.bindVertexArray(this.vaoP);
@@ -314,14 +315,14 @@ class GL3D extends Viz3D {
     };
     let nOpaque = 0, nTrans = 0;
     for (const f of this.faces) { const n = (f.pts.length - 2) * 3; if (f.alpha < 0.99) nTrans += n; else nOpaque += n; }
-    const O = new Float32Array(nOpaque * 12), T = new Float32Array(nTrans * 12);
+    const O = new Float32Array(nOpaque * 13), T = new Float32Array(nTrans * 13);
     let o = 0, t = 0;
     this.tFaces = [];
     let minX = Infinity, minY = Infinity, minZ = Infinity, maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
     for (const f of this.faces) {
       const [a, b, c] = f.pts;
       const n = _v3.norm(cross([b[0] - a[0], b[1] - a[1], b[2] - a[2]], [c[0] - a[0], c[1] - a[1], c[2] - a[2]]));
-      const col = f.color, al = f.alpha === undefined ? 1 : f.alpha, em = f.em || 0, ob = idx(f.obj);
+      const col = f.color, al = f.alpha === undefined ? 1 : f.alpha, em = f.em || 0, ob = idx(f.obj), dx = f.dx || 0;
       const trans = al < 0.99;
       const arr = trans ? T : O;
       let k = trans ? t : o;
@@ -330,7 +331,7 @@ class GL3D extends Viz3D {
         arr[k++] = p[0]; arr[k++] = p[1]; arr[k++] = p[2];
         arr[k++] = n[0]; arr[k++] = n[1]; arr[k++] = n[2];
         arr[k++] = col[0] / 255; arr[k++] = col[1] / 255; arr[k++] = col[2] / 255; arr[k++] = al;
-        arr[k++] = em; arr[k++] = ob;
+        arr[k++] = em; arr[k++] = ob; arr[k++] = dx;
         if (p[0] < minX) minX = p[0]; if (p[0] > maxX) maxX = p[0];
         if (p[1] < minY) minY = p[1]; if (p[1] > maxY) maxY = p[1];
         if (p[2] < minZ) minZ = p[2]; if (p[2] > maxZ) maxZ = p[2];
@@ -338,7 +339,7 @@ class GL3D extends Viz3D {
       for (let i = 1; i < f.pts.length - 1; i++) { put(f.pts[0]); put(f.pts[i]); put(f.pts[i + 1]); }
       if (trans) {
         const cx = f.pts.reduce((s, p) => s + p[0], 0) / f.pts.length, cy = f.pts.reduce((s, p) => s + p[1], 0) / f.pts.length, cz = f.pts.reduce((s, p) => s + p[2], 0) / f.pts.length;
-        this.tFaces.push({ c: [cx, cy, cz], v0: start / 12, n: (k - start) / 12 });
+        this.tFaces.push({ c: [cx, cy, cz], v0: start / 13, n: (k - start) / 13 });
         t = k;
       } else o = k;
     }

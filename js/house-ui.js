@@ -647,13 +647,15 @@ function initHouseUI(app) {
       if (room.leaked || room.sharedWith !== null) return;
       const lab = byId(room.id);
       if (!lab) return;
+      const L = levelAt(lab.x);
+      if (v3.level !== 'all' && L.i !== v3.level) return;
       const el = document.createElement('div');
       el.className = 'v3-lab';
       const name = document.createElement('span'); name.textContent = room.name;
       const val = document.createElement('b'); val.className = 'num';
       el.append(name, val);
       labelsBox.appendChild(el);
-      items.push({ el, val, i, p: [lab.x, 150, lab.y] });
+      items.push({ el, val, i, p: [lab.x + L.dx, 150 + L.dy, lab.y] });
     });
     const legend = document.createElement('div');
     legend.className = 'v3-energy-legend';
@@ -759,7 +761,32 @@ function initHouseUI(app) {
   // ---- Vue 3D ---------------------------------------------------------------
   const view3d = $('view3d'), cv3 = $('canvas3d'), tip = $('v3-tip'), map = $('v3-map'), hud = $('v3-hud');
   let viz = null;
-  const v3 = { walls: 'full', xray: false, time: 15, energy: false };
+  const v3 = { walls: 'full', xray: false, time: 15, energy: false, level: 'all' };
+  const levels = () => (hasPlan() && editor.meta.levels && editor.meta.levels.length > 1 ? editor.meta.levels : null);
+  // Niveau d'un point du plan et décalage de sa géométrie en 3D
+  const levelAt = (x) => {
+    const lv = levels(), i = lv ? lv.findIndex((l) => x >= l.x0 && x < l.x1) : -1;
+    const L = i >= 0 ? lv[i] : null;
+    return { i: Math.max(0, i), dx: (L && L.dx) || 0, dy: (L && L.dy) || 0 };
+  };
+  // Filtre de niveau (maison à étage) : tout, rez-de-chaussée, étage
+  function levelSeg() {
+    const lv = levels(), seg = $('v3-level');
+    seg.hidden = !lv;
+    if (!lv) { v3.level = 'all'; seg.innerHTML = ''; return; }
+    if (v3.level !== 'all' && !lv[v3.level]) v3.level = 'all';
+    const short = (n) => (/^rez/i.test(n) ? 'RDC' : n);
+    seg.innerHTML = [['all', 'Tout', 'Tous les niveaux'], ...lv.map((l, i) => [String(i), short(l.name), l.name + ' seul'])]
+      .map(([k, t, title]) => `<button data-l="${k}" class="${String(v3.level) === k ? 'on' : ''}" title="${title}">${t}</button>`).join('');
+  }
+  $('v3-level').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-l]');
+    if (!b) return;
+    v3.level = b.dataset.l === 'all' ? 'all' : +b.dataset.l;
+    levelSeg();
+    energySig = '';
+    build3D(false);
+  });
   function build3D(first) {
     const d = ensureDesign();
     const house = hasPlan();
@@ -770,6 +797,7 @@ function initHouseUI(app) {
       sim: d && d.ok ? { snap: sim.snap, design: d, sim } : null,
       energy: energy ? { color: (i) => energyColor(energy.P[i] || 0) } : null,
       pv: pvKwc(),
+      levels: levels(), level: walking ? 0 : v3.level,
     });
     const pvs = viz.scene && viz.scene.pv;
     if (pvs && pvs.placed < pvs.want && v3.walls === 'roof' && !walking && pvWarned !== pvs.want) {
@@ -793,6 +821,7 @@ function initHouseUI(app) {
     viz.pitch = house ? 0.8 : 0.82; viz.yaw = -0.55;
     viz.autoRotate = !house;
     tick(0);
+    levelSeg();
     build3D(true);
     viz.start();
     $('view3d-title').textContent = house ? 'Vue 3D de la maison' : 'Vue 3D de la carte';
@@ -972,13 +1001,15 @@ function initHouseUI(app) {
     const info = computeRooms(editor.components, editor.wires);
     info.rooms.forEach((room, i) => {
       if (room.leaked || room.sharedWith !== null) return;
+      const lab = byId(room.id);
+      if (lab && levelAt(lab.x).i !== 0) return; // la visite reste au rez-de-chaussée
       const lit = editor.components.some((c) => LIGHT_T.has(c.type) && snap.lit.has(c.id) && roomAt(info, c.x, c.y) === i);
       ctx.fillStyle = lit ? 'rgba(255,214,120,0.35)' : 'rgba(120,140,170,0.14)';
       for (const r of roomRuns(info, i)) ctx.fillRect(ox + r.x * s, oy + r.y * s, r.w * s + 0.5, r.h * s + 0.5);
     });
     ctx.strokeStyle = '#dfe6f0'; ctx.lineWidth = 2; ctx.lineCap = 'round';
     for (const w of editor.wires) {
-      if (w.kind !== 'wall') continue;
+      if (w.kind !== 'wall' || levelAt(w.points[0].x).i !== 0) continue;
       ctx.beginPath();
       w.points.forEach((p, i) => (i ? ctx.lineTo(ox + p.x * s, oy + p.y * s) : ctx.moveTo(ox + p.x * s, oy + p.y * s)));
       ctx.stroke();

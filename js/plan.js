@@ -33,7 +33,7 @@ const ROOM_TYPES = [
   },
   { key: 'wc', re: /\bwc\b|toilette/i, label: 'WC', color: '#b18aec', floor: 'tile', sockets: () => 0 },
   {
-    key: 'circ', re: /entr[ée]e|couloir|d[ée]gagement|hall/i, label: 'Circulation', color: '#9aa4b2', floor: 'wood',
+    key: 'circ', re: /entr[ée]e|couloir|d[ée]gagement|hall|palier/i, label: 'Circulation', color: '#9aa4b2', floor: 'wood',
     sockets: (a) => (a > 4 ? 1 : 0),
   },
   { key: 'bureau', re: /bureau/i, label: 'Bureau', color: '#5b8def', floor: 'wood', sockets: () => 3 },
@@ -51,6 +51,26 @@ function roomType(name) {
 
 function fmtMeters(units) {
   return (units / PLAN_UNITS_PER_M).toFixed(2).replace('.', ',') + ' m';
+}
+// Étiquette d'une montée d'étage : au milieu de l'espace entre les deux plans
+// (le plus grand intervalle entre deux traversées de murs extérieurs)
+function riserLabelAt(w, wires) {
+  const a = w.points[0], b = w.points[w.points.length - 1];
+  const ts = [];
+  for (const o of wires) {
+    if (o.kind !== 'wall' || !o.ext) continue;
+    for (let i = 0; i < o.points.length - 1; i++) {
+      const p = o.points[i], q = o.points[i + 1];
+      const rx = b.x - a.x, ry = b.y - a.y, sx = q.x - p.x, sy = q.y - p.y, den = rx * sy - ry * sx;
+      if (Math.abs(den) < 1e-9) continue;
+      const t = ((p.x - a.x) * sy - (p.y - a.y) * sx) / den, u = ((p.x - a.x) * ry - (p.y - a.y) * rx) / den;
+      if (t > 0 && t < 1 && u >= 0 && u <= 1) ts.push(t);
+    }
+  }
+  ts.sort((x, y) => x - y);
+  let best = 0.5, gap = -1;
+  for (let i = 1; i < ts.length; i++) if (ts[i] - ts[i - 1] > gap) { gap = ts[i] - ts[i - 1]; best = (ts[i] + ts[i - 1]) / 2; }
+  return { x: a.x + (b.x - a.x) * best, y: a.y + (b.y - a.y) * best };
 }
 function fmtArea(m2) {
   return m2.toFixed(1).replace('.', ',') + ' m²';

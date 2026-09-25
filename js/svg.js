@@ -114,6 +114,11 @@ function buildSVG(components, wires, symbols, meta) {
   for (const wi of wires) {
     if (wi.kind === 'wall') {
       ctx.out.push(`<path d="${pathOf(wi)}" fill="none" stroke="#1f2733" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>`);
+    } else if (wi.kind === 'conduit' && wi.riser) {
+      // montée d'étage entre les deux plans
+      const m = typeof riserLabelAt === 'function' ? riserLabelAt(wi, wires) : wi.points[0];
+      ctx.out.push(`<path d="${pathOf(wi)}" fill="none" stroke="#6b7788" stroke-width="2" stroke-dasharray="12 9"/>`);
+      if (typeof fmtMeters === 'function') ctx.out.push(`<text x="${ctx._n(m.x)}" y="${ctx._n(m.y - 8)}" font-family="sans-serif" font-size="20" font-weight="600" fill="#6b7788" text-anchor="middle">montée ${_esc(fmtMeters(wi.len || 300))}</text>`);
     } else if (wi.kind === 'conduit') {
       ctx.out.push(`<path d="${pathOf(wi)}" fill="none" stroke="#6b7788" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>`);
       ctx.out.push(`<path d="${pathOf(wi)}" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>`);
