@@ -1121,9 +1121,20 @@ function initHouseUI(app) {
     cv.width = 1200; cv.height = 760; // hors page : taille fixée à la main
     let v;
     try { v = new GL3D(cv, { sky: true, time: 11, interactive: false, autoRotate: false }); } catch (e) { return shots; }
-    const views = [['roof', 11, 'Extérieur', 0.42, -0.62, 0.95], ['cut', 15, 'Intérieur (murs coupés à 1,15 m)', 0.95, -0.5, 0.8]];
-    for (const [walls, t, label, pitch, yaw, k] of views) {
-      const r = buildBoard(v, editor.components, editor.wires, SYMBOLS, { walls, ground: true, pv: pvKwc(), sim: d && d.ok ? { snap: sim.snap, design: d, sim } : null });
+    const lv = levels();
+    // [murs, heure, légende, inclinaison, orientation, recul, niveau, coupe (0 → 1)]
+    const views = lv ? [
+      ['roof', 11, 'Extérieur', 0.38, -0.62, 1.05, 'all', null],
+      ['roof', 15, 'Coupe verticale', 0.34, Math.PI / 2 - 0.5, 0.72, 'all', 0.33],
+      ...lv.map((L, i) => ['cut', 15, `${L.name} (murs coupés à 1,15 m)`, 0.95, -0.5, 0.8, i, null]),
+    ] : [['roof', 11, 'Extérieur', 0.42, -0.62, 0.95, 'all', null], ['cut', 15, 'Intérieur (murs coupés à 1,15 m)', 0.95, -0.5, 0.8, 'all', null]];
+    for (const [walls, t, label, pitch, yaw, k, level, cut] of views) {
+      const r = buildBoard(v, editor.components, editor.wires, SYMBOLS, { walls, ground: true, pv: pvKwc(), levels: lv, level, sim: d && d.ok ? { snap: sim.snap, design: d, sim } : null });
+      const b = v.bounds;
+      v.setCut(cut === null || !b ? null : b.minX + (b.maxX - b.minX) * cut);
+      // étage seul : on vise son plancher
+      if (lv && level !== 'all') v.target = [v.target[0], (lv[level].dy || 0), v.target[2]];
+      if (cut !== null) v.target = [v.target[0], 220, v.target[2]]; // coupe : milieu de la hauteur
       v.setTime(t); v.pitch = pitch; v.yaw = yaw;
       v.fit(r * k);
       v.render();

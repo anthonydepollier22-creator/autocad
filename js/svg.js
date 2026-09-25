@@ -15,11 +15,11 @@ class SVGContext {
     this.lineWidth = 2; this.font = '12px sans-serif';
     this.textAlign = 'start'; this.textBaseline = 'alphabetic';
     this.lineCap = 'round'; this.lineJoin = 'round'; this.globalAlpha = 1;
-    this._d = ''; this._lx = 0; this._ly = 0; this._has = false;
+    this._d = ''; this._lx = 0; this._ly = 0; this._has = false; this._dash = '';
   }
   // --- transformations ---
-  save() { this.stack.push({ M: { ...this.M }, s: this.strokeStyle, f: this.fillStyle, lw: this.lineWidth, fo: this.font }); }
-  restore() { const st = this.stack.pop(); if (st) { this.M = st.M; this.strokeStyle = st.s; this.fillStyle = st.f; this.lineWidth = st.lw; this.font = st.fo; } }
+  save() { this.stack.push({ M: { ...this.M }, s: this.strokeStyle, f: this.fillStyle, lw: this.lineWidth, fo: this.font, da: this._dash }); }
+  restore() { const st = this.stack.pop(); if (st) { this.M = st.M; this.strokeStyle = st.s; this.fillStyle = st.f; this.lineWidth = st.lw; this.font = st.fo; this._dash = st.da; } }
   _mul(T) {
     const M = this.M;
     this.M = {
@@ -32,7 +32,7 @@ class SVGContext {
   rotate(r) { this._mul({ a: Math.cos(r), b: Math.sin(r), c: -Math.sin(r), d: Math.cos(r), e: 0, f: 0 }); }
   scale(x, y) { this._mul({ a: x, b: 0, c: 0, d: y, e: 0, f: 0 }); }
   _ap(x, y) { return { x: this.M.a * x + this.M.c * y + this.M.e, y: this.M.b * x + this.M.d * y + this.M.f }; }
-  setLineDash() {}
+  setLineDash(a) { this._dash = a && a.length ? a.map((v) => this._n(v)).join(' ') : ''; }
   // --- chemins ---
   beginPath() { this._d = ''; this._has = false; }
   moveTo(x, y) { const p = this._ap(x, y); this._d += `M${this._n(p.x)} ${this._n(p.y)}`; this._lx = x; this._ly = y; this._has = true; }
@@ -64,7 +64,8 @@ class SVGContext {
     }
   }
   closePath() { this._d += 'Z'; }
-  stroke() { if (this._d) this.out.push(`<path d="${this._d}" fill="none" stroke="${this.strokeStyle}" stroke-width="${this.lineWidth}" stroke-linecap="${this.lineCap}" stroke-linejoin="${this.lineJoin}"/>`); }
+  rect(x, y, w, h) { this.moveTo(x, y); this.lineTo(x + w, y); this.lineTo(x + w, y + h); this.lineTo(x, y + h); this.closePath(); }
+  stroke() { if (this._d) this.out.push(`<path d="${this._d}" fill="none" stroke="${this.strokeStyle}" stroke-width="${this.lineWidth}" stroke-linecap="${this.lineCap}" stroke-linejoin="${this.lineJoin}"${this._dash ? ` stroke-dasharray="${this._dash}"` : ''}/>`); }
   fill() { if (this._d) this.out.push(`<path d="${this._d}" fill="${this.fillStyle}" stroke="none"/>`); }
   strokeRect(x, y, w, h) {
     const p = [this._ap(x, y), this._ap(x + w, y), this._ap(x + w, y + h), this._ap(x, y + h)];

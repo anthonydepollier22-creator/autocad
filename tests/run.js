@@ -264,6 +264,17 @@ check('Chaque composant a un volume 3D', r.length === 0, r.join(', ') || undefin
 r = ex('maison', 'return buildSVG(d.components, d.wires, SYMBOLS, { title: "T2" });');
 check('Export SVG du plan : murs épais, sols, cotations, surfaces',
   r.startsWith('<?xml') && r.includes('stroke-width="9"') && r.includes('fill-opacity="0.14"') && r.includes('5,20 m'));
+// l'export SVG a son propre contexte de dessin : chaque symbole doit s'y dessiner
+r = run(`(function(){
+  var bad = [];
+  SYMBOLS.__order.forEach(function(k){
+    [undefined, 'haut'].forEach(function(v){
+      try { buildSVG([{ id: 'x1', type: k, x: 0, y: 0, rot: 0, value: v }], [], SYMBOLS, {}); } catch (e) { bad.push(k + ' : ' + e.message); }
+    });
+  });
+  return bad;
+})()`);
+check('Export SVG : chacun des symboles se dessine (contexte SVG)', r.length === 0, r.join(', ') || undefined);
 
 // ---------------------------------------------------------------------------
 group('Journée type');
@@ -460,6 +471,14 @@ check('3D rayons X : câbles et courant montent à l’étage par la colonne', r
 check('3D : filtre par niveau (rez-de-chaussée seul, étage seul)', r[5] && r[6]);
 check('3D : les lampes de l’étage éclairent à l’étage', r[7] > 0, `${r[7]} lampes`);
 
+r = run(`(function(){
+  var d = buildHouse('r1'), des = designInstallation(d.components, d.wires);
+  var svg = buildSVG(d.components, d.wires, SYMBOLS, { title: 'R+1' });
+  var html = buildDossier({ meta: { title: 'R+1' }, design: des, report: checkNFC15100(d.components, d.wires), planSVG: svg,
+    unifilarSVG: unifilarSVG(des, { title: 'R+1' }), materials: materialList(d.components, d.wires, des), images: [] });
+  return [svg.indexOf('stroke-dasharray') > 0, svg.indexOf('montée 3,00 m') > 0, html.indexOf('Éclairage étage') > 0];
+})()`);
+check('Plan SVG et dossier de la maison à étage : escalier et montée en tirets, circuits par niveau', r[0] && r[1] && r[2], r.join(' / '));
 r = run(`(function(){
   var d = buildHouse('r1'), viz = new Viz3D(__cv, { interactive: false });
   buildBoard(viz, d.components, d.wires, SYMBOLS, { walls: 'full', ceiling: true, levels: d.meta.levels, level: 'all' });

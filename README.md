@@ -162,8 +162,9 @@ L'installation est **conçue** puis **simulée en temps réel** :
 ### Dossier du projet — imprimable ou PDF
 
 Le bouton **Dossier** (onglet Tableau) assemble un document A4 prêt à imprimer ou à
-enregistrer en PDF : page de garde et chiffres clés, **deux vues 3D** calculées à la volée
-(extérieur, intérieur coupé), **plan coté**, **contrôle NF C 15-100** pièce par pièce,
+enregistrer en PDF : page de garde et chiffres clés, **vues 3D** calculées à la volée
+(extérieur, intérieur coupé — pour une maison à étage : extérieur, coupe verticale et
+chaque niveau), **plan coté**, **contrôle NF C 15-100** pièce par pièce,
 **schéma unifilaire** et tableau des circuits (protection, section, longueur, ΔU,
 différentiel), **matériel et budget**, **journée type** (graphique, bilan, solaire).
 
@@ -473,7 +474,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-99 vérifications sans dépendance : valeurs numériques de chaque simulation
+101 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
