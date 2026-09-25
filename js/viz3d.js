@@ -1388,6 +1388,11 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
 
   // Rayons X : câbles de chaque circuit, échauffement et courant animé
   if (opts.xray && design && design.ok) _buildCables(viz, components, design, snap, sim, nearWall, { place: (x) => { at(x); return shown(x); }, offOf, shown, only: opts.circuit || null });
+  // Rayons X : prise de terre (conducteur vert/jaune jusqu'au piquet, regard, barrette)
+  if (opts.xray && design && design.ok && info) {
+    const tb = components.find((c) => c.id === design.panel);
+    if (tb && shown(tb.x)) { at(tb.x); scene.earth = _buildEarth(viz, tb, scene, info); viz.off = null; }
+  }
   viz.off = null;
 
   // Abords (terrasse, allées, haie, arbres) et toiture
@@ -1828,6 +1833,52 @@ function _buildCables(viz, components, design, snap, sim, nearWall, lvl) {
     }
   });
 }
+// Prise de terre : du tableau (barrette de coupure au pied de la GTL), le
+// conducteur de terre vert/jaune traverse le mur extérieur le plus proche
+// jusqu'au piquet, enfoncé à 1,50 m sous un regard de visite à 1,60 m du mur.
+function _buildEarth(viz, tb, scene, info) {
+  let best = null;
+  for (const w of scene.walls) {
+    if (!w.ext) continue;
+    const dx = w.b.x - w.a.x, dz = w.b.y - w.a.y, l2 = dx * dx + dz * dz;
+    if (!l2) continue;
+    const t = Math.max(0.05, Math.min(0.95, ((tb.x - w.a.x) * dx + (tb.y - w.a.y) * dz) / l2));
+    const px = w.a.x + t * dx, pz = w.a.y + t * dz, d = Math.hypot(tb.x - px, tb.y - pz);
+    if (!best || d < best.d) best = { d, px, pz, ux: dx / Math.sqrt(l2), uz: dz / Math.sqrt(l2) };
+  }
+  if (!best) return null;
+  // normale vers l'extérieur : le côté du mur qui n'est dans aucune pièce
+  let nx = -best.uz, nz = best.ux;
+  if (roomAt(info, best.px + nx * 40, best.pz + nz * 40) >= 0) { nx = -nx; nz = -nz; }
+  const foot = { x: tb.x - nx * 0, z: tb.y }, P = { x: best.px, z: best.pz }, R = { x: best.px + nx * 160, z: best.pz + nz * 160 };
+  const o0 = viz.obj, a0 = viz.alpha, e0 = viz.em;
+  viz.obj = 'earth'; viz.alpha = 1; viz.em = 0.25;
+  const GREEN = '#2e9e46', YELLOW = '#e7c21f', y = 2.5;
+  // conducteur rayé vert/jaune par tronçons de 12 cm
+  const run = (a, b, y0, y1) => {
+    const L = Math.hypot(b.x - a.x, b.z - a.z, y1 - y0), n = Math.max(1, Math.round(L / 12));
+    for (let i = 0; i < n; i++) {
+      const t0 = i / n, t1 = (i + 1) / n, col = i % 2 ? YELLOW : GREEN;
+      const x0 = a.x + (b.x - a.x) * t0, z0 = a.z + (b.z - a.z) * t0, x1 = a.x + (b.x - a.x) * t1, z1 = a.z + (b.z - a.z) * t1;
+      const ya = y0 + (y1 - y0) * t0, yb = y0 + (y1 - y0) * t1;
+      if (Math.abs(yb - ya) > 0.5) viz.box(x0, Math.min(ya, yb), z0, 2.4, Math.abs(yb - ya), 2.4, col);
+      else viz.box((x0 + x1) / 2, ya, (z0 + z1) / 2, Math.hypot(x1 - x0, z1 - z0) + 0.4, 2.4, 2.4, col, (Math.atan2(z1 - z0, x1 - x0) * 180) / Math.PI);
+    }
+  };
+  run(foot, foot, 100, y);                 // descente depuis le tableau
+  run(foot, P, y, y);                      // le long du sol jusqu'au mur
+  run(P, R, y, y);                         // à travers le mur jusqu'au piquet
+  viz.em = 0;
+  // barrette de coupure (sectionnement) au pied du tableau
+  viz.box(foot.x, 22, foot.z, 9, 9, 6, '#4f5864');
+  // regard de visite (béton + couvercle) et piquet en cuivre
+  viz.box(R.x, -11, R.z, 38, 14, 38, '#9a9fa6');
+  viz.box(R.x, 3, R.z, 34, 1.5, 34, '#6f757d');
+  viz.cyl(R.x, -150, R.z, 1.4, 158, '#c47a3e', { seg: 10 });
+  viz.obj = o0; viz.alpha = a0; viz.em = e0;
+  return { rod: R, wall: P, length: (Math.hypot(P.x - foot.x, P.z - foot.z) + 160 + 100) / PLAN_UNITS_PER_M };
+}
+
 // Polyligne 3D du tableau jusqu'à l'appareil en suivant les câbles
 function _flowPath(net, r, design, tb, c, nearWall, lift, offOf) {
   const H = HOUSE3D.H;

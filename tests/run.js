@@ -310,6 +310,17 @@ r = run(`(function(){
 })()`);
 check('Nuit : les fenêtres des pièces éclairées rayonnent vues du dehors, pas en visite', r[0] === 0 && r[1] > 0 && r[2] && r[3] === 0, r.join(' / '));
 r = run(`(function(){
+  var d = buildHouse('t5'), des = designInstallation(d.components, d.wires), sim = new InstallSim(); sim.setDesign(des);
+  var snap = sim.step(0.1, d.components, d.wires), viz = new Viz3D(__cv, { interactive: false }), info = computeRooms(d.components, d.wires);
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { walls: 'cut', sim: { snap: snap, design: des, sim: sim } });
+  var none = !viz.scene.earth && !viz.faces.some(function(f){ return f.obj === 'earth'; });
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { walls: 'cut', xray: true, sim: { snap: snap, design: des, sim: sim } });
+  var e = viz.scene.earth, faces = viz.faces.filter(function(f){ return f.obj === 'earth'; });
+  var deep = faces.some(function(f){ return f.pts.some(function(p){ return p[1] <= -149; }); });
+  return [none, !!e && roomAt(info, e.rod.x, e.rod.z) < 0, e && e.length, faces.length, deep];
+})()`);
+check('Rayons X : prise de terre — conducteur vert/jaune jusqu’au piquet (1,50 m) hors de la maison', r[0] && r[1] && r[2] > 2 && r[2] < 20 && r[3] > 20 && r[4], `${r[2] && r[2].toFixed(1)} m de conducteur`);
+r = run(`(function(){
   var scene = { colliders: { segs: [{ a: { x: 0, y: -500 }, b: { x: 0, y: 500 }, r: 5 }], polys: [] } };
   var p = collideCircle(scene, 8, 0, 22);
   return p.x;
