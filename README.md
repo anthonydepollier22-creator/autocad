@@ -231,6 +231,11 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   du tableau jusqu'aux appareils en marche ; un menu **isole un circuit** : son câble
   s'épaissit, un repère lumineux se dresse sur chacun de ses points et les autres
   circuits s'estompent (calibre, section, longueur, ΔU et pièces desservies affichés) ;
+- **Défaut** : en mode défaut, un clic sur un appareil, une prise ou une lampe y
+  provoque un **court-circuit** (gerbe d'étincelles, éclair dans la pièce, le
+  disjoncteur du circuit déclenche en magnétique) ou une **fuite à la terre** (le
+  différentiel 30 mA coupe tous ses circuits) ; le message donne le courant de défaut
+  et la protection qui a agi, **Réparer** supprime les défauts et réarme tout ;
 - **Clic** sur un interrupteur, une lampe, un appareil ou une prise : ça bascule ;
   bulle d'information au survol (circuit, section, longueur, tension, puissance) ;
 - **Extérieur** : toiture à deux pans en tuiles (33°, faîtage sur le grand côté,
@@ -478,7 +483,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-103 vérifications sans dépendance : valeurs numériques de chaque simulation
+104 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

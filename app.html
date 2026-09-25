@@ -128,6 +128,12 @@
             <div class="seg" id="v3-level" role="group" aria-label="Niveau" hidden></div>
             <button id="v3-xray" class="chip" aria-pressed="false" title="Rayons X : câbles de chaque circuit et courant qui circule">Rayons X</button>
             <select id="v3-circuit" class="chip v3-select" hidden aria-label="Circuit affiché en rayons X" title="Isoler un circuit : son câble et ses points ressortent, les autres s'estompent"></select>
+            <button id="v3-fault" class="chip" aria-pressed="false" title="Défauts : clique un appareil, une prise ou une lampe pour y provoquer un court-circuit ou une fuite à la terre">Défaut</button>
+            <div class="seg" id="v3-fault-kind" role="group" aria-label="Type de défaut" hidden>
+              <button data-k="short" class="on" title="Court-circuit : le disjoncteur du circuit déclenche (magnétique)">Court-circuit</button>
+              <button data-k="leak" title="Fuite à la terre : l'interrupteur différentiel 30 mA déclenche">Fuite à la terre</button>
+            </div>
+            <button id="v3-repair" class="chip" hidden title="Supprimer tous les défauts et réarmer les protections">Réparer</button>
             <button id="v3-tour" class="chip" aria-pressed="false" hidden title="Visite guidée : toutes les pièces, en passant par les portes">▶ Visite guidée</button>
             <button id="v3-energy" class="chip" aria-pressed="false" title="Énergie : chaque pièce teintée selon la puissance qu'elle consomme">Énergie</button>
             <button id="v3-day" class="chip" aria-pressed="false" title="Journée type : 24 heures en 48 secondes — soleil, lumières, appareils, chauffage">Journée</button>

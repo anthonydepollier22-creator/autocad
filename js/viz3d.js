@@ -175,6 +175,21 @@ class Viz3D {
     }, 800);
   }
 
+  // Gerbe d'étincelles (défaut) au point 3D (x, y, z) — rendue par le moteur WebGL
+  spark(x, y, z, opts) {
+    opts = opts || {};
+    const n = opts.n || 60, rays = [];
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, e = Math.random() * 1.2 - 0.2, v = (opts.speed || 260) * (0.4 + Math.random() * 0.8);
+      rays.push({ dx: Math.cos(a) * Math.cos(e), dy: Math.sin(e), dz: Math.sin(a) * Math.cos(e), v });
+    }
+    (this.sparks = this.sparks || []).push({
+      x, y, z, rays, t0: performance.now() / 1000, dur: opts.dur || 1.1, g: opts.g === undefined ? 380 : opts.g,
+      color: opts.color || [1, 0.72, 0.28], size: opts.size || 15, flash: opts.flash === undefined ? [1, 0.6, 0.25] : opts.flash, room: opts.room,
+    });
+    this.dirty = true;
+  }
+
   // ---- Vue en coupe ----
   setCut(x, axis) {
     this.cutX = x === null || x === undefined ? null : x;

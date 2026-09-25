@@ -774,7 +774,49 @@ function initHouseUI(app) {
   // ---- Vue 3D ---------------------------------------------------------------
   const view3d = $('view3d'), cv3 = $('canvas3d'), tip = $('v3-tip'), map = $('v3-map'), hud = $('v3-hud');
   let viz = null;
-  const v3 = { walls: 'full', xray: false, time: 15, energy: false, level: 'all', cut: null, cutAxis: 'x', circuit: null };
+  const v3 = { walls: 'full', xray: false, time: 15, energy: false, level: 'all', cut: null, cutAxis: 'x', circuit: null, fault: false, faultKind: 'short' };
+  // Mode « Défaut » : un clic sur un point du circuit y provoque le défaut choisi
+  function setFaultMode(on) {
+    v3.fault = on;
+    $('v3-fault').classList.toggle('on', on);
+    $('v3-fault').setAttribute('aria-pressed', on ? 'true' : 'false');
+    $('v3-fault-kind').hidden = !on;
+    $('v3-repair').hidden = !on;
+    view3d.classList.toggle('fault-mode', on);
+  }
+  function faultAt(c) {
+    const d = ensureDesign();
+    if (!d || !d.ok || !d.route[c.id]) { showToast('Mode défaut : clique un appareil, une prise ou une lampe raccordé au tableau.', 2600); return; }
+    const k = v3.faultKind, name = esc(c.label || (LOADS[c.type] && LOADS[c.type].name) || SYMBOLS[c.type].name);
+    if (sim.faults[c.id] === k) {
+      sim.setFault(c.id, null);
+      sim.log(`Défaut supprimé sur ${c.label || c.id} : réarme la protection.`);
+      touched();
+      showToast(`Défaut supprimé sur <b>${name}</b> : clique <b>Réparer</b> pour réarmer.`, 2600);
+      return;
+    }
+    const first = sim.events[0];
+    sim.setFault(c.id, k);
+    if (k === 'short' && c.type === 'socket_wall') c.on = true; // l'appareil branché est en court-circuit
+    touched();
+    // gerbe d'étincelles (court-circuit) ou gouttes bleues (fuite) au point du défaut
+    const L = levelAt(c.x), H = HOUSE3D.H;
+    const h = CEILING_OBJ.has(c.type) ? H - 20 : MOUNT_H[c.type] ? MOUNT_H[c.type] * 100 : 30;
+    const room = roomAt(computeRooms(editor.components, editor.wires), c.x, c.y);
+    if (viz.spark) viz.spark(c.x + L.dx, h + L.dy, c.y, k === 'short' ? { room } : { color: [0.3, 0.65, 1], n: 40, speed: 140, g: 260, size: 12, dur: 1.3, flash: null });
+    const ev = sim.events[0];
+    if (ev && ev !== first && ev.level === 'err') showToast(esc(ev.msg), 6000);
+    else showToast(`Défaut posé sur <b>${name}</b> : il agira dès que le circuit sera sous tension.`, 3200);
+  }
+  function repairAll() {
+    const n = Object.keys(sim.faults).length;
+    for (const id of Object.keys(sim.faults)) sim.setFault(id, null);
+    for (const [id, b] of Object.entries(sim.breakers)) if (b.tripped) sim.toggleBreaker(id);
+    for (const [id, r] of Object.entries(sim.rcds)) if (r.tripped) sim.toggleRcd(id);
+    if (sim.agcp && sim.agcp.tripped) sim.toggleAgcp();
+    touched();
+    showToast(n ? `${n} défaut${n > 1 ? 's' : ''} supprimé${n > 1 ? 's' : ''}, protections réarmées : le courant revient.` : 'Protections réarmées.', 2800);
+  }
   // Rayons X : choix d'un circuit à isoler
   function circuitSelect() {
     const sel = $('v3-circuit'), d = v3.xray ? ensureDesign() : null;
@@ -989,6 +1031,17 @@ function initHouseUI(app) {
     cutCamera();
   });
   $('v3-cut').addEventListener('input', () => { if (v3.cut !== null) { v3.cut = +$('v3-cut').value / 1000; applyCut(); } });
+  $('v3-fault').addEventListener('click', () => {
+    setFaultMode(!v3.fault);
+    if (v3.fault) showToast('Mode défaut : clique un appareil, une prise ou une lampe. Le disjoncteur (court-circuit) ou le différentiel 30 mA (fuite) déclenche.', 4200);
+  });
+  $('v3-fault-kind').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-k]');
+    if (!b) return;
+    v3.faultKind = b.dataset.k;
+    $('v3-fault-kind').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+  });
+  $('v3-repair').addEventListener('click', repairAll);
   $('v3-circuit').addEventListener('change', (e) => {
     v3.circuit = e.target.value || null;
     build3D(false);
@@ -1018,6 +1071,7 @@ function initHouseUI(app) {
   function onPick(id) {
     const c = id && byId(id);
     if (!c) return;
+    if (v3.fault) { faultAt(c); return; }
     if (SWITCH_ALL.has(c.type)) {
       c.closed = !c.closed;
       touched();

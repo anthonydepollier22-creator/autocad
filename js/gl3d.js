@@ -495,7 +495,12 @@ class GL3D extends Viz3D {
     // vue en coupe : les éclairages extérieurs de la partie retirée disparaissent avec elle
     const cutX = this.cutX, cz = this.cutAxis === 'z';
     const lit = cutX === null || cutX === undefined ? this.lights : this.lights.filter((l) => l.room >= 0 || (cz ? l.z : l.x) <= cutX);
-    const ls = lit.slice().sort((a, b) => Math.hypot(a.x - cam.look[0], a.z - cam.look[2]) - Math.hypot(b.x - cam.look[0], b.z - cam.look[2])).slice(0, 16);
+    // éclair d'un court-circuit : lumière brève dans la pièce du défaut (prioritaire)
+    const tNow = performance.now() / 1000;
+    const flash = (this.sparks || []).filter((sp) => sp.flash && tNow - sp.t0 < 0.45).map((sp) => ({
+      x: sp.x, y: sp.y + 10, z: sp.z, radius: 480, color: sp.flash, power: 3.2 * (1 - (tNow - sp.t0) / 0.45), room: sp.room === undefined ? -1 : sp.room,
+    }));
+    const ls = flash.concat(lit.slice().sort((a, b) => Math.hypot(a.x - cam.look[0], a.z - cam.look[2]) - Math.hypot(b.x - cam.look[0], b.z - cam.look[2]))).slice(0, 16);
     const LP = new Float32Array(64), LC = new Float32Array(64);
     ls.forEach((l, i) => {
       LP.set([l.x, l.y, l.z, l.radius || 620], i * 4);
@@ -527,7 +532,7 @@ class GL3D extends Viz3D {
       gl.depthMask(true);
     }
     // 5. Courant animé
-    if (this.flows.length) this._drawFlows(VP, H, cam);
+    if (this.flows.length || (this.sparks && this.sparks.length)) this._drawFlows(VP, H, cam);
     gl.disable(gl.BLEND);
     gl.bindVertexArray(null);
   }
@@ -552,6 +557,21 @@ class GL3D extends Viz3D {
         out.push(a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u, f.color[0], f.color[1], f.color[2], f.size);
       }
       if (out.length > 7 * 6000) break;
+    }
+    // Étincelles (défaut provoqué) : gerbe de points qui retombent et s'éteignent
+    if (this.sparks && this.sparks.length) {
+      const alive = [];
+      for (const sp of this.sparks) {
+        const age = now - sp.t0;
+        if (age > sp.dur) continue;
+        alive.push(sp);
+        const k = 1 - age / sp.dur;
+        for (const r of sp.rays) {
+          const t = age * r.v;
+          out.push(sp.x + r.dx * t, sp.y + r.dy * t - sp.g * age * age, sp.z + r.dz * t, sp.color[0] * k, sp.color[1] * k, sp.color[2] * k, sp.size * (0.4 + 0.6 * k));
+        }
+      }
+      this.sparks = alive;
     }
     if (!out.length) return;
     gl.useProgram(this.P.pt.p);

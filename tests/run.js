@@ -11,7 +11,7 @@ const path = require('path');
 const vm = require('vm');
 
 const ROOT = path.join(__dirname, '..');
-const sb = { Math, JSON, console, TextEncoder, TextDecoder };
+const sb = { Math, JSON, console, TextEncoder, TextDecoder, performance };
 vm.createContext(sb);
 for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'day', 'materials', 'svg', 'viz3d', 'gl3d', 'export3d', 'dossier']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f + '.js'), 'utf8'), sb, { filename: f + '.js' });
@@ -258,6 +258,21 @@ r = run(`(function(){
   return [mine.every(function(f){ return f.alpha === 1; }), others.length > 0 && others.every(function(f){ return f.alpha < 0.2 && !f.em; }), marks >= 6 * ct.devices.filter(function(id){ return des.route[id] && !des.route[id].off; }).length, flowsOk];
 })()`);
 check('Rayons X : un circuit isolé ressort (repère sur chaque point), les autres s’estompent', r.every(Boolean), r.join(' / '));
+r = run(`(function(){
+  // défaut provoqué en 3D : le simulateur déclenche la bonne protection, la 3D reçoit une gerbe d'étincelles
+  var d = buildHouse('t3'), des = designInstallation(d.components, d.wires), sim = new InstallSim(); sim.setDesign(des);
+  var oven = d.components.find(function(c){ return c.type === 'oven'; }), ct = des.circuits.find(function(c){ return c.devices.indexOf(oven.id) >= 0; });
+  sim.setFault(oven.id, 'short'); sim.step(0.1, d.components, d.wires);
+  var tripped = sim.breakers[ct.id].tripped;
+  var wm = d.components.find(function(c){ return c.type === 'washer'; }), ct2 = des.circuits.find(function(c){ return c.devices.indexOf(wm.id) >= 0; });
+  sim.setFault(wm.id, 'leak'); sim.step(0.1, d.components, d.wires);
+  var rcd = sim.rcds[ct2.rcd].tripped;
+  var viz = new Viz3D(__cv, { interactive: false });
+  viz.spark(oven.x, 90, oven.y, { room: 3 });
+  var sp = viz.sparks[0];
+  return [tripped, rcd, sp.rays.length >= 40, !!sp.flash && sp.room === 3, sim.events[0].level];
+})()`);
+check('Défaut en 3D : court-circuit → disjoncteur, fuite → différentiel, étincelles et éclair dans la pièce', r[0] && r[1] && r[2] && r[3] && r[4] === 'err', r.join(' / '));
 r = run(`(function(){
   var scene = { colliders: { segs: [{ a: { x: 0, y: -500 }, b: { x: 0, y: 500 }, r: 5 }], polys: [] } };
   var p = collideCircle(scene, 8, 0, 22);
