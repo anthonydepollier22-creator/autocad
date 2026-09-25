@@ -655,6 +655,11 @@ body.light .chip.on { color: #9a6206; }
 .v3-time[hidden] { display: none; }
 .v3-time input { width: 86px; accent-color: var(--accent); }
 .v3-time b { min-width: 38px; font-size: 12px; }
+.v3-mini {
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text); border-radius: 6px;
+  min-width: 28px; height: 24px; font-size: 14px; line-height: 1; cursor: pointer;
+}
+.v3-mini:hover { border-color: var(--accent); color: var(--accent); }
 .v3-hud {
   position: absolute; bottom: 14px; right: 14px; display: flex; gap: 10px; align-items: baseline;
   padding: 7px 12px; border-radius: 10px; font-size: 11.5px; color: var(--muted);

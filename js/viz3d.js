@@ -38,7 +38,8 @@ class Viz3D {
     this.lights = [];
     this.flows = [];
     this.scene = null;
-    this.cutX = null; // vue en coupe : plan vertical x = cutX (la partie au-delà disparaît)
+    this.cutX = null; // vue en coupe : plan vertical x = cutX (ou z si cutAxis = 'z') ; la partie au-delà disparaît
+    this.cutAxis = 'x';
     this.obj = null; this.em = 0; this.alpha = 1;
     this.onPick = null; this.onHover = null;
     this._raf = null;
@@ -175,8 +176,9 @@ class Viz3D {
   }
 
   // ---- Vue en coupe ----
-  setCut(x) {
+  setCut(x, axis) {
     this.cutX = x === null || x === undefined ? null : x;
+    if (axis) this.cutAxis = axis;
     _buildCaps(this, this.cutX);
     this.dirty = true;
   }
@@ -309,11 +311,11 @@ class Viz3D {
     const f = (H / 2) / Math.tan(cam.fov / 2);
     const near = 8;
     const out = [];
-    const cut = this.cutX;
+    const cut = this.cutX, ca = this.cutAxis === 'z' ? 2 : 0;
     for (const face of this.faces) {
       if (cut !== null && !face.cap) { // vue en coupe (le terrain reste)
         let cx = 0, cy = 0;
-        for (const p of face.pts) { cx += p[0]; cy += p[1]; }
+        for (const p of face.pts) { cx += p[ca]; cy += p[1]; }
         if (cy / face.pts.length > -10.5 && cx / face.pts.length > cut) continue;
       }
       let zsum = 0; const proj = [];
@@ -1814,29 +1816,33 @@ function _buildCaps(viz, cx) {
   viz.faces = viz.faces.filter((f) => !f.cap);
   const sc = viz.scene;
   if (cx === null || !sc || !sc.slabs) return;
-  const H = sc.wallH, offs = sc.cutOff || [null];
+  const H = sc.wallH, offs = sc.cutOff || [null], alongZ = viz.cutAxis === 'z';
+  // repère du plan de coupe : u = axe coupé (x ou z), v = axe horizontal dans le plan
+  const U = (p) => (alongZ ? p.y : p.x), V = (p) => (alongZ ? p.x : p.y);
+  const P = (u, y, v) => (alongZ ? [v, y, u] : [u, y, v]);
   const o0 = viz.obj, a0 = viz.alpha, e0 = viz.em, l0 = viz._layer;
   viz.capping = true; viz.obj = 'wall'; viz.alpha = 1; viz.em = 0; viz.setLayer(1);
   for (const w of sc.walls) {
     if (w.hidden) continue;
-    const o = offs[w.lvl || 0] || null, px = cx - (o ? o.dx : 0);
-    const dx = w.b.x - w.a.x, dz = w.b.y - w.a.y, len = Math.hypot(dx, dz);
+    const o = offs[w.lvl || 0] || null, pu = cx - (o && !alongZ ? o.dx : 0); // l'étage n'est décalé qu'en x
+    const du = U(w.b) - U(w.a), dv = V(w.b) - V(w.a), len = Math.hypot(du, dv);
     if (len < 1) continue;
-    const ux = dx / len, uz = dz / len;
-    if (Math.abs(ux) < 0.2) continue; // mur presque parallèle au plan
-    const t = (px - w.a.x) / ux; // abscisse le long du mur
+    const uu = du / len, uv = dv / len;
+    if (Math.abs(uu) < 0.2) continue; // mur presque parallèle au plan
+    const t = (pu - U(w.a)) / uu; // abscisse le long du mur
     if (t < -w.t / 2 || t > len + w.t / 2) continue;
-    const z = w.a.y + uz * t, half = w.t / 2 / Math.abs(ux);
+    const v = V(w.a) + uv * t, half = w.t / 2 / Math.abs(uu);
     const open = (w.ops || []).some(([a, b]) => t > a && t < b);
     const spans = open ? [[0, Math.min(95, H)]].concat(H > 215 ? [[215, H]] : []) : [[0, H]];
     viz.off = o;
-    for (const [y0, y1] of spans) viz.poly([[px, y0, z - half], [px, y0, z + half], [px, y1, z + half], [px, y1, z - half]], CAP_COLOR);
+    for (const [y0, y1] of spans) viz.poly([P(pu, y0, v - half), P(pu, y0, v + half), P(pu, y1, v + half), P(pu, y1, v - half)], CAP_COLOR);
   }
   for (const sl of sc.slabs) {
-    const o = offs[sl.lvl || 0] || null, px = cx - (o ? o.dx : 0);
-    if (px <= sl.x0 || px >= sl.x1) continue;
+    const o = offs[sl.lvl || 0] || null, pu = cx - (o && !alongZ ? o.dx : 0);
+    const u0 = alongZ ? sl.z0 : sl.x0, u1 = alongZ ? sl.z1 : sl.x1, v0 = alongZ ? sl.x0 : sl.z0, v1 = alongZ ? sl.x1 : sl.z1;
+    if (pu <= u0 || pu >= u1) continue;
     viz.off = o;
-    viz.poly([[px, sl.y0, sl.z0], [px, sl.y0, sl.z1], [px, sl.y1, sl.z1], [px, sl.y1, sl.z0]], CAP_COLOR);
+    viz.poly([P(pu, sl.y0, v0), P(pu, sl.y0, v1), P(pu, sl.y1, v1), P(pu, sl.y1, v0)], CAP_COLOR);
   }
   viz.off = null; viz.capping = false; viz.obj = o0; viz.alpha = a0; viz.em = e0; viz.setLayer(l0 === undefined ? 1 : l0);
 }

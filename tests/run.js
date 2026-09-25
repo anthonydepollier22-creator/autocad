@@ -521,6 +521,18 @@ r = run(`(function(){
 })()`);
 check('Vue en coupe : murs et dalles tranchés remplis, sur le plan de coupe, aux deux niveaux', r[0] >= 6 && r[1] && r[2] && r[3] >= 1, `${r[0]} faces de coupe`);
 check('Vue en coupe : conservée quand la vue change (murs coupés : 1,15 m), retirée ensuite', r[4] > 0 && Math.abs(r[5] - (280 + 115)) < 1e-6 && r[6] === 0, `${r[4]} faces, ${r[5]} cm`);
+r = run(`(function(){
+  var d = buildHouse('t5'), viz = new Viz3D(__cv, { interactive: false });
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { walls: 'full', ground: true });
+  var b = viz.bounds, cz = (b.minZ + b.maxZ) / 2;
+  viz.setCut(cz, 'z');
+  var caps = viz.faces.filter(function(f){ return f.cap; });
+  var onPlane = caps.every(function(f){ return f.pts.every(function(p){ return Math.abs(p[2] - cz) < 1e-6; }); });
+  // une coupe en long d'une maison de plain-pied traverse toutes les cloisons perpendiculaires
+  var walls = caps.filter(function(f){ return Math.max.apply(null, f.pts.map(function(p){ return p[1]; })) > 100; }).length;
+  return [caps.length, onPlane, walls, viz.cutAxis];
+})()`);
+check('Vue en coupe en long (plan z) : remplissages sur le plan, à chaque mur traversé', r[0] >= 5 && r[1] && r[2] >= 4 && r[3] === 'z', `${r[0]} faces, ${r[2]} murs`);
 
 // ---------------------------------------------------------------------------
 group('Soleil selon la saison (46° N)');

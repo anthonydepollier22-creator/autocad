@@ -242,8 +242,8 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   l'entrée, en passant par les portes, et s'arrête dans chacune (nom de la pièce à
   l'écran) — dans une maison à étage, elle finit par monter l'escalier et visiter
   l'étage ; une touche de déplacement rend la main ;
-- **Coupe** : un plan vertical tranche la maison (curseur pour le déplacer d'un pignon
-  à l'autre) et la caméra se place de profil ; murs et planchers coupés sont remplis
+- **Coupe** : un plan vertical tranche la maison, en travers ou en long (bouton ⇄),
+  un curseur le déplace d'un bout à l'autre et la caméra se place de profil ; murs et planchers coupés sont remplis
   en gris foncé comme sur une coupe d'architecte — avec la toiture, on obtient une
   maison de poupée, et la maison à étage montre ses deux niveaux l'un sur l'autre ;
 - **Énergie** : le sol de chaque pièce se teinte selon la puissance qu'elle consomme
@@ -476,7 +476,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-101 vérifications sans dépendance : valeurs numériques de chaque simulation
+102 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

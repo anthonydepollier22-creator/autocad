@@ -666,7 +666,7 @@ function initHouseUI(app) {
     labelsBox.appendChild(legend);
     const place = () => {
       for (const it of items) {
-        const q = viz.project && (viz.cutX === null || it.p[0] <= viz.cutX) && viz.project(it.p);
+        const q = viz.project && (viz.cutX === null || it.p[viz.cutAxis === 'z' ? 2 : 0] <= viz.cutX) && viz.project(it.p);
         it.el.style.display = q ? '' : 'none';
         if (q) it.el.style.transform = `translate(${Math.round(q.x)}px, ${Math.round(q.y)}px) translate(-50%, -50%)`;
       }
@@ -774,13 +774,21 @@ function initHouseUI(app) {
   // ---- Vue 3D ---------------------------------------------------------------
   const view3d = $('view3d'), cv3 = $('canvas3d'), tip = $('v3-tip'), map = $('v3-map'), hud = $('v3-hud');
   let viz = null;
-  const v3 = { walls: 'full', xray: false, time: 15, energy: false, level: 'all', cut: null };
+  const v3 = { walls: 'full', xray: false, time: 15, energy: false, level: 'all', cut: null, cutAxis: 'x' };
   // Vue en coupe : plan vertical dont la position (0 → 1) parcourt la maison d'ouest en est
   function applyCut() {
     if (!viz) return;
-    const b = viz.bounds;
-    viz.setCut(v3.cut === null || !b ? null : b.minX + (b.maxX - b.minX) * v3.cut);
+    const b = viz.bounds, z = v3.cutAxis === 'z';
+    viz.setCut(v3.cut === null || !b ? null : z ? b.minZ + (b.maxZ - b.minZ) * v3.cut : b.minX + (b.maxX - b.minX) * v3.cut, v3.cutAxis);
     if (labelsBox.__place) labelsBox.__place();
+  }
+  // caméra de profil, du côté retiré par la coupe
+  function cutCamera() {
+    viz.animateTo(() => {
+      viz.yaw = v3.cutAxis === 'z' ? 0.45 : Math.PI / 2 - 0.5; viz.pitch = 0.36;
+      viz.dist = (viz.baseDist || viz.dist) * (levels() ? 1.2 : 0.95) * (v3.cutAxis === 'z' ? 1.2 : 1); // en long : plus de recul
+      viz.target = [viz.target[0], levels() ? 230 : 110, viz.target[2]]; // on vise le milieu de la hauteur
+    }, 800);
   }
   function setCutUi(on) {
     $('v3-cut-btn').classList.toggle('on', on);
@@ -956,13 +964,13 @@ function initHouseUI(app) {
     setCutUi(on);
     applyCut();
     // de profil, du côté de la coupe
-    if (on) {
-      viz.animateTo(() => {
-        viz.yaw = Math.PI / 2 - 0.5; viz.pitch = 0.36;
-        viz.dist = (viz.baseDist || viz.dist) * (levels() ? 1.2 : 0.95);
-        viz.target = [viz.target[0], levels() ? 230 : 110, viz.target[2]]; // on vise le milieu de la hauteur
-      }, 800);
-    }
+    if (on) cutCamera();
+  });
+  $('v3-cut-axis').addEventListener('click', (e) => {
+    e.preventDefault(); // le bouton est dans le <label> du curseur
+    v3.cutAxis = v3.cutAxis === 'z' ? 'x' : 'z';
+    applyCut();
+    cutCamera();
   });
   $('v3-cut').addEventListener('input', () => { if (v3.cut !== null) { v3.cut = +$('v3-cut').value / 1000; applyCut(); } });
   $('v3-xray').addEventListener('click', () => {

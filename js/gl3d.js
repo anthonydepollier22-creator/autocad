@@ -74,11 +74,11 @@ uniform sampler2D uRoom;
 uniform vec4 uRoomBox;
 uniform vec3 uFogCol;
 uniform vec4 uFog;
-uniform vec2 uClip;
+uniform vec3 uClip;
 out vec4 frag;
 vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
 void main() {
-  if (uClip.y > 0.5 && vPos.y > -10.5 && vPos.x > uClip.x + 0.05) discard;
+  if (uClip.y > 0.5 && vPos.y > -10.5 && (uClip.z > 0.5 ? vPos.z : vPos.x) > uClip.x + 0.05) discard;
   vec3 N = normalize(vNor);
   vec3 V = normalize(uEye - vPos);
   if (dot(N, V) < 0.0) N = -N;
@@ -130,8 +130,8 @@ void main() {
   col = mix(col, uFogCol, fog);
   frag = vec4(col * vCol.a, vCol.a);
 }`;
-// Vue en coupe : tout ce qui est au-delà du plan x = uClip.x disparaît (sauf le terrain)
-const _GLSL_CLIP = 'if (uClip.y > 0.5 && vW.y > -10.5 && vW.x > uClip.x + 0.05) discard;';
+// Vue en coupe : tout ce qui est au-delà du plan x (ou z si uClip.z = 1) = uClip.x disparaît (sauf le terrain)
+const _GLSL_CLIP = 'if (uClip.y > 0.5 && vW.y > -10.5 && (uClip.z > 0.5 ? vW.z : vW.x) > uClip.x + 0.05) discard;';
 const _GLSL_DEPTH_VS = `#version 300 es
 layout(location=0) in vec3 aPos;
 uniform mat4 uVP;
@@ -140,7 +140,7 @@ void main() { vW = aPos; gl_Position = uVP * vec4(aPos, 1.0); }`;
 const _GLSL_DEPTH_FS = `#version 300 es
 precision highp float;
 in vec3 vW;
-uniform vec2 uClip;
+uniform vec3 uClip;
 out vec4 frag;
 void main() { ${_GLSL_CLIP} frag = vec4(1.0); }`;
 const _GLSL_PICK_VS = `#version 300 es
@@ -154,7 +154,7 @@ const _GLSL_PICK_FS = `#version 300 es
 precision highp float;
 flat in float vObj;
 in vec3 vW;
-uniform vec2 uClip;
+uniform vec3 uClip;
 out vec4 frag;
 void main() { ${_GLSL_CLIP} frag = vec4(mod(vObj, 256.0) / 255.0, floor(vObj / 256.0) / 255.0, 0.0, 1.0); }`;
 const _GLSL_SKY_VS = `#version 300 es
@@ -300,7 +300,7 @@ class GL3D extends Viz3D {
   }
 
   // ---- Heure du jour : soleil, ciel, ambiance ----
-  _clipU() { return this.cutX !== null && this.cutX !== undefined ? [this.cutX, 1] : [0, 0]; }
+  _clipU() { return this.cutX !== null && this.cutX !== undefined ? [this.cutX, 1, this.cutAxis === 'z' ? 1 : 0] : [0, 0, 0]; }
   // Saison (journée type) : vraie course du soleil à 46° N, heure légale
   setSeason(k) {
     this.season = GL3D_SEASONS[k] || null;
@@ -450,7 +450,7 @@ class GL3D extends Viz3D {
       gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(1.5, 3);
       gl.useProgram(this.P.depth.p);
       gl.uniformMatrix4fv(this.P.depth.u.uVP, false, SVP);
-      gl.uniform2fv(this.P.depth.u.uClip, this._clipU());
+      gl.uniform3fv(this.P.depth.u.uClip, this._clipU());
       gl.bindVertexArray(this.vaoO);
       gl.drawArrays(gl.TRIANGLES, 0, this.nO);
       gl.disable(gl.POLYGON_OFFSET_FILL);
@@ -493,7 +493,8 @@ class GL3D extends Viz3D {
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, this.roomTex); gl.uniform1i(P.u.uRoom, 1);
     // lampes : les 16 plus proches du regard
     // vue en coupe : les éclairages extérieurs de la partie retirée disparaissent avec elle
-    const cutX = this.cutX, lit = cutX === null || cutX === undefined ? this.lights : this.lights.filter((l) => l.room >= 0 || l.x <= cutX);
+    const cutX = this.cutX, cz = this.cutAxis === 'z';
+    const lit = cutX === null || cutX === undefined ? this.lights : this.lights.filter((l) => l.room >= 0 || (cz ? l.z : l.x) <= cutX);
     const ls = lit.slice().sort((a, b) => Math.hypot(a.x - cam.look[0], a.z - cam.look[2]) - Math.hypot(b.x - cam.look[0], b.z - cam.look[2])).slice(0, 16);
     const LP = new Float32Array(64), LC = new Float32Array(64);
     ls.forEach((l, i) => {
@@ -504,7 +505,7 @@ class GL3D extends Viz3D {
     });
     gl.uniform1i(P.u.uNL, ls.length);
     gl.uniform1f(P.u.uUpY, (this.scene && this.scene.upDy) || 0);
-    gl.uniform2fv(P.u.uClip, this._clipU());
+    gl.uniform3fv(P.u.uClip, this._clipU());
     gl.uniform4fv(P.u.uLP, LP);
     gl.uniform4fv(P.u.uLC, LC);
     gl.disable(gl.BLEND);
@@ -591,7 +592,7 @@ class GL3D extends Viz3D {
     gl.enable(gl.DEPTH_TEST); gl.disable(gl.BLEND);
     gl.useProgram(this.P.pick.p);
     gl.uniformMatrix4fv(this.P.pick.u.uVP, false, this._VP);
-    gl.uniform2fv(this.P.pick.u.uClip, this._clipU());
+    gl.uniform3fv(this.P.pick.u.uClip, this._clipU());
     gl.bindVertexArray(this.vaoO);
     gl.drawArrays(gl.TRIANGLES, 0, this.nO);
     const dpr = this._dpr || 1;
