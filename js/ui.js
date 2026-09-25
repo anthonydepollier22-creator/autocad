@@ -990,11 +990,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (params.get('3d') === '1') houseUI.open3D();
   // Nouveautés : une fois par version (pas quand on arrive par un lien de démo)
   try {
-    const NEWS = '1.5';
+    const NEWS = '1.6';
     if (localStorage.getItem('electricad-news') !== NEWS) {
       localStorage.setItem('electricad-news', NEWS);
       if (!location.search) {
-        setTimeout(() => showToast('<b>Nouveau</b> : la <b>maison à étage</b> (bouton Maison), empilée en 3D : on monte l’escalier en visite, filtre par niveau, câbles qui montent à l’étage ; vue 3D <b>Coupe</b>, <b>vidéo 360°</b>, <b>défauts</b> provoqués en 3D, circuit isolé en rayons X ; soleil des saisons ; journée type, <b>panneaux solaires</b>, vues <b>Énergie</b> et <b>Extérieur</b>, <b>matériel et budget</b>.', 9000), 1200);
+        setTimeout(() => showToast('<b>Nouveau</b> : <b>Calque</b> pour décalquer le plan de ta maison (à l’échelle), <b>bilan annuel</b> et pistes de rénovation, course du <b>soleil</b> en 3D, <b>défauts</b> provoqués en 3D, circuit isolé, coupe, vidéo 360°, raccourcis clavier en 3D.', 9000), 1200);
       }
     }
   } catch (_) { /* stockage indisponible */ }
