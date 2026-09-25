@@ -9,7 +9,7 @@ const ASSETS = [
   'index.html', 'app.html',
   'css/styles.css', 'css/landing.css',
   'js/symbols.js', 'js/netlist.js', 'js/plan.js', 'js/simulate.js', 'js/digital.js',
-  'js/svg.js', 'js/viz3d.js', 'js/gl3d.js', 'js/examples.js', 'js/houses.js', 'js/install.js',
+  'js/svg.js', 'js/viz3d.js', 'js/gl3d.js', 'js/examples.js', 'js/houses.js', 'js/install.js', 'js/day.js',
   'js/editor.js', 'js/house-ui.js', 'js/ui.js', 'js/landing.js', 'js/house-worker.js',
   'manifest.webmanifest', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
   'fonts/ibm-plex-sans-latin-400-normal.woff2', 'fonts/ibm-plex-sans-latin-500-normal.woff2',

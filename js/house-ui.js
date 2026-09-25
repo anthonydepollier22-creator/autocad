@@ -57,10 +57,10 @@ function initHouseUI(app) {
   }
 
   // ---- Boucle de simulation ------------------------------------------------
-  let lastTick = performance.now(), lastSig = '', uiT = 0;
+  let lastTick = performance.now(), lastSig = '', uiT = 0, dayT = 0;
   function tick(dtOverride, forceUi) {
     const now = performance.now();
-    const dt = dtOverride !== undefined ? dtOverride : Math.min(0.5, (now - lastTick) / 1000);
+    const dt = dtOverride !== undefined ? dtOverride : Math.min(day.running ? 1 : 0.5, (now - lastTick) / 1000);
     lastTick = now;
     const d = ensureDesign();
     if (!d || !d.ok) {
@@ -68,7 +68,10 @@ function initHouseUI(app) {
       if (forceUi || (app.activeTab() === 'install' && now - uiT > 1000)) { uiT = now; renderInstall(); }
       return;
     }
+    if (day.running && d !== day.design) dayFinish(false); // plan modifié : on arrête
+    if (day.running) dayApply(editor.components, day.ctx, day.h, day.season);
     const snap = sim.step(dt, editor.components, editor.wires);
+    if (day.running && dt > 0) dayAdvance(snap, dt);
     const on = new Set();
     for (const id in snap.devices) if (snap.devices[id].on) on.add(id);
     for (const c of editor.components) {
@@ -86,6 +89,7 @@ function initHouseUI(app) {
     }
     if (app.activeTab() === 'install' && (forceUi || now - uiT > 250)) { uiT = now; renderInstall(); }
     if (viz && !$('view3d').hidden) updateHud(snap);
+    if (app.activeTab() === 'install' && (day.running || forceUi) && now - dayT > 200) { dayT = now; renderDay(); }
   }
   setInterval(() => tick(), 100);
 
@@ -129,6 +133,7 @@ function initHouseUI(app) {
       '<div class="il-speed seg" role="group" aria-label="Vitesse de simulation">' +
       [[0, '❚❚'], [1, '×1'], [10, '×10'], [60, '×60']].map(([v, t]) => `<button data-speed="${v}" class="${sim.speed === v ? 'on' : ''}" title="${v ? 'Temps ×' + v : 'Pause'}">${t}</button>`).join('') +
       '</div></div></div>';
+    h += dayHTML();
     // Tableau (rangées sur rail DIN)
     h += '<div class="board"><div class="board-row"><button class="dm dm-agcp" data-agcp title="Disjoncteur de branchement : cliquer pour ouvrir / réarmer">' +
       '<span class="dm-lever"></span><b>AGCP</b><em>' + d.agcp.setting + ' A</em></button>' +
@@ -159,6 +164,8 @@ function initHouseUI(app) {
     h += '<p class="norm-foot">Simulation pédagogique : charges résistives, chute de tension 2·ρ·L·I/S, disjoncteurs courbe C (thermique du 1er ordre, magnétique au-delà de 10 In), différentiels 30 mA. Elle ne remplace pas une étude d’installation.</p>';
     panel.innerHTML = h;
     bindActions();
+    bindDay();
+    renderDay();
   }
 
   function renderRooms(d) {
@@ -245,6 +252,7 @@ function initHouseUI(app) {
   function bindActions() {
     panel.querySelectorAll('[data-act]').forEach((b) => b.addEventListener('click', () => action(b.dataset.act)));
     panel.querySelectorAll('[data-speed]').forEach((b) => b.addEventListener('click', () => {
+      if (day.running) dayPause();
       sim.speed = +b.dataset.speed;
       panel.querySelectorAll('[data-speed]').forEach((x) => x.classList.toggle('on', x === b));
     }));
@@ -359,6 +367,217 @@ function initHouseUI(app) {
   hModal.querySelector('.modal-backdrop').addEventListener('click', closeHouses);
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !hModal.hidden) closeHouses(); }, true);
 
+  // ---- Journée type ---------------------------------------------------------
+  // 24 heures simulées : emploi du temps (day.js) → simulation physique →
+  // énergie par heure et par usage ; en 3D, le soleil et les lampes suivent.
+  const day = { season: 'hiver', rate: 0.5, running: false, h: 0, acc: null, saved: null, ctx: null, design: null, prevTime: null, hover: -1, instant: false };
+  const hhmm = (h) => {
+    const H = Math.floor(h), M = Math.min(59, Math.floor((h - H) * 60));
+    return String(H % 24).padStart(2, '0') + ':' + String(M).padStart(2, '0');
+  };
+  const fmtKWh1 = (k) => (k < 10 ? k.toFixed(1) : Math.round(k).toString()).replace('.', ',') + ' kWh';
+
+  function dayHTML() {
+    return '<details class="inst-sec day-sec" open><summary>Journée type <span>24 h simulées</span></summary>' +
+      '<div class="day-ctl">' +
+      '<button class="day-play" data-day-play title="Faire défiler 24 heures : lumières, appareils, chauffage, soleil en 3D">▶ Lancer</button>' +
+      '<button class="day-btn" data-day-stop title="Arrêter et remettre la maison dans son état" hidden>■</button>' +
+      '<button class="day-btn" data-day-now title="Calculer toute la journée d’un coup">Calculer</button>' +
+      '<b class="day-clock num" data-day-clock>—</b>' +
+      '<div class="seg day-season" role="group" aria-label="Saison">' +
+      Object.entries(DAY_SEASONS).map(([k, v]) => `<button data-season="${k}" class="${day.season === k ? 'on' : ''}">${v.label}</button>`).join('') +
+      '</div></div>' +
+      '<div class="day-chart-wrap" data-day-wrap><canvas class="day-chart" data-day-chart aria-label="Énergie consommée heure par heure"></canvas>' +
+      '</div>' +
+      '<p class="day-head" data-day-head></p><ul class="day-legend" data-day-legend></ul>' +
+      '<p class="day-sum" data-day-sum>Réveil 6 h 30, départ 8 h 15, retour 17 h 15, coucher 23 h ; lessive, vaisselle, chauffe-eau et recharge en heures creuses.</p>' +
+      '</details>';
+  }
+
+  function daySetTime3D(h) {
+    const t = Math.round((h % 24) * 4) / 4;
+    if (viz && viz.setTime) viz.setTime(h % 24);
+    $('v3-time').value = t;
+    $('v3-time-lbl').textContent = hhmm(h);
+    $('v3-time-ico').textContent = h > 6.5 && h < 19.5 ? '☀' : '☾';
+  }
+  function dayStart() {
+    const d = ensureDesign();
+    if (!d || !d.ok) { showToast('La journée type a besoin d’un tableau : crée une maison ou lance l’implantation.'); return; }
+    if (!day.saved) { // nouvelle journée (sinon reprise après une pause)
+      day.saved = daySnapshotStates(editor.components);
+      day.ctx = dayContext(editor.components, editor.wires);
+      day.acc = dayAccumulator();
+      day.design = d;
+      day.h = 0;
+      day.instant = false;
+      day.prevTime = v3.time;
+      sim.events.length = 0;
+    }
+    day.running = true;
+    sim.speed = day.rate * 3600;
+    dayUi();
+  }
+  function dayPause() {
+    day.running = false;
+    sim.speed = 1;
+    dayUi();
+  }
+  function dayAdvance(snap, dt) {
+    const dh = dt * day.rate;
+    dayAccumulate(day.acc, snap, editor.components, day.h, dh);
+    day.h = Math.min(24, day.h + dh);
+    if (viz && !$('view3d').hidden) daySetTime3D(day.h);
+    if (day.h >= 24) dayFinish(true);
+  }
+  function dayFinish(completed) {
+    day.running = false;
+    sim.speed = 1;
+    if (day.saved) dayRestoreStates(day.saved);
+    day.saved = null;
+    if (day.prevTime !== null) { v3.time = day.prevTime; daySetTime3D(day.prevTime); day.prevTime = null; }
+    editor.autosave();
+    if (completed && day.acc) {
+      const c = dayCost(day.acc);
+      showToast(`Journée terminée : ${fmtKWh1(day.acc.total)} · ${fmtEur(c.base)} · pointe ${fmtW(day.acc.peak.P)} à ${hhmm(day.acc.peak.h)}`, 5000);
+    }
+    dayUi();
+    renderDay();
+  }
+  function dayInstant() {
+    const d = ensureDesign();
+    if (!d || !d.ok) return;
+    if (day.saved) dayFinish(false);
+    day.acc = simulateDay(editor.components, editor.wires, d, day.season, 2);
+    day.h = 24;
+    day.instant = true;
+    renderDay();
+  }
+  function dayUi() {
+    const play = panel.querySelector('[data-day-play]');
+    if (play) {
+      play.textContent = day.running ? '❚❚ Pause' : day.saved ? '▶ Reprendre' : '▶ Lancer';
+      play.classList.toggle('on', day.running);
+      panel.querySelector('[data-day-stop]').hidden = !day.saved;
+      panel.querySelectorAll('[data-speed]').forEach((x) => x.classList.toggle('on', !day.running && +x.dataset.speed === sim.speed));
+    }
+    const b3 = $('v3-day');
+    if (b3) {
+      b3.classList.toggle('on', day.running);
+      b3.setAttribute('aria-pressed', day.running ? 'true' : 'false');
+      b3.textContent = day.running ? '❚❚ ' + hhmm(day.h) : day.saved ? '▶ ' + hhmm(day.h) : 'Journée';
+    }
+  }
+  function bindDay() {
+    const q = (k) => panel.querySelector(k);
+    if (!q('[data-day-play]')) return;
+    q('[data-day-play]').addEventListener('click', () => (day.running ? dayPause() : dayStart()));
+    q('[data-day-stop]').addEventListener('click', () => dayFinish(false));
+    q('[data-day-now]').addEventListener('click', dayInstant);
+    panel.querySelectorAll('[data-season]').forEach((b) => b.addEventListener('click', () => {
+      day.season = b.dataset.season;
+      panel.querySelectorAll('[data-season]').forEach((x) => x.classList.toggle('on', x === b));
+      if (day.saved) dayFinish(false);
+      if (day.instant) dayInstant();
+    }));
+    const cv = q('[data-day-chart]');
+    const hourAt = (e) => {
+      const r = cv.getBoundingClientRect(), g = dayGeom(r.width);
+      const k = Math.floor((e.clientX - r.left - g.left) / g.slot);
+      return k >= 0 && k < 24 ? k : -1;
+    };
+    cv.addEventListener('pointermove', (e) => { const k = hourAt(e); if (k !== day.hover) { day.hover = k; renderDay(); } });
+    cv.addEventListener('pointerleave', () => { day.hover = -1; renderDay(); });
+    dayUi();
+  }
+
+  const dayGeom = (W) => { const left = 34, right = 6; return { left, right, top: 10, bottom: 20, slot: (W - left - right) / 24 }; };
+  function renderDay() {
+    const cv = panel.querySelector('[data-day-chart]');
+    if (!cv) return;
+    const clock = panel.querySelector('[data-day-clock]');
+    clock.textContent = day.acc ? (day.h >= 24 ? '24:00' : hhmm(day.h)) + ' · ' + DAY_SEASONS[day.season].label.toLowerCase() : '—';
+    dayUi();
+    const wrap = panel.querySelector('[data-day-wrap]'), cs = getComputedStyle(wrap);
+    const col = (n) => cs.getPropertyValue(n).trim();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = cv.clientWidth || 280, H = cv.clientHeight || 150;
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const g = dayGeom(W), plotH = H - g.top - g.bottom, base = H - g.bottom;
+    const bins = day.acc ? day.acc.bins : null;
+    const tot = (b) => DAY_CATS.reduce((s, c) => s + b[c.key], 0);
+    const max = bins ? Math.max(...bins.map(tot)) : 0;
+    const nice = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50].find((v) => v >= max * 1.05) || Math.ceil(max);
+    const y = (v) => base - (v / nice) * plotH;
+    // Heures creuses (22 h → 6 h) : bande discrète
+    ctx.fillStyle = col('--dc-hc');
+    ctx.fillRect(g.left, g.top, 6 * g.slot, plotH);
+    ctx.fillRect(g.left + 22 * g.slot, g.top, 2 * g.slot, plotH);
+    ctx.font = '9.5px ' + cs.fontFamily;
+    ctx.fillStyle = col('--dc-muted');
+    ctx.textAlign = 'left';
+    ctx.fillText('HC', g.left + 3, g.top + 10);
+    // Grille et axes (discrets)
+    ctx.strokeStyle = col('--dc-grid'); ctx.lineWidth = 1;
+    ctx.textAlign = 'right';
+    for (const v of [0, nice / 2, nice]) {
+      const yy = Math.round(y(v)) + 0.5;
+      ctx.beginPath(); ctx.moveTo(g.left, yy); ctx.lineTo(W - g.right, yy); ctx.stroke();
+      ctx.fillText(String(v).replace('.', ','), g.left - 5, yy + 3);
+    }
+    ctx.save(); ctx.translate(9, g.top + plotH / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.fillText('kWh', 0, 0); ctx.restore();
+    ctx.textAlign = 'center';
+    for (const hh of [0, 6, 12, 18, 24]) ctx.fillText(hh + ' h', g.left + hh * g.slot, H - 6);
+    // Barres empilées par usage (2 px d'écart), coins arrondis en haut
+    if (bins) {
+      const bw = Math.max(2, g.slot - 2);
+      bins.forEach((b, k) => {
+        const x = g.left + k * g.slot + 1;
+        let acc = 0;
+        const t = tot(b);
+        if (t <= 0) return;
+        const faded = day.hover >= 0 && day.hover !== k;
+        ctx.globalAlpha = faded ? 0.45 : 1;
+        DAY_CATS.forEach((c, i) => {
+          const v = b[c.key];
+          if (v <= 0) return;
+          const y0 = y(acc), y1 = y(acc + v);
+          acc += v;
+          const top = acc >= t - 1e-9;
+          const hgt = Math.max(1, y0 - y1 - (top ? 0 : 2));
+          ctx.fillStyle = col('--dc' + (i + 1));
+          ctx.beginPath();
+          if (top && ctx.roundRect) ctx.roundRect(x, y0 - hgt, bw, hgt, [Math.min(3, bw / 2), Math.min(3, bw / 2), 0, 0]);
+          else ctx.rect(x, y0 - hgt, bw, hgt);
+          ctx.fill();
+        });
+      });
+      ctx.globalAlpha = 1;
+      // Heure courante
+      if (day.h > 0 && day.h < 24) {
+        const xx = g.left + day.h * g.slot;
+        ctx.strokeStyle = col('--dc-text'); ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(xx, g.top); ctx.lineTo(xx, base); ctx.stroke();
+      }
+    }
+    // Légende = relevé : la journée entière, ou l'heure survolée (toutes les catégories)
+    const legend = panel.querySelector('[data-day-legend]');
+    const focus = bins && day.hover >= 0 ? bins[day.hover] : null;
+    const vals = DAY_CATS.map((c) => (focus ? focus[c.key] : bins ? bins.reduce((s, b) => s + b[c.key], 0) : 0));
+    const head = panel.querySelector('[data-day-head]');
+    head.textContent = focus ? `${day.hover} h – ${day.hover + 1} h : ${fmtKWh1(tot(focus))}` : bins ? 'Sur la journée (survole une barre pour le détail d’une heure)' : 'Lance ou calcule la journée';
+    legend.innerHTML = DAY_CATS.map((c, i) => `<li><i style="background:var(--dc${i + 1})"></i><span>${esc(c.name)}</span><b class="num">${bins ? fmtKWh1(vals[i]) : '—'}</b></li>`).join('');
+    const sum = panel.querySelector('[data-day-sum]');
+    if (day.acc && day.acc.total > 0) {
+      const c = dayCost(day.acc), a = day.acc;
+      sum.innerHTML = `<b class="num">${fmtKWh1(a.total)}</b> ${day.h < 24 ? 'depuis minuit' : 'dans la journée'} · <b class="num">${fmtEur(c.base)}</b> en tarif base, <b class="num">${fmtEur(c.hphc)}</b> en heures creuses (${Math.round((a.hc / a.total) * 100)} % consommés la nuit) · pointe <b class="num">${fmtW(a.peak.P)}</b> à ${hhmm(a.peak.h)}` +
+        (a.peak.P > (day.design || design || {}).agcp?.kva * 1000 ? ' — au-delà de l’abonnement !' : '');
+    }
+  }
+
   // ---- Vue 3D ---------------------------------------------------------------
   const view3d = $('view3d'), cv3 = $('canvas3d'), tip = $('v3-tip'), map = $('v3-map'), hud = $('v3-hud');
   let viz = null;
@@ -461,6 +680,10 @@ function initHouseUI(app) {
     document.querySelectorAll('#v3-walls button').forEach((x) => x.classList.toggle('on', x === b));
     build3D(false);
   }));
+  $('v3-day').addEventListener('click', () => {
+    if (!(ensureDesign() || {}).ok) { showToast('La journée type a besoin d’un tableau : onglet Tableau → Implanter.'); return; }
+    if (day.running) dayPause(); else dayStart();
+  });
   $('v3-xray').addEventListener('click', () => {
     v3.xray = !v3.xray;
     $('v3-xray').classList.toggle('on', v3.xray);
@@ -534,7 +757,7 @@ function initHouseUI(app) {
     if (!snap || !hasPlan()) { hud.hidden = true; return; }
     hud.hidden = false;
     const tripped = Object.values(sim.breakers).filter((b) => b.tripped).length + Object.values(sim.rcds).filter((r) => r.tripped).length + (sim.agcp.tripped ? 1 : 0);
-    hud.innerHTML = `<b class="num">${fmtW(snap.P)}</b><span class="num">${fmtA(snap.I)}</span><span>${snap.lit.size} lampe${snap.lit.size > 1 ? 's' : ''}</span>` +
+    hud.innerHTML = (day.saved ? `<span class="hud-day num">${hhmm(day.h)} · ${DAY_SEASONS[day.season].label}</span>` : '') + `<b class="num">${fmtW(snap.P)}</b><span class="num">${fmtA(snap.I)}</span><span>${snap.lit.size} lampe${snap.lit.size > 1 ? 's' : ''}</span>` +
       (tripped ? `<span class="hud-bad">${tripped} protection${tripped > 1 ? 's' : ''} déclenchée${tripped > 1 ? 's' : ''}</span>` : '');
     if (viz.mode === 'walk') drawMinimap(snap);
   }

@@ -133,6 +133,21 @@ L'installation est **conçue** puis **simulée en temps réel** :
 
 ![Tableau simulé](docs/screenshot-installation.png)
 
+### Journée type — 24 heures en 48 secondes
+
+Le bouton **Journée** (onglet Tableau ou barre 3D) fait vivre la maison pendant une
+journée d'**hiver** ou d'**été** : réveil à 6 h 30, départ au travail, retour à
+17 h 15, dîner, coucher. Les pièces s'éclairent quand il fait nuit, la plaque et le
+four tournent aux repas, lessive, vaisselle, **chauffe-eau et recharge de la voiture
+en heures creuses**, radiateurs le matin et le soir en hiver. En 3D, **le soleil suit
+l'horloge** et les lampes s'allument d'elles-mêmes ; le plan 2D aussi.
+
+Le graphique empile l'énergie **heure par heure et par usage** (chauffage, cuisson et
+lavage, eau chaude, éclairage, froid et multimédia, recharge), bande des heures creuses
+en fond ; survoler une heure en donne le détail. Bilan : kWh de la journée, coût en
+tarif base et en heures creuses, part consommée la nuit, **pointe de puissance** comparée
+à l'abonnement. « Calculer » donne le résultat immédiatement (pas de 2 min).
+
 ## 🧊 3D temps réel (WebGL2)
 
 Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **WebGL2
@@ -349,6 +364,7 @@ python3 -m http.server 8000
 │   ├── plan.js        # Plan de maison : pièces, surfaces, cotations, NF C 15-100
 │   ├── houses.js      # Types de maison, ameublement, implantation et goulottes automatiques
 │   ├── install.js     # Conception du tableau, câbles, chutes de tension, simulation physique
+│   ├── day.js         # Journée type : emploi du temps, énergie par heure et par usage
 │   ├── simulate.js    # Simulation analogique : DC non-linéaire, transitoire, Bode, ERC
 │   ├── digital.js     # Simulation logique (portes, bascules) + chronogramme
 │   ├── examples.js    # Bibliothèque d'exemples
@@ -370,7 +386,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-65 vérifications sans dépendance : valeurs numériques de chaque simulation
+70 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 5 types de maison** (pièces fermées, conformes, mobilier

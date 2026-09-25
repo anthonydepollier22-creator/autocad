@@ -13,7 +13,7 @@ const vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const sb = { Math, JSON, console };
 vm.createContext(sb);
-for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'svg', 'viz3d']) {
+for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'day', 'svg', 'viz3d']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f + '.js'), 'utf8'), sb, { filename: f + '.js' });
 }
 const run = (code) => vm.runInContext(code, sb);
@@ -264,6 +264,37 @@ check('Chaque composant a un volume 3D', r.length === 0, r.join(', ') || undefin
 r = ex('maison', 'return buildSVG(d.components, d.wires, SYMBOLS, { title: "T2" });');
 check('Export SVG du plan : murs épais, sols, cotations, surfaces',
   r.startsWith('<?xml') && r.includes('stroke-width="9"') && r.includes('fill-opacity="0.14"') && r.includes('5,20 m'));
+
+// ---------------------------------------------------------------------------
+group('Journée type');
+r = run(`(function(){
+  var d = buildHouse('t3'), ctx = dayContext(d.components, d.wires);
+  var sejour = ctx.info.rooms.findIndex(function(r){ return r.type && r.type.key === 'sejour'; });
+  var sw = ctx.switches[sejour][0];
+  dayApply(d.components, ctx, 19.5, 'hiver'); var soir = sw.closed;
+  var rad = d.components.filter(function(c){ return c.type === 'radiator'; }).some(function(c){ return c.on; });
+  dayApply(d.components, ctx, 12, 'hiver'); var midi = sw.closed;
+  var eau = d.components.find(function(c){ return c.type === 'water_heater'; });
+  dayApply(d.components, ctx, 23, 'hiver'); var hc = eau.on;
+  dayApply(d.components, ctx, 12, 'hiver'); var hp = eau.on;
+  return [soir, midi, rad, hc, hp];
+})()`);
+check('Emploi du temps : séjour éclairé à 19 h 30 en hiver, éteint à midi, radiateurs le soir',
+  r[0] === true && r[1] === false && r[2] === true, r.join(' / '));
+check('Chauffe-eau en heures creuses (23 h), arrêté à midi', r[3] === true && r[4] === false);
+r = run(`(function(){
+  var d = buildHouse('t3'), des = designInstallation(d.components, d.wires);
+  var before = JSON.stringify(d.components.map(function(c){ return [c.on, c.closed]; }));
+  var w = simulateDay(d.components, d.wires, des, 'hiver', 5), s = simulateDay(d.components, d.wires, des, 'ete', 5);
+  var after = JSON.stringify(d.components.map(function(c){ return [c.on, c.closed]; }));
+  var sum = function(a, k){ return a.bins.reduce(function(t, b){ return t + b[k]; }, 0); };
+  var bins = w.bins.reduce(function(t, b){ return t + b.heat + b.appl + b.water + b.light + b.other + b.ev; }, 0);
+  return [w.total, s.total, sum(w, 'heat'), sum(s, 'heat'), w.hc / w.total, Math.abs(bins - w.total), before === after, w.peak.P, des.agcp.kva * 1000, dayCost(w).base / w.total];
+})()`);
+check('T3 : 20 à 120 kWh un jour d’hiver, moins l’été (pas de chauffage)', r[0] > 20 && r[0] < 120 && r[1] < r[0] && r[2] > 0 && r[3] === 0,
+  `${r[0].toFixed(1)} / ${r[1].toFixed(1)} kWh`);
+check('Énergie par heure et par usage = total ; une part en heures creuses', r[5] < 1e-6 && r[4] > 0.1 && r[4] < 0.9, `${(r[4] * 100).toFixed(0)} % HC`);
+check('Pointe sous la puissance souscrite, coût au tarif base, maison remise dans son état', r[7] < r[8] && near(r[9], 0.2516, 1e-9) && r[6], `pointe ${Math.round(r[7])} W / ${r[8]} W`);
 
 console.log(`\n${passed} réussis, ${failed} échoué${failed > 1 ? 's' : ''}`);
 process.exit(failed ? 1 : 0);
