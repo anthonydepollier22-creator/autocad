@@ -137,9 +137,14 @@ class Viz3D {
       look: t.slice(), fov: this.fov,
     };
   }
+  // Décalage 3D du niveau où se trouve le visiteur (maison à étage)
+  _walkOff() {
+    const st = this.scene && this.scene.stairs, w = this.walk;
+    return (st && st.off[w.level || 0]) || { dx: 0, dy: 0 };
+  }
   _walkCam() {
-    const w = this.walk;
-    const eye = [w.x, HOUSE3D.EYE + w.bob, w.z];
+    const w = this.walk, o = this._walkOff();
+    const eye = [w.x + o.dx, HOUSE3D.EYE + w.bob + (w.ey !== undefined ? w.ey : o.dy + (w.lift || 0)), w.z];
     const cp = Math.cos(w.pitch);
     return { eye, look: [eye[0] - Math.sin(w.yaw) * cp * 100, eye[1] + Math.sin(w.pitch) * 100, eye[2] - Math.cos(w.yaw) * cp * 100], fov: 62 * Math.PI / 180 };
   }
@@ -173,7 +178,7 @@ class Viz3D {
     const s = start || (this.scene && this.scene.start) || { x: this.target[0], z: this.target[2], yaw: 0 };
     this.animateTo(() => {
       this.mode = 'walk';
-      this.walk = { x: s.x, z: s.z, yaw: s.yaw, pitch: -0.08, vx: 0, vz: 0, bob: 0, phase: 0 };
+      this.walk = { x: s.x, z: s.z, yaw: s.yaw, pitch: -0.08, vx: 0, vz: 0, bob: 0, phase: 0, level: 0, lift: 0, stair: false };
     }, 1100);
   }
   exitWalk(silent) {
@@ -198,15 +203,78 @@ class Viz3D {
       const a = Math.min(1, dt * 9);
       w.vx += (tx - w.vx) * a; w.vz += (tz - w.vz) * a;
       if (!this.guided) { // visite guidée : la trajectoire passe par les portes, pas de collisions
-        const p = collideCircle(this.scene, w.x + w.vx * dt, w.z + w.vz * dt, HOUSE3D.RADIUS);
-        w.x = p.x; w.z = p.z;
+        const nx = w.x + w.vx * dt, nz = w.z + w.vz * dt;
+        const st = this.scene && this.scene.stairs;
+        if (st) this._walkStairs(w, st, nx, nz);
+        else { const p = collideCircle(this.scene, nx, nz, HOUSE3D.RADIUS); w.x = p.x; w.z = p.z; }
       }
+      // hauteur des yeux lissée (marches, changement de niveau)
+      const yT = this._walkOff().dy + (w.lift || 0);
+      w.ey = w.ey === undefined || this.guided ? yT : w.ey + (yT - w.ey) * Math.min(1, dt * 14);
       const v = Math.hypot(w.vx, w.vz);
       w.phase += v * dt * 0.045;
       w.bob = v > 10 ? Math.sin(w.phase) * 1.6 : w.bob * 0.9;
     } else if (this.autoRotate && !this._drag) {
       this.yaw += dt * 0.27;
     }
+  }
+
+  // Escalier : on entre par le bas de la volée (ou par la trémie, à l'étage),
+  // la hauteur suit la position sur la volée ; en haut on sort devant ou sur
+  // le côté (volée qui finit contre un mur : on tourne sur le palier).
+  // La volée va du bas (y local +157) au haut (y local −157) du symbole.
+  _walkStairs(w, st, nx, nz) {
+    const R = HOUSE3D.RADIUS, HALF = 157, W2 = 38, TOP = HALF - 90, rise = st.off[1].dy - st.off[0].dy;
+    const toLocal = (c, x, z) => {
+      const a = (-(c.rot || 0) * Math.PI) / 180, co = Math.cos(a), si = Math.sin(a), dx = x - c.x, dz = z - c.y;
+      return [dx * co - dz * si, dx * si + dz * co];
+    };
+    const liftAt = (ly) => Math.max(0, Math.min(1, (HALF - ly) / (2 * HALF - 60))) * rise;
+    const [vx, vy] = toLocal({ x: 0, y: 0, rot: st.lo.rot }, w.vx, w.vz); // vy < 0 : on monte
+    if (!w.stair) {
+      if (!w.level) {
+        const [lx, ly] = toLocal(st.lo, nx, nz);
+        if (Math.abs(lx) < W2 + 8 && ly > HALF - 24 && ly < HALF + R + 6 && vy < -1) { w.stair = true; w.from = 0; }
+      } else if (w.level === 1) {
+        const [lx, ly] = toLocal(st.hi, nx, nz);
+        // on s'avance dans la trémie par le haut de la volée (devant ou sur le côté)
+        const into = (ly < -HALF + 4 && vy > 1) || (Math.abs(lx) > 40 && lx * vx < -1);
+        // (le visiteur bute contre le bord de la trémie : on le laisse s'y engager)
+        if (Math.abs(lx) < 52 + R + 6 && ly > -HALF - R - 6 && ly < -TOP && into) {
+          const [X, Z] = _lp(st.lo, Math.max(-W2, Math.min(W2, lx)), Math.max(ly, -HALF + 30));
+          nx = X; nz = Z; w.x = X; w.z = Z;
+          w.stair = true; w.from = 1; w.level = 0;
+        }
+      }
+    }
+    if (!w.stair) {
+      const p = collideCircle(this.scene, nx, nz, R);
+      w.x = p.x; w.z = p.z;
+      return;
+    }
+    const p = collideCircle(this.scene, nx, nz, R, st.polys[0]);
+    const [lx0, ly] = toLocal(st.lo, p.x, p.z);
+    const side = Math.abs(lx0) > W2 + 4;
+    // arrivée à l'étage : en haut de la volée, devant ou sur le côté, là où le plancher est libre
+    if (ly < -TOP && (side || ly < -HALF - 2)) {
+      // repoussé hors de la trémie sur le palier : position stable et proche = plancher libre
+      const qx = p.x + st.hi.x - st.lo.x, qz = p.z + st.hi.y - st.lo.y, q = collideCircle(this.scene, qx, qz, R);
+      const q2 = collideCircle(this.scene, q.x, q.z, R);
+      if (Math.hypot(q.x - qx, q.z - qz) < R + 16 && Math.hypot(q2.x - q.x, q2.z - q.z) < 1) {
+        w.x = q.x; w.z = q.z; w.stair = false; w.lift = 0; w.level = 1;
+        if (w.from === 0 && this.onLevel) this.onLevel(1);
+        return;
+      }
+    }
+    // retour au sol du rez-de-chaussée : en bas, devant ou sur le côté des premières marches
+    if (ly > HALF + 2 || (side && liftAt(ly) < 40)) {
+      w.x = p.x; w.z = p.z; w.stair = false; w.lift = 0;
+      if (w.from === 1 && this.onLevel) this.onLevel(0);
+      return;
+    }
+    const lx = Math.max(-W2, Math.min(W2, lx0));
+    [w.x, w.z] = _lp(st.lo, lx, ly);
+    w.lift = liftAt(ly);
   }
 
   resize() {
@@ -403,7 +471,7 @@ function pointInPoly2(P, x, y) {
 
 // Collision d'un cercle (le visiteur) avec les murs (segments épais) et les
 // meubles (rectangles orientés) : on repousse le cercle hors des obstacles.
-function collideCircle(scene, x, z, R) {
+function collideCircle(scene, x, z, R, skip) {
   if (!scene || !scene.colliders) return { x, z };
   const { segs, polys } = scene.colliders;
   for (let it = 0; it < 4; it++) {
@@ -416,6 +484,7 @@ function collideCircle(scene, x, z, R) {
       if (d < min && d > 1e-6) { x = qx + ((x - qx) / d) * min; z = qz + ((z - qz) / d) * min; }
     }
     for (const P of polys) {
+      if (P === skip) continue; // la volée sur laquelle on marche
       let best = null;
       for (let i = 0; i < P.length; i++) {
         const a = P[i], b = P[(i + 1) % P.length];
@@ -727,8 +796,9 @@ const BUILDERS3D = {
   stairs: (v, c) => {
     const rail = '#e8e4dc';
     if (c.value === 'haut') {
-      _lb(v, c, -52, 0, 4, 314, 0, 100, rail);
-      _lb(v, c, 52, 0, 4, 314, 0, 100, rail);
+      // garde-corps sur les côtés, ouverts sur les 90 derniers cm (arrivée sur le palier)
+      _lb(v, c, -52, 45, 4, 224, 0, 100, rail);
+      _lb(v, c, 52, 45, 4, 224, 0, 100, rail);
       _lb(v, c, 0, 157, 104, 4, 0, 100, rail); // au-dessus du bas de la volée ; on arrive côté -y
       return;
     }
@@ -1044,6 +1114,8 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
   const scene = viz.scene = {
     wallH: H, cut: !full, cutTop: full ? null : '#4b5361', rooms: info,
     walls: [], colliders: { segs: [], polys: [] }, worktops: [], start: null, breakers: [],
+    upDy: lv ? Math.max(...lv.map((L) => L.dy || 0)) : 0, // les lampes de l'étage éclairent jusqu'à son plafond
+    stairs: null,
   };
   // Segments de mur (épaisseur extérieure / intérieure)
   for (const w of walls) {
@@ -1085,6 +1157,11 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
     return { x0: Math.min(...xs), x1: Math.max(...xs), z0: Math.min(...zs), z1: Math.max(...zs) };
   }) : [];
   const inHole = holes.length ? (x, z) => holes.some((h) => x > h.x0 && x < h.x1 && z > h.z0 && z < h.z1) : null;
+  // … et le plafond du niveau du dessous (même trémie, dans le repère de ce niveau)
+  const ceilHoles = holes.map((h) => {
+    const k = levelOf(h.x0 + 1), s = (lv[k].dx || 0) - (lv[k - 1].dx || 0);
+    return { x0: h.x0 + s, x1: h.x1 + s, z0: h.z0, z1: h.z1 };
+  });
   viz.setLayer(0);
   if (opts.ground) {
     const g = 2600; // jusqu'à l'horizon (le brouillard fond le bord)
@@ -1171,7 +1248,7 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
       const lab = components.find((c) => c.id === room.id);
       if (lab && !shown(lab.x)) return;
       at(lab ? lab.x : 0);
-      for (const r of roomRuns(info, i)) viz.poly([[r.x, H, r.y + r.h], [r.x + r.w, H, r.y + r.h], [r.x + r.w, H, r.y], [r.x, H, r.y]], '#f6f4ef');
+      for (const r of _cutRects(roomRuns(info, i), ceilHoles)) viz.poly([[r.x, H, r.y + r.h], [r.x + r.w, H, r.y + r.h], [r.x + r.w, H, r.y], [r.x, H, r.y]], '#f6f4ef');
     });
     viz.obj = null; viz.off = null;
   }
@@ -1204,6 +1281,7 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
 
   // Composants (menuiseries translucides en rayons X)
   const JOINERY = new Set(['door', 'window_a', 'garage_door']);
+  const stairPoly = new Map();
   for (const c of components) {
     const sym = symbols[c.type];
     if (!sym || !shown(c.x)) continue;
@@ -1214,9 +1292,21 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
       (BUILDERS3D[c.type] || ((v, cc) => v.box(cc.x, 0, cc.y, 30, 14, 22, C3D.dark, cc.rot || 0)))(viz, c);
     }
     viz.obj = null; viz.alpha = 1;
-    if (SOLID_FURNITURE.has(c.type)) scene.colliders.polys.push(_footprint3(c, c.type === 'plant' ? -6 : 0));
+    if (SOLID_FURNITURE.has(c.type)) {
+      const P = _footprint3(c, c.type === 'plant' ? -6 : 0);
+      scene.colliders.polys.push(P);
+      if (c.type === 'stairs') stairPoly.set(c.id, P);
+    }
   }
   viz.off = null;
+  // Escalier praticable en visite : de la volée du rez-de-chaussée à la trémie de l'étage
+  if (lv && lv.length > 1) {
+    const lo = components.find((c) => c.type === 'stairs' && c.value !== 'haut' && levelOf(c.x) === 0);
+    const hi = components.find((c) => c.type === 'stairs' && c.value === 'haut' && levelOf(c.x) === 1);
+    if (lo && hi && stairPoly.has(lo.id) && stairPoly.has(hi.id) && (lo.rot || 0) === (hi.rot || 0)) {
+      scene.stairs = { lo, hi, polys: [stairPoly.get(lo.id), stairPoly.get(hi.id)], off: lv.map((L) => ({ dx: L.dx || 0, dy: L.dy || 0 })) };
+    }
+  }
 
   // Rayons X : câbles de chaque circuit, échauffement et courant animé
   if (opts.xray && design && design.ok) _buildCables(viz, components, design, snap, sim, nearWall, { place: (x) => { at(x); return shown(x); }, offOf, shown });

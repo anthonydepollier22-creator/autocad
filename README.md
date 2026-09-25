@@ -113,7 +113,11 @@ Les deux niveaux sont dessinés côte à côte sur le plan, reliés par l'escali
 - en 3D, l'étage est **posé sur le rez-de-chaussée** (plancher de 2,80 m, dalle, trémie
   ouverte au-dessus de la volée, garde-corps), sous la toiture ; un filtre **Tout /
   RDC / Étage** isole un niveau, et en **Rayons X** les câbles et le courant montent à
-  l'étage par la colonne de l'escalier.
+  l'étage par la colonne de l'escalier ;
+- en **Visite**, on **monte l'escalier** : la hauteur des yeux suit les marches, on
+  sort sur le palier (la volée finit contre le mur : on tourne), la mini-carte passe
+  au plan de l'étage, et l'on redescend par la trémie ; les lampes de l'étage
+  éclairent l'étage jusqu'à son plafond.
 
 ![Maison à étage](docs/screenshot-etage.png)
 
@@ -458,7 +462,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-92 vérifications sans dépendance : valeurs numériques de chaque simulation
+94 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
@@ -467,7 +471,8 @@ du tableau** (différentiels selon la surface, 32 A / 6 mm², abonnement), **la 
 calculée à la main** (ΔU = 2·ρ·L·I/S, temps de déclenchement thermique, Icc et
 magnétique, différentiel, disjoncteur de branchement, énergie, va-et-vient), la 3D
 (lumières par pièce, rayons X, collisions de la visite), **la maison à étage**
-(montée de 3 m, circuits par niveau, étage posé à 2,80 m, trémie, filtre par niveau)
+(montée de 3 m, circuits par niveau, étage posé à 2,80 m, trémie, filtre par niveau,
+montée et descente de l'escalier en visite)
 et les exports SVG. Le déploiement GitHub Pages **exécute ces tests d'abord** : une
 régression bloque la mise en ligne.
 

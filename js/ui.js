@@ -880,7 +880,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (localStorage.getItem('electricad-news') !== NEWS) {
       localStorage.setItem('electricad-news', NEWS);
       if (!location.search) {
-        setTimeout(() => showToast('<b>Nouveau</b> : la <b>maison à étage</b> (bouton Maison), empilée en 3D avec son escalier, filtre par niveau et câbles qui montent à l’étage ; journée type, <b>panneaux solaires</b>, vues <b>Énergie</b> et <b>Extérieur</b>, <b>matériel et budget</b>.', 9000), 1200);
+        setTimeout(() => showToast('<b>Nouveau</b> : la <b>maison à étage</b> (bouton Maison), empilée en 3D : on monte l’escalier en visite, filtre par niveau, câbles qui montent à l’étage ; journée type, <b>panneaux solaires</b>, vues <b>Énergie</b> et <b>Extérieur</b>, <b>matériel et budget</b>.', 9000), 1200);
       }
     }
   } catch (_) { /* stockage indisponible */ }

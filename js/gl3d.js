@@ -67,6 +67,7 @@ uniform vec3 uEye, uSunDir, uSunCol, uSky, uGround;
 uniform float uShadowOn, uHover, uExposure;
 uniform sampler2DShadow uShadow;
 uniform int uNL;
+uniform float uUpY; // hauteur de l'étage (géométrie décalée en x : vDx ≠ 0)
 uniform vec4 uLP[16];
 uniform vec4 uLC[16];
 uniform sampler2D uRoom;
@@ -106,7 +107,7 @@ void main() {
   vec2 q = (vPos.xz - vec2(vDx, 0.0) + N.xz * 14.0 - uRoomBox.xy) * uRoomBox.zw;
   if (q.x >= 0.0 && q.x <= 1.0 && q.y >= 0.0 && q.y <= 1.0) room = floor(texture(uRoom, q).r * 255.0 + 0.5);
   // Les lampes n'éclairent que l'intérieur : rien au-dessus du plafond (toiture)
-  int nl = vPos.y < 254.0 ? uNL : 0;
+  int nl = vPos.y < 254.0 + (abs(vDx) > 0.5 ? uUpY : 0.0) ? uNL : 0;
   for (int i = 0; i < 16; i++) {
     if (i >= nl) break;
     vec3 L = uLP[i].xyz - vPos;
@@ -469,6 +470,7 @@ class GL3D extends Viz3D {
       LC.set([l.color[0] * k, l.color[1] * k, l.color[2] * k, (l.room >= 0 ? l.room + 1 : 0)], i * 4);
     });
     gl.uniform1i(P.u.uNL, ls.length);
+    gl.uniform1f(P.u.uUpY, (this.scene && this.scene.upDy) || 0);
     gl.uniform4fv(P.u.uLP, LP);
     gl.uniform4fv(P.u.uLC, LC);
     gl.disable(gl.BLEND);

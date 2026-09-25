@@ -457,5 +457,30 @@ check('3D rayons X : câbles et courant montent à l’étage par la colonne', r
 check('3D : filtre par niveau (rez-de-chaussée seul, étage seul)', r[5] && r[6]);
 check('3D : les lampes de l’étage éclairent à l’étage', r[7] > 0, `${r[7]} lampes`);
 
+r = run(`(function(){
+  var d = buildHouse('r1'), viz = new Viz3D(__cv, { interactive: false });
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { walls: 'full', ceiling: true, levels: d.meta.levels, level: 'all' });
+  var st = viz.scene.stairs, lo = st.lo, seen = [];
+  viz.onLevel = function(i){ seen.push(i); };
+  viz.mode = 'walk';
+  // devant la première marche, face à la volée (le haut de la volée est vers y local −157)
+  var a = (lo.rot || 0) * Math.PI / 180, fx = Math.sin(a), fz = -Math.cos(a); // direction « vers le haut » dans le plan
+  var start = _lp(lo, 0, 157 + 45);
+  viz.walk = { x: start[0], z: start[1], yaw: Math.atan2(-fx, -fz), pitch: 0, vx: 0, vz: 0, bob: 0, phase: 0, level: 0, lift: 0, stair: false };
+  var go = function(yaw, n){ viz.walk.yaw = yaw; viz.keys = { z: true }; for (var i = 0; i < n; i++) viz.update(1 / 30); viz.keys = {}; for (var j = 0; j < 20; j++) viz.update(1 / 30); };
+  go(viz.walk.yaw, 150);
+  var top = [Math.round(viz.walk.lift), viz.walk.stair];
+  // la volée finit contre le mur : on sort sur le côté (x local −, vers le palier)
+  go(Math.atan2(Math.cos(a), Math.sin(a)), 60);
+  var up = [viz.walk.level, viz.walk.stair, Math.round(viz._walkCam().eye[1])];
+  // demi-tour vers la trémie (x local +), puis on redescend
+  go(Math.atan2(-Math.cos(a), -Math.sin(a)), 60);
+  var mid = [viz.walk.level, viz.walk.stair];
+  go(Math.atan2(fx, fz), 200);
+  return { top: top, up: up, mid: mid, end: [viz.walk.level, viz.walk.stair, Math.round(viz.walk.lift)], seen: seen.join(',') };
+})()`);
+check('Visite : on monte l’escalier jusqu’à l’étage (yeux à 2,80 + 1,62 m)', r.top[0] > 250 && r.top[1] && r.up[0] === 1 && !r.up[1] && Math.abs(r.up[2] - 442) <= 3, JSON.stringify(r.up));
+check('Visite : on redescend par la trémie jusqu’au rez-de-chaussée', r.mid[1] === true && r.end[0] === 0 && !r.end[1] && r.end[2] === 0 && r.seen === '1,0', r.seen);
+
 console.log(`\n${passed} réussis, ${failed} échoué${failed > 1 ? 's' : ''}`);
 process.exit(failed ? 1 : 0);

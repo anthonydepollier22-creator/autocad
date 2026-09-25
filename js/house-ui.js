@@ -715,6 +715,7 @@ function initHouseUI(app) {
     const b = $('v3-tour');
     b.textContent = '■ Arrêter'; b.classList.add('on'); b.setAttribute('aria-pressed', 'true');
     if (viz.mode !== 'walk') enterWalk();
+    if (viz.walk) Object.assign(viz.walk, { level: 0, lift: 0, stair: false }); // la visite guidée part du rez-de-chaussée
     viz.guided = true;
     const SPEED = 190; // cm/s
     const step = (now) => {
@@ -772,7 +773,7 @@ function initHouseUI(app) {
   // Filtre de niveau (maison à étage) : tout, rez-de-chaussée, étage
   function levelSeg() {
     const lv = levels(), seg = $('v3-level');
-    seg.hidden = !lv;
+    seg.hidden = !lv || !!(viz && viz.mode === 'walk'); // en visite, l'escalier mène à l'étage
     if (!lv) { v3.level = 'all'; seg.innerHTML = ''; return; }
     if (v3.level !== 'all' && !lv[v3.level]) v3.level = 'all';
     const short = (n) => (/^rez/i.test(n) ? 'RDC' : n);
@@ -797,7 +798,7 @@ function initHouseUI(app) {
       sim: d && d.ok ? { snap: sim.snap, design: d, sim } : null,
       energy: energy ? { color: (i) => energyColor(energy.P[i] || 0) } : null,
       pv: pvKwc(),
-      levels: levels(), level: walking ? 0 : v3.level,
+      levels: levels(), level: walking ? 'all' : v3.level, // en visite : on peut monter à l'étage
     });
     const pvs = viz.scene && viz.scene.pv;
     if (pvs && pvs.placed < pvs.want && v3.walls === 'roof' && !walking && pvWarned !== pvs.want) {
@@ -814,6 +815,15 @@ function initHouseUI(app) {
       window.__viz3d = viz; // débogage et captures d'écran
       viz.onPick = onPick;
       viz.onHover = onHover;
+      // Visite : changement de niveau par l'escalier
+      let levelTimer = 0;
+      viz.onLevel = (i) => {
+        const lv = levels();
+        if (!lv || !lv[i] || tour.on) return;
+        tourCaption(lv[i].name);
+        clearTimeout(levelTimer);
+        levelTimer = setTimeout(() => { if (!tour.on) tourCaption(''); }, 1800);
+      };
       if (!viz.webgl) $('v3-time-wrap').hidden = true;
     }
     const house = hasPlan();
@@ -847,6 +857,7 @@ function initHouseUI(app) {
     if (touch) $('v3-walkhelp').textContent = 'Joystick : marcher · glisser : regarder · touche un interrupteur ou un appareil pour le basculer';
     $('v3-walkhelp').hidden = !walking;
     $('v3-tour').hidden = !walking || !hasPlan();
+    levelSeg();
     if (!walking) tourStop();
     $('v3-stick').hidden = !(walking && touch);
     map.hidden = !walking;
@@ -992,7 +1003,13 @@ function initHouseUI(app) {
     energyTick();
   }
   function drawMinimap(snap) {
-    const b = viz.bounds; if (!b || !viz.walk) return;
+    if (!viz.bounds || !viz.walk) return;
+    const lvl = viz.walk.level || 0;
+    let b = viz.bounds;
+    if (lvl) { // bornes du niveau où l'on se trouve
+      const ps = editor.wires.filter((w) => w.kind === 'wall' && levelAt(w.points[0].x).i === lvl).flatMap((w) => w.points);
+      if (ps.length) b = { minX: Math.min(...ps.map((p) => p.x)) - 30, maxX: Math.max(...ps.map((p) => p.x)) + 30, minZ: Math.min(...ps.map((p) => p.y)) - 30, maxZ: Math.max(...ps.map((p) => p.y)) + 30 };
+    }
     const W = map.width, H = map.height, ctx = map.getContext('2d');
     const s = Math.min((W - 16) / (b.maxX - b.minX), (H - 16) / (b.maxZ - b.minZ));
     const ox = (W - (b.maxX - b.minX) * s) / 2 - b.minX * s, oy = (H - (b.maxZ - b.minZ) * s) / 2 - b.minZ * s;
@@ -1002,14 +1019,14 @@ function initHouseUI(app) {
     info.rooms.forEach((room, i) => {
       if (room.leaked || room.sharedWith !== null) return;
       const lab = byId(room.id);
-      if (lab && levelAt(lab.x).i !== 0) return; // la visite reste au rez-de-chaussée
+      if (lab && levelAt(lab.x).i !== lvl) return; // pièces du niveau où l'on se trouve
       const lit = editor.components.some((c) => LIGHT_T.has(c.type) && snap.lit.has(c.id) && roomAt(info, c.x, c.y) === i);
       ctx.fillStyle = lit ? 'rgba(255,214,120,0.35)' : 'rgba(120,140,170,0.14)';
       for (const r of roomRuns(info, i)) ctx.fillRect(ox + r.x * s, oy + r.y * s, r.w * s + 0.5, r.h * s + 0.5);
     });
     ctx.strokeStyle = '#dfe6f0'; ctx.lineWidth = 2; ctx.lineCap = 'round';
     for (const w of editor.wires) {
-      if (w.kind !== 'wall' || levelAt(w.points[0].x).i !== 0) continue;
+      if (w.kind !== 'wall' || levelAt(w.points[0].x).i !== lvl) continue;
       ctx.beginPath();
       w.points.forEach((p, i) => (i ? ctx.lineTo(ox + p.x * s, oy + p.y * s) : ctx.moveTo(ox + p.x * s, oy + p.y * s)));
       ctx.stroke();
