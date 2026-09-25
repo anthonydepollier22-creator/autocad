@@ -626,5 +626,54 @@ check('Hiver : soleil au sud à 12 h 45, hauteur 20,6°, levé vers 8 h 30, couc
 check('Été : hauteur 67,4° à 14 h, lever au nord-est, encore levé à 21 h 30', near(r.sNoon, 67.4, 0.2) && r.sNE && r.sEvening, r.sNoon.toFixed(1) + '°');
 check('Sans saison : course du soleil habituelle (6 h – 18 h, 51° à midi)', near(r.neutral, 51.3, 0.2), r.neutral.toFixed(1) + '°');
 
+// ---------------------------------------------------------------------------
+group('Éditeur 2D : tracés et calque');
+{
+  // contexte séparé : l'éditeur a besoin d'un faux navigateur (fenêtre, canevas, stockage)
+  const store = {};
+  const ctx2d = new Proxy({}, { get: (t, p) => (p in t ? t[p] : noop), set: (t, p, v) => { t[p] = v; return true; } });
+  const eb = {
+    Math, JSON, console, performance, TextEncoder, TextDecoder,
+    window: { addEventListener: noop, devicePixelRatio: 1, open: () => null },
+    document: { body: { classList: { contains: () => false } }, createElement: () => ({ getContext: () => ctx2d, style: {} }) },
+    localStorage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } },
+  };
+  vm.createContext(eb);
+  for (const f of ['symbols', 'netlist', 'plan', 'editor']) vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f + '.js'), 'utf8'), eb, { filename: f + '.js' });
+  eb.__cv = {
+    getContext: () => ctx2d, addEventListener: noop, setPointerCapture: noop, style: {}, width: 800, height: 600,
+    parentElement: { getBoundingClientRect: () => ({ width: 800, height: 600 }) },
+    getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 600 }),
+  };
+  const er = (code) => vm.runInContext(code, eb);
+  r = er(`(function(){
+    var ed = new Editor(__cv), out = {};
+    ed.view = { x: 0, y: 0, scale: 1 };
+    var ev = function(x, y){ return { clientX: x, clientY: y, button: 0, shiftKey: false, pointerType: 'mouse' }; };
+    var click = function(x, y){ ed._down(ev(x, y)); ed._up(ev(x, y)); };
+    var key = function(k){ ed._key({ key: k, target: { tagName: 'BODY' }, preventDefault: function(){}, ctrlKey: false, metaKey: false, altKey: false }); };
+    // mur terminé au double-clic (le double-clic ajoute un point en double, retiré)
+    ed.setTool('wall'); click(0, 0); click(200, 0); click(200, 100); click(200, 100); ed._dblclick(ev(200, 100));
+    out.dbl = ed.wires.filter(function(w){ return w.kind === 'wall'; }).map(function(w){ return w.points.length; });
+    // goulotte terminée par Entrée
+    ed.setTool('conduit'); click(0, 200); click(300, 200); key('Enter');
+    out.enter = ed.wires.filter(function(w){ return w.kind === 'conduit'; }).length;
+    // contour de mur fermé en revenant au point de départ
+    ed.setTool('wall'); click(400, 0); click(600, 0); click(600, 200); click(400, 200); click(400, 0);
+    out.loop = ed.wireDraft === null && ed.wires.filter(function(w){ return w.kind === 'wall'; }).length;
+    // calque : mise à l'échelle sur une cote connue (le premier point reste fixe)
+    ed.underlay = { src: 'data:x', img: { naturalWidth: 1000, naturalHeight: 700, complete: true }, x: 0, y: 0, scale: 1, opacity: 0.5 };
+    var k = ed.calibrateUnderlay({ x: 100, y: 630 }, { x: 900, y: 630 }, 10);
+    out.calib = [k, ed.underlay.scale, ed.underlay.x, ed.underlay.y];
+    out.saved = !!localStorage.getItem('electricad-underlay');
+    ed.clearUnderlay(); out.cleared = ed.underlay === null && !localStorage.getItem('electricad-underlay');
+    return out;
+  })()`);
+  check('Mur terminé au double-clic (points en double retirés), goulotte à Entrée', r.dbl.length === 1 && r.dbl[0] === 3 && r.enter === 1, JSON.stringify(r.dbl));
+  check('Mur fermé en revenant au point de départ', r.loop === 2);
+  const U = er('PLAN_UNITS_PER_M');
+  check('Calque : 800 px = 10 m → échelle, premier point fixe, gardé puis retiré', near(r.calib[1], (10 * U) / 800, 1e-9) && near(r.calib[2], 100 - 100 * r.calib[1], 1e-9) && near(r.calib[3], 630 - 630 * r.calib[1], 1e-9) && r.saved && r.cleared, r.calib.map((v) => +v.toFixed(3)).join(' / '));
+}
+
 console.log(`\n${passed} réussis, ${failed} échoué${failed > 1 ? 's' : ''}`);
 process.exit(failed ? 1 : 0);

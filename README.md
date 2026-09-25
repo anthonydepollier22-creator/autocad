@@ -515,7 +515,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-110 vérifications sans dépendance : valeurs numériques de chaque simulation
+113 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
@@ -526,7 +526,8 @@ magnétique, différentiel, disjoncteur de branchement, énergie, va-et-vient), 
 (lumières par pièce, rayons X, collisions de la visite), **la maison à étage**
 (montée de 3 m, circuits par niveau, étage posé à 2,80 m, trémie, filtre par niveau,
 montée et descente de l'escalier en visite, visite guidée jusqu'à l'étage), la vue en
-coupe, la course du soleil selon la saison
+coupe, la course du soleil selon la saison, les interactions de l'éditeur 2D (fin d'un
+mur au double-clic, à `Entrée` ou en fermant le contour, mise à l'échelle du calque)
 et les exports SVG. Le déploiement GitHub Pages **exécute ces tests d'abord** : une
 régression bloque la mise en ligne.
 
