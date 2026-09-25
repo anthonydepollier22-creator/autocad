@@ -305,6 +305,9 @@ Dessine une **maison complète** et implante l'installation dedans :
   longueur, règle son opacité, déplace-le, puis **décalque les murs** : leurs cotes
   sont justes. Le calque reste sous le dessin (il n'est ni exporté ni imprimé) et
   est gardé dans le navigateur d'une séance à l'autre ;
+- **Pièces oubliées** : l'onglet Norme repère les espaces fermés par des murs mais
+  sans étiquette *Pièce* (ni surface, ni contrôle) et les étiquette d'un clic, prêts
+  à renommer (Chambre, Séjour, Cuisine…) ;
 - **Architecture** : portes (avec débattement), fenêtres — **mobilier** : lit,
   canapé, table, plan de travail avec évier, armoire ;
 - **Implantation NF C 15-100** : **GTL**, **tableau électrique**, prises murales
@@ -511,7 +514,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-108 vérifications sans dépendance : valeurs numériques de chaque simulation
+109 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

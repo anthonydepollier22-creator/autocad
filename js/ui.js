@@ -389,11 +389,40 @@ document.addEventListener('DOMContentLoaded', () => {
   const normTab = document.querySelector('.tab[data-tab="norm"]');
   let normKey = null;
   const STATUS_ICON = { ok: '✓', warn: '!', err: '✕' };
+  // Espaces fermés sans étiquette : proposer de les étiqueter d'un clic
+  function unlabeledHTML(list) {
+    if (!list.length) return '';
+    const m2 = list.reduce((t, r) => t + r.area, 0).toFixed(1).replace('.', ',');
+    return `<div class="norm-unlabeled"><b>${list.length} espace${list.length > 1 ? 's' : ''} fermé${list.length > 1 ? 's' : ''} sans étiquette de pièce</b>` +
+      `<span>${m2} m² ni comptés ni contrôlés.</span><button class="btn-primary" id="norm-label">Étiqueter ${list.length > 1 ? 'ces pièces' : 'cette pièce'}</button></div>`;
+  }
+  function bindUnlabeled(list) {
+    const b = document.getElementById('norm-label');
+    if (!b) return;
+    b.addEventListener('click', () => {
+      const added = [];
+      for (const r of list) {
+        const c = { id: editor.uid(), type: 'room', x: r.x, y: r.y, rot: 0, label: editor.nextRef('room'), value: 'Pièce' };
+        editor.components.push(c); added.push(c.id);
+      }
+      editor.pushHistory();
+      editor.selection = new Set(added.slice(0, 1));
+      editor.render(); editor._emit();
+      showTab('props');
+      showToast('Étiquettes posées. Renomme chacune (Chambre, Séjour, Cuisine, Salle de bains…) : le type de pièce fixe les prises et l’éclairage exigés.', 6000);
+    });
+  }
   function renderNorm(force) {
     const rep = checkNFC15100(editor.components, editor.wires);
-    const key = JSON.stringify(rep);
+    const unl = rep.hasPlan ? unlabeledRooms(editor.components, editor.wires) : [];
+    const key = JSON.stringify(rep) + unl.length;
     if (!force && key === normKey) return; // évite de reconstruire le panneau à chaque mouvement de souris
     normKey = key;
+    if (rep.hasPlan && !rep.rooms.length && unl.length) { // des murs, aucune étiquette encore
+      normBox.innerHTML = unlabeledHTML(unl) + '<p class="norm-foot">Chaque pièce a besoin d’une étiquette <b>Pièce</b> (palette « Plan de maison ») pour sa surface et le contrôle NF C 15-100.</p>';
+      bindUnlabeled(unl);
+      return;
+    }
     if (!rep.hasPlan) {
       normBox.innerHTML =
         '<div class="norm-empty"><b>Aucun plan de maison</b>' +
@@ -414,7 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
       `<div><b>${title}</b><span>Contrôle simplifié NF C 15-100</span></div></div>` +
       `<div class="norm-kpis"><div><b>${rep.rooms.length}</b><span>pièce${rep.rooms.length > 1 ? 's' : ''}</span></div>` +
       `<div><b>${area.toFixed(1).replace('.', ',')}</b><span>m² habitables</span></div>` +
-      `<div><b>${sockets}</b><span>prise${sockets > 1 ? 's' : ''}</span></div></div>`;
+      `<div><b>${sockets}</b><span>prise${sockets > 1 ? 's' : ''}</span></div></div>` + unlabeledHTML(unl);
     for (const r of rep.rooms) {
       const req = r.socketsReq;
       const pct = req ? Math.min(100, (r.sockets / req) * 100) : 100;
@@ -439,6 +468,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     html += '</ul><p class="norm-foot">Contrôle indicatif (nombre de prises, éclairage, GTL). Il ne remplace pas la vérification d’un professionnel ni l’attestation Consuel.</p>';
     normBox.innerHTML = html;
+    bindUnlabeled(unl);
     normBox.querySelectorAll('[data-id]').forEach((el) => el.addEventListener('click', () => editor.focusComponent(el.dataset.id)));
   }
   function _escHtml(s) {

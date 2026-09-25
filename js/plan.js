@@ -190,9 +190,49 @@ function computeRooms(components, wires) {
     if (!leaked) room.area = (count + boundary / 2 + 1) * (S / PLAN_UNITS_PER_M) ** 2;
   });
 
-  Object.assign(info, { x0, y0, nx, ny, owner });
+  Object.assign(info, { x0, y0, nx, ny, owner, blocked });
   _roomCache = { key, value: info };
   return info;
+}
+
+// Espaces fermés par les murs mais sans étiquette « Pièce » : oubliés, ils n'ont
+// ni surface ni contrôle. Renvoie un point intérieur et la surface de chacun.
+function unlabeledRooms(components, wires) {
+  const info = computeRooms(components, wires);
+  if (!info.owner || !info.blocked) return [];
+  const { nx, ny, owner, blocked, x0, y0 } = info, S = info.step;
+  const seen = new Uint8Array(nx * ny), q = new Int32Array(nx * ny);
+  const free = (k) => !seen[k] && !blocked[k] && owner[k] < 0;
+  const fill = (start) => {
+    let h = 0, t = 0;
+    q[t++] = start; seen[start] = 1;
+    const cells = [];
+    while (h < t) {
+      const k = q[h++];
+      cells.push(k);
+      const gx = k % nx, gy = (k - gx) / nx;
+      for (const n of [gx > 0 ? k - 1 : -1, gx < nx - 1 ? k + 1 : -1, gy > 0 ? k - nx : -1, gy < ny - 1 ? k + nx : -1]) {
+        if (n >= 0 && free(n)) { seen[n] = 1; q[t++] = n; }
+      }
+    }
+    return cells;
+  };
+  // l'extérieur : tout ce qui touche le bord de la grille
+  for (let gx = 0; gx < nx; gx++) for (const gy of [0, ny - 1]) if (free(gy * nx + gx)) fill(gy * nx + gx);
+  for (let gy = 0; gy < ny; gy++) for (const gx of [0, nx - 1]) if (free(gy * nx + gx)) fill(gy * nx + gx);
+  const out = [];
+  for (let k = 0; k < nx * ny; k++) {
+    if (!free(k)) continue;
+    const cells = fill(k), area = cells.length * (S / PLAN_UNITS_PER_M) ** 2;
+    if (area < 1.2) continue; // gaine, placard
+    let sx = 0, sy = 0;
+    for (const c of cells) { sx += c % nx; sy += Math.floor(c / nx); }
+    const cx = sx / cells.length, cy = sy / cells.length;
+    let best = cells[0], bd = Infinity; // point de la zone le plus proche de son centre (pièce en L)
+    for (const c of cells) { const d = (c % nx - cx) ** 2 + (Math.floor(c / nx) - cy) ** 2; if (d < bd) { bd = d; best = c; } }
+    out.push({ x: x0 + (best % nx) * S, y: y0 + Math.floor(best / nx) * S, area });
+  }
+  return out;
 }
 
 // Index de la pièce contenant le point (x, y), ou -1.

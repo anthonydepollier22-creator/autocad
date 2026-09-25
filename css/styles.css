@@ -892,3 +892,11 @@ body.light .day-sec { --dc7: #4a3aa7; }
 .ul-btns button:hover { border-color: var(--accent); }
 .ul-btns button.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .ul-help { margin: 10px 0 0; color: var(--muted); line-height: 1.45; }
+
+/* Norme : espaces fermés sans étiquette */
+.norm-unlabeled {
+  display: grid; gap: 4px; margin: 10px 0; padding: 10px 12px; border-radius: 8px;
+  border: 1px solid rgba(217, 164, 65, 0.55); background: rgba(217, 164, 65, 0.1); font-size: 12px;
+}
+.norm-unlabeled span { color: var(--muted); }
+.norm-unlabeled button { justify-self: start; margin-top: 4px; }

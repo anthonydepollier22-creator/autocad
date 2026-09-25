@@ -161,6 +161,18 @@ r = run(`(function(){
   return [a.added, k.conduits, rep.errors, rep.warnings];
 })()`);
 check('Plan dessiné à la main : implantation automatique puis goulottes → conforme', r[0] > 10 && r[1] > 5 && r[2] === 0 && r[3] === 0, `${r[0]} appareils, ${r[1]} goulottes, ${r[2]} err., ${r[3]} avert.`);
+r = run(`(function(){
+  // 10 × 6 m, une cloison à 4 m : deux pièces ; seule la première est étiquetée
+  var U = PLAN_UNITS_PER_M, wall = function(pts){ return { id: 'w' + pts[0][0] + pts[0][1] + pts.length, kind: 'wall', points: pts.map(function(p){ return { x: p[0] * U, y: p[1] * U }; }) }; };
+  var wires = [wall([[0, 0], [10, 0], [10, 6], [0, 6], [0, 0]]), wall([[4, 0], [4, 6]])];
+  var none = unlabeledRooms([], wires);
+  var comps = [{ id: 'r1', type: 'room', x: 2 * U, y: 3 * U, rot: 0, value: 'Séjour' }];
+  var one = unlabeledRooms(comps, wires);
+  comps.push({ id: 'r2', type: 'room', x: one[0].x, y: one[0].y, rot: 0, value: 'Chambre' });
+  var info = computeRooms(comps, wires), cham = info.rooms.find(function(r){ return r.name === 'Chambre'; });
+  return [none.length, one.length, Math.round(one[0].area), unlabeledRooms(comps, wires).length, cham && !cham.leaked && Math.round(cham.area)];
+})()`);
+check('Espaces fermés sans étiquette détectés (2 puis 1), étiquette posée au bon endroit → 0', r[0] === 2 && r[1] === 1 && r[3] === 0 && Math.abs(r[2] - 36) <= 3 && Math.abs(r[4] - 36) <= 3, `${r[0]} / ${r[1]} (${r[2]} m²) / ${r[3]}`);
 
 // ---------------------------------------------------------------------------
 group('Installation — conception du tableau');
