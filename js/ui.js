@@ -15,6 +15,7 @@ const ICONS = {
   printer: '<svg viewBox="0 0 24 24"><path d="M7 8V3.5h10V8"/><path d="M7 16.5H4.5A1.5 1.5 0 0 1 3 15V9.5A1.5 1.5 0 0 1 4.5 8h15A1.5 1.5 0 0 1 21 9.5V15a1.5 1.5 0 0 1-1.5 1.5H17"/><path d="M7 13.5h10v7H7z"/></svg>',
   cursor: '<svg viewBox="0 0 24 24"><path d="M5.5 3.5l6.7 16.3 2.2-6.4 6.4-2.2z"/></svg>',
   wire: '<svg viewBox="0 0 24 24"><path d="M4 18h5v-6h6V6h5"/><circle cx="4" cy="18" r="1.7"/><circle cx="20" cy="6" r="1.7"/></svg>',
+  ruler: '<svg viewBox="0 0 24 24"><path d="M3.5 15.5l12-12 5 5-12 12z"/><path d="M7 12l2 2M9.5 9.5l1.5 1.5M12 7l2 2M14.5 4.5l1.5 1.5"/></svg>',
   move: '<svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><path d="M9.5 5.5L12 3l2.5 2.5M9.5 18.5L12 21l2.5-2.5M5.5 9.5L3 12l2.5 2.5M18.5 9.5L21 12l-2.5 2.5"/></svg>',
   rotate: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.9-6.2"/><path d="M20 3.5V8h-4.5"/></svg>',
   copy: '<svg viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="12" height="12" rx="1.5"/><path d="M15.5 8.5V5A1.5 1.5 0 0 0 14 3.5H5A1.5 1.5 0 0 0 3.5 5v9A1.5 1.5 0 0 0 5 15.5h3.5"/></svg>',
@@ -894,7 +895,7 @@ document.addEventListener('DOMContentLoaded', () => {
   bomExtra = { html: houseUI.materialsHTML, csv: houseUI.exportMaterials };
 
   const statTool = document.getElementById('stat-tool');
-  const TOOL_NAMES = { select: 'Sélection', wire: 'Fil', wall: 'Mur', conduit: 'Goulotte', pan: 'Panoramique', place: 'Placement' };
+  const TOOL_NAMES = { select: 'Sélection', wire: 'Fil', wall: 'Mur', conduit: 'Goulotte', pan: 'Panoramique', place: 'Placement', measure: 'Règle', 'ul-move': 'Calque', 'ul-calib': 'Échelle' };
   const emptyState = document.getElementById('empty-state');
 
   const statCoord = document.getElementById('stat-coord');

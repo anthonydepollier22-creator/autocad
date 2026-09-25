@@ -667,10 +667,16 @@ group('Éditeur 2D : tracés et calque');
     out.calib = [k, ed.underlay.scale, ed.underlay.x, ed.underlay.y];
     out.saved = !!localStorage.getItem('electricad-underlay');
     ed.clearUnderlay(); out.cleared = ed.underlay === null && !localStorage.getItem('electricad-underlay');
+    // règle : 3 m × 4 m → 5 m
+    ed.setTool('measure'); ed._down(ev(1000, 1000)); ed._move(ev(1000 + 3 * PLAN_UNITS_PER_M, 1000 + 4 * PLAN_UNITS_PER_M)); ed._up(ev(1000 + 3 * PLAN_UNITS_PER_M, 1000 + 4 * PLAN_UNITS_PER_M));
+    var L = ed.measureLength(ed.measure);
+    out.ruler = [L.d, L.dx, L.dy, ed.measure.live];
+    ed.setTool('select'); out.rulerGone = ed.measure === null;
     return out;
   })()`);
   check('Mur terminé au double-clic (points en double retirés), goulotte à Entrée', r.dbl.length === 1 && r.dbl[0] === 3 && r.enter === 1, JSON.stringify(r.dbl));
   check('Mur fermé en revenant au point de départ', r.loop === 2);
+  check('Règle : 3 m × 4 m = 5,00 m, effacée en changeant d’outil', near(r.ruler[0], 5, 1e-9) && near(r.ruler[1], 3, 1e-9) && near(r.ruler[2], 4, 1e-9) && r.ruler[3] === false && r.rulerGone, r.ruler.slice(0, 3).join(' / '));
   const U = er('PLAN_UNITS_PER_M');
   check('Calque : 800 px = 10 m → échelle, premier point fixe, gardé puis retiré', near(r.calib[1], (10 * U) / 800, 1e-9) && near(r.calib[2], 100 - 100 * r.calib[1], 1e-9) && near(r.calib[3], 630 - 630 * r.calib[1], 1e-9) && r.saved && r.cleared, r.calib.map((v) => +v.toFixed(3)).join(' / '));
 }

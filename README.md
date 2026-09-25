@@ -306,6 +306,8 @@ Dessine une **maison complète** et implante l'installation dedans :
   longueur, règle son opacité, déplace-le, puis **décalque les murs** : leurs cotes
   sont justes. Le calque reste sous le dessin (il n'est ni exporté ni imprimé) et
   est gardé dans le navigateur d'une séance à l'autre ;
+- **Règle** (L) : glisser d'un point à l'autre affiche la distance en mètres et ses
+  écarts horizontal et vertical, aimantée à la grille et aux bornes ;
 - **Pièces oubliées** : l'onglet Norme repère les espaces fermés par des murs mais
   sans étiquette *Pièce* (ni surface, ni contrôle) et les étiquette d'un clic, prêts
   à renommer (Chambre, Séjour, Cuisine…) ;
@@ -465,6 +467,7 @@ python3 -m http.server 8000
 | `X` `C` `E` `J` `F` (vue 3D) | Rayons X, Coupe, Énergie, Journée, Défaut |
 | `G` `O` `P` `V` (vue 3D) | Visite guidée, course du Soleil, Photo, Vidéo 360° |
 | `Entrée` / `Double-clic` (outils Fil, Mur, Goulotte) | Terminer le tracé en cours |
+| `L` | Règle : glisser d'un point à l'autre, longueur et écarts en x / y (`Maj` : sans aimantation) |
 | `Échap` | Annuler l'action en cours / outil Sélection |
 
 ## 🗂️ Structure du projet
@@ -515,7 +518,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-113 vérifications sans dépendance : valeurs numériques de chaque simulation
+114 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

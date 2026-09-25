@@ -371,6 +371,12 @@ class Editor {
       return;
     }
 
+    if (this.tool === 'measure') { // règle : glisser d'un point à l'autre (grille ou bornes)
+      const a = this.snapForWire(w.x, w.y);
+      this.measure = { a: { x: a.x, y: a.y }, b: { x: a.x, y: a.y }, live: true };
+      this.render();
+      return;
+    }
     if (this.tool === 'ul-move' && this.underlay) {
       this.ulDrag = { sx: w.x, sy: w.y, x0: this.underlay.x, y0: this.underlay.y };
       return;
@@ -453,6 +459,12 @@ class Editor {
       return;
     }
     if (this.tool === 'ul-calib') this.render();
+    if (this.measure && this.measure.live) {
+      const b = e.shiftKey ? { x: w.x, y: w.y } : this.snapForWire(w.x, w.y); // Maj : sans aimantation
+      this.measure.b = { x: b.x, y: b.y };
+      this.render(); this._emit();
+      return;
+    }
 
     if (this.dragging) {
       const dx = this.snap(w.x - this.dragging.sx);
@@ -495,6 +507,7 @@ class Editor {
   _up(e) {
     if (this.panning) { this.panning = null; return; }
     if (this.ulDrag) { this.ulDrag = null; this.saveUnderlay(); return; }
+    if (this.measure && this.measure.live) { this.measure.live = false; this.render(); this._emit(); return; }
     if (this.dragging) {
       if (this.dragging.moved) this.pushHistory();
       this.dragging = null;
@@ -585,6 +598,7 @@ class Editor {
       if (k === 'h') this.setTool('pan');
       if (k === 'm') this.setTool('wall');
       if (k === 'g') this.setTool('conduit');
+      if (k === 'l') this.setTool('measure');
       if (e.key === '+' || e.key === '=') this.zoomBy(1.2);
       if (e.key === '-') this.zoomBy(1 / 1.2);
       if (e.key === '0') this.zoomFit();
@@ -621,7 +635,8 @@ class Editor {
     this.placeType = placeType;
     this.wireDraft = null;
     if (tool !== 'select') this.selection.clear();
-    const cursors = { select: 'default', wire: 'crosshair', wall: 'crosshair', conduit: 'crosshair', pan: 'grab', place: 'copy', 'ul-move': 'move', 'ul-calib': 'crosshair' };
+    const cursors = { select: 'default', wire: 'crosshair', wall: 'crosshair', conduit: 'crosshair', pan: 'grab', place: 'copy', 'ul-move': 'move', 'ul-calib': 'crosshair', measure: 'crosshair' };
+    if (tool !== 'measure') this.measure = null;
     this.ulCalib = null;
     this.canvas.style.cursor = cursors[tool] || 'default';
     this.render(); this._emit();
@@ -678,6 +693,9 @@ class Editor {
 
     // Points de jonction
     this._drawJunctions(lw);
+
+    // Règle : segment mesuré, longueur et écarts en x / y
+    if (this.measure) this._drawMeasure(this.measure);
 
     // Mise à l'échelle du calque : points cliqués et segment en cours
     if (this.tool === 'ul-calib' && this.ulCalib) {
@@ -817,6 +835,34 @@ class Editor {
       ctx.lineWidth = selected || hovered ? lw * 1.4 : lw;
       path();
     }
+  }
+
+  // Longueur d'une mesure en mètres (et ses composantes)
+  measureLength(m) {
+    const dx = (m.b.x - m.a.x) / PLAN_UNITS_PER_M, dy = (m.b.y - m.a.y) / PLAN_UNITS_PER_M;
+    return { d: Math.hypot(dx, dy), dx: Math.abs(dx), dy: Math.abs(dy) };
+  }
+  _drawMeasure(m) {
+    const ctx = this.ctx, k = 1 / this.view.scale, L = this.measureLength(m);
+    const col = '#ffb020';
+    ctx.save();
+    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 2 * k;
+    ctx.setLineDash([8 * k, 5 * k]);
+    ctx.beginPath(); ctx.moveTo(m.a.x, m.a.y); ctx.lineTo(m.b.x, m.b.y); ctx.stroke();
+    ctx.setLineDash([]);
+    for (const p of [m.a, m.b]) circle(ctx, p.x, p.y, 4 * k, true);
+    if (L.d > 0) {
+      const f = (v) => v.toFixed(2).replace('.', ',') + ' m';
+      const txt = f(L.d) + (L.dx > 0.005 && L.dy > 0.005 ? `  (${f(L.dx)} × ${f(L.dy)})` : '');
+      ctx.font = `600 ${13 * k}px sans-serif`;
+      const mt = ctx.measureText && ctx.measureText(txt), tw = mt && mt.width ? mt.width : txt.length * 7 * k;
+      const mx = (m.a.x + m.b.x) / 2, my = (m.a.y + m.b.y) / 2 - 14 * k;
+      ctx.fillStyle = 'rgba(20, 24, 31, 0.85)';
+      ctx.fillRect(mx - tw / 2 - 6 * k, my - 11 * k, tw + 12 * k, 20 * k);
+      ctx.fillStyle = col; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(txt, mx, my);
+    }
+    ctx.restore();
   }
 
   _drawJunctions(lw) {
