@@ -377,6 +377,7 @@ function initHouseUI(app) {
     view3d.hidden = false;
     if (!viz) {
       viz = createViz3D(cv3, { sky: true, time: v3.time });
+      window.__viz3d = viz; // débogage et captures d'écran
       viz.onPick = onPick;
       viz.onHover = onHover;
       if (!viz.webgl) $('v3-time-wrap').hidden = true;

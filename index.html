@@ -2,192 +2,289 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0b0d13" />
-  <meta name="description" content="ÉlectriCAD — dessinez, simulez et visualisez en 3D vos schémas électriques, gratuitement, dans le navigateur." />
-  <title>ÉlectriCAD — Schémas électriques : dessin, simulation, 3D</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#f2efe8" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="description" content="ÉlectriCAD dessine le plan de votre maison, place l’appareillage selon la NF C 15-100, calcule le tableau et simule chaque disjoncteur — en 2D et en 3D. Gratuit, hors ligne, sans compte." />
+  <title>ÉlectriCAD — L’installation électrique de votre maison, en 2D et en 3D</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231668c4'/%3E%3Cpath d='M18 4L8 18h6l-2 10L22 13h-6z' fill='%23ffd75e'/%3E%3C/svg%3E" />
   <script>
     // Compatibilité : les anciens liens partagés pointaient l'éditeur sur index.html
     if (/[?&](ex|theme|modal)=/.test(location.search)) {
       location.replace('app.html' + location.search);
     }
-  </script>
-  <script>
     // Déjà dans l'application (bureau ou Android) : pas de section « Télécharger »
     if (/Electron\//.test(navigator.userAgent) || window.Capacitor) document.documentElement.classList.add('in-app');
   </script>
+  <link rel="preload" href="fonts/ibm-plex-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="fonts/ibm-plex-sans-condensed-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin />
   <link rel="manifest" href="manifest.webmanifest" />
   <link rel="apple-touch-icon" href="icons/icon-192.png" />
   <link rel="stylesheet" href="css/landing.css" />
 </head>
 <body>
+  <a class="skip" href="#contenu">Aller au contenu</a>
+
   <!-- Navigation -->
-  <nav class="nav">
-    <a class="brand" href="index.html">
-      <span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M13.5 2 5 14h5l-1.5 8L17 10h-5z"/></svg></span>
-      <span class="brand-text">Électri<b>CAD</b></span>
-    </a>
-    <div class="nav-links">
-      <a href="#fonctions">Fonctionnalités</a>
-      <a href="#maison">Maison</a>
-      <a href="#exemples">Exemples</a>
-      <a href="#trois-d">3D</a>
-      <a class="dl-only" href="#telecharger">Télécharger</a>
+  <nav class="nav" aria-label="Navigation principale">
+    <div class="nav-in">
+      <a class="brand" href="index.html" aria-label="ÉlectriCAD, accueil">
+        <span class="brand-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 5 14h5l-1.5 8L17 10h-5z"/></svg></span>
+        <span class="brand-text">Électri<b>CAD</b></span>
+      </a>
+      <div class="nav-links" id="nav-links">
+        <a href="#plan"><span class="nl-c">C1</span>Plan</a>
+        <a href="#norme"><span class="nl-c">C2</span>Norme</a>
+        <a href="#tableau"><span class="nl-c">C3</span>Tableau</a>
+        <a href="#visite"><span class="nl-c">C4</span>Visite 3D</a>
+        <a href="#electronique">Électronique</a>
+        <a class="dl-only" href="#telecharger">Télécharger</a>
+      </div>
       <a class="nav-cta" href="app.html">Ouvrir l’éditeur</a>
+      <button class="nav-menu" id="nav-menu" type="button" aria-expanded="false" aria-controls="nav-links" aria-label="Menu">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
     </div>
+    <div class="nav-progress" aria-hidden="true"><span id="nav-progress"></span></div>
   </nav>
 
-  <!-- Héros -->
-  <header class="hero">
-    <div class="hero-text">
-      <div class="hero-badge">100 % gratuit · Web, Windows, macOS, Linux, Android · hors ligne</div>
-      <h1>Dessinez, simulez et<br /><span class="grad">visualisez en 3D</span><br />vos schémas électriques</h1>
-      <p>
-        ÉlectriCAD réunit un éditeur de schémas type CAO, un simulateur analogique
-        et logique, et une visualisation 3D de la carte — directement dans votre navigateur.
-      </p>
-      <div class="hero-actions">
-        <a class="btn-hero" href="app.html">
-          <svg viewBox="0 0 24 24"><path d="M7.5 4.5l12 7.5-12 7.5z"/></svg>
-          Démarrer un schéma
-        </a>
-        <a class="btn-ghost dl-only" id="hero-dl" href="#telecharger">
-          <svg viewBox="0 0 24 24"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg>
-          <span>Télécharger l’application</span>
-        </a>
-        <a class="btn-ghost in-app-only" href="#exemples">Voir les exemples</a>
-      </div>
-      <div class="hero-stats">
-        <div><b>83</b><span>symboles<br />dont normes NF</span></div>
-        <div><b>5</b><span>types<br />de maison</span></div>
-        <div><b>15</b><span>exemples<br />prêts à simuler</span></div>
-        <div><b>3D</b><span>WebGL, visite<br />jour &amp; nuit</span></div>
-      </div>
-    </div>
-    <div class="hero-visual">
-      <canvas id="hero3d"></canvas>
-      <div class="hero-caption">Carte électronique — rendu 3D temps réel · glissez pour tourner</div>
-    </div>
-  </header>
-
-  <!-- Comment ça marche -->
-  <section class="section steps-sec">
-    <div class="eyebrow">En trois gestes</div>
-    <h2>Comment ça marche</h2>
-    <p class="section-sub">Du schéma vide au circuit vivant, en quelques minutes.</p>
-    <div class="steps">
-      <div class="step">
-        <span class="step-n">1</span>
-        <h3>Dessine</h3>
-        <p>Choisis parmi 83 symboles (CEI, NF C 15-100, électroménager, mobilier) — ou génère une maison complète en un clic.</p>
-      </div>
-      <div class="step">
-        <span class="step-n">2</span>
-        <h3>Simule</h3>
-        <p>Continu, transitoire, Bode ou logique : tensions, courants et chronogrammes s’affichent sur le schéma — et le courant s’anime le long des fils.</p>
-      </div>
-      <div class="step">
-        <span class="step-n">3</span>
-        <h3>Visualise &amp; partage</h3>
-        <p>Bascule en 3D, exporte en PNG / SVG / PDF, génère la nomenclature, ou partage un lien qui lance la simulation tout seul.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Fonctionnalités -->
-  <section class="section" id="fonctions">
-    <div class="eyebrow">Fonctionnalités</div>
-    <h2>Un véritable atelier d’électronique</h2>
-    <p class="section-sub">Tout ce qu’il faut pour concevoir, comprendre et présenter un circuit.</p>
-    <div class="features">
-      <div class="feature">
-        <div class="f-ico"><svg viewBox="0 0 24 24"><path d="M4 18h5v-6h6V6h5"/><circle cx="4" cy="18" r="1.7"/><circle cx="20" cy="6" r="1.7"/></svg></div>
-        <h3>Éditeur type CAO</h3>
-        <p>Grille magnétique, câblage orthogonal intelligent, rotation, duplication, annuler/refaire illimité, sauvegarde automatique.</p>
-      </div>
-      <div class="feature">
-        <div class="f-ico"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></div>
-        <h3>Simulation façon SPICE</h3>
-        <p>Courant continu non linéaire : diodes, LED, Zener, transistors (Ebers-Moll). Tensions et courants affichés sur le schéma.</p>
-      </div>
-      <div class="feature">
-        <div class="f-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M6 12h3l2-4 2 7 2-3h3"/></svg></div>
-        <h3>Oscilloscope &amp; Bode</h3>
-        <p>Analyse transitoire (charge RC, redressement…) et réponse en fréquence gain/phase de 1 Hz à 1 MHz.</p>
-      </div>
-      <div class="feature">
-        <div class="f-ico"><svg viewBox="0 0 24 24"><path d="M4 7h6M4 17h6"/><path d="M10 4v6c6 0 6 4 0 4v6"/><circle cx="19" cy="12" r="2"/><path d="M10 12h7"/></svg></div>
-        <h3>Logique numérique</h3>
-        <p>Portes ET, OU, NON, OU-X…, horloges et chronogrammes pour comprendre les circuits logiques.</p>
-      </div>
-      <div class="feature">
-        <div class="f-ico"><svg viewBox="0 0 24 24"><path d="M12 2.8l8 4.6v9.2l-8 4.6-8-4.6V7.4z"/><path d="M12 12l8-4.6M12 12L4 7.4M12 12v9.2"/></svg></div>
-        <h3>3D temps réel (WebGL)</h3>
-        <p>Ombres du soleil, <b>heure du jour</b>, lampes qui éclairent vraiment leur pièce, <b>visite à hauteur d’yeux</b> et <b>rayons X</b> sur les câbles.</p>
-      </div>
-      <div class="feature">
-        <div class="f-ico"><svg viewBox="0 0 24 24"><path d="M13 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z"/><path d="M13 3v5h5"/><path d="M9 13h6M9 17h6"/></svg></div>
-        <h3>Normes &amp; exports</h3>
-        <p>Symboles CEI &amp; <b>NF C 15-100</b>, <b>plan de maison</b> (murs, GTL, tableau, goulottes, mobilier) avec métré automatique, export PNG / SVG / PDF / CSV.</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Plan de maison -->
-  <section class="section house-sec" id="maison">
-    <div class="house-grid">
-      <div class="house-text">
-        <div class="eyebrow">Maison &amp; installation</div>
-        <h2>De la maison au courant qui circule</h2>
-        <p class="house-lead">Choisissez un type — du studio à la maison T5 avec garage : plan, mobilier, appareillage NF&nbsp;C&nbsp;15-100, goulottes et tableau sont générés. Puis faites vivre l’installation : allumez, surchargez, provoquez un court-circuit.</p>
-        <ul class="house-list">
-          <li><b>5 types de maison</b> meublés, implantés et câblés automatiquement — ou votre propre plan</li>
-          <li><b>Tableau calculé</b> : circuits, différentiels 30 mA, abonnement, sections, chutes de tension</li>
-          <li><b>Physique réelle</b> : disjoncteurs thermiques et magnétiques, différentiels, dépassement de puissance</li>
-          <li><b>Visite 3D</b> : ombres, jour et nuit, lampes allumées, rayons X sur les câbles</li>
-        </ul>
-        <div class="hero-actions">
-          <a class="btn-hero" href="app.html?houses=1">
-            <svg viewBox="0 0 24 24"><path d="M7.5 4.5l12 7.5-12 7.5z"/></svg>
-            Créer une maison
+  <main id="contenu">
+    <!-- Héros : la maison, vivante -->
+    <header class="hero">
+      <div class="hero-text">
+        <p class="kicker"><span class="dot-ok" aria-hidden="true"></span>Gratuit · Sans compte · NF C 15-100</p>
+        <h1>Dessinez l’installation électrique de votre maison. <span class="h1-2">Puis allumez-la.</span></h1>
+        <p class="lead">ÉlectriCAD génère le plan, place prises et interrupteurs selon la norme, calcule le tableau et simule chaque disjoncteur — en 2D comme en 3D, dans le navigateur ou en application hors ligne.</p>
+        <div class="actions">
+          <a class="btn btn-primary" href="app.html?houses=1">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h13V9.5M10 20v-5.5h4V20"/></svg>
+            Créer ma maison
           </a>
-          <a class="btn-ghost" href="app.html?ex=maison-t5&amp;3d=1">Visiter la maison T5</a>
+          <a class="btn btn-ghost" href="app.html">Ouvrir l’éditeur</a>
+        </div>
+        <p class="hero-dl dl-only"><a id="hero-dl" href="#telecharger"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11m0 0l-4.5-4.5M12 15l4.5-4.5M5 19.5h14"/></svg><span>Télécharger l’application</span></a></p>
+        <ul class="hero-trust">
+          <li>Vos plans restent sur votre appareil</li>
+          <li>Fonctionne hors ligne</li>
+          <li>Code source ouvert (MIT)</li>
+        </ul>
+      </div>
+
+      <figure class="demo" id="demo" aria-label="Démonstration : maison générée automatiquement">
+        <div class="demo-bar">
+          <div class="demo-tabs" role="tablist" aria-label="Vue">
+            <button role="tab" id="tab-3d" aria-selected="true" aria-controls="demo-view" data-tab="3d">3D</button>
+            <button role="tab" id="tab-plan" aria-selected="false" aria-controls="demo-view" data-tab="plan">Plan</button>
+            <button role="tab" id="tab-panel" aria-selected="false" aria-controls="demo-view" data-tab="panel">Tableau</button>
+          </div>
+          <span class="demo-status" id="demo-status" aria-live="polite">Génération…</span>
+        </div>
+        <div class="demo-view" id="demo-view" role="tabpanel">
+          <img class="demo-poster" id="demo-poster" src="img/accueil/demo-t5.jpg" alt="Maison T5 en 3D au crépuscule, lumières allumées" width="1200" height="900" />
+          <canvas id="demo3d" aria-label="Maison en 3D — glisser pour tourner"></canvas>
+          <canvas id="demo-plan" hidden aria-label="Plan de la maison"></canvas>
+          <div class="demo-panel" id="demo-panel" hidden></div>
+          <div class="demo-time" id="demo-time">
+            <label for="demo-hour"><span id="demo-hour-ico" aria-hidden="true">☀</span> <span id="demo-hour-lbl">17:45</span></label>
+            <input type="range" id="demo-hour" min="6" max="23.5" step="0.25" value="17.75" aria-label="Heure de la journée" />
+          </div>
+        </div>
+        <div class="demo-foot">
+          <div class="demo-houses" role="radiogroup" aria-label="Type de maison" id="demo-houses"></div>
+          <dl class="readout" id="readout">
+            <div><dt>Surface</dt><dd id="ro-area">—</dd></div>
+            <div><dt>Pièces</dt><dd id="ro-rooms">—</dd></div>
+            <div><dt>Circuits</dt><dd id="ro-circ">—</dd></div>
+            <div><dt>Abonnement</dt><dd id="ro-kva">—</dd></div>
+            <div><dt>Norme</dt><dd id="ro-norm">—</dd></div>
+          </dl>
+        </div>
+        <figcaption class="sr-only">Choisissez un type de maison : le plan, l’appareillage, le tableau et la vue 3D sont générés automatiquement.</figcaption>
+      </figure>
+    </header>
+
+    <!-- Cartouche -->
+    <section class="cartouche" aria-label="ÉlectriCAD en chiffres">
+      <div class="ct-cell ct-title"><span>Projet</span><b>ÉlectriCAD</b></div>
+      <div class="ct-cell"><span>Symboles</span><b id="ct-sym">83</b></div>
+      <div class="ct-cell"><span>Maisons types</span><b id="ct-houses">5</b></div>
+      <div class="ct-cell"><span>Exemples</span><b id="ct-ex">15</b></div>
+      <div class="ct-cell"><span>Contrôles de calcul</span><b>65</b></div>
+      <div class="ct-cell"><span>Prix</span><b>0 €</b></div>
+      <div class="ct-cell"><span>Licence</span><b>MIT</b></div>
+    </section>
+
+    <!-- C1 : plan -->
+    <section class="sec" id="plan" aria-labelledby="t-plan">
+      <header class="sec-head">
+        <span class="tag tag-c1">C1</span>
+        <div>
+          <p class="sec-kicker">Plan</p>
+          <h2 id="t-plan">Un plan complet, meublé et équipé, en un clic.</h2>
+          <p class="sec-lead">Du studio à la maison avec garage : choisissez un type, ou dessinez vos propres murs et nommez les pièces. Le reste se place tout seul.</p>
+        </div>
+      </header>
+      <div class="plan-grid">
+        <ol class="spec">
+          <li><b>Murs et cloisons</b> déduits des pièces, portes ouvrant du bon côté, fenêtres, surfaces calculées.</li>
+          <li><b>Mobilier</b> posé sans collision, en laissant les dégagements devant les portes et les meubles.</li>
+          <li><b>Appareillage</b> NF C 15-100 : prises, points lumineux, commandes, détecteurs de fumée, RJ45.</li>
+          <li><b>Goulottes</b> tracées au plus court depuis le tableau, en longeant les murs.</li>
+        </ol>
+        <figure class="plan-fig" id="plan-fig">
+          <div class="plan-stage">
+            <canvas id="plan-canvas" aria-label="Plan annoté de la maison"></canvas>
+            <svg class="callouts" id="callouts" aria-hidden="true"></svg>
+          </div>
+          <figcaption id="plan-cap">Plan généré automatiquement</figcaption>
+        </figure>
+      </div>
+      <p class="sec-more"><a href="app.html?houses=1">Générer une maison dans l’éditeur <span aria-hidden="true">→</span></a></p>
+    </section>
+
+    <!-- C2 : norme -->
+    <section class="sec" id="norme" aria-labelledby="t-norme">
+      <header class="sec-head">
+        <span class="tag tag-c2">C2</span>
+        <div>
+          <p class="sec-kicker">Norme</p>
+          <h2 id="t-norme">Contrôlé pièce par pièce, pendant que vous dessinez.</h2>
+          <p class="sec-lead">Nombre de prises selon la surface, éclairage et commande dans chaque pièce, détecteurs de fumée, GTL : le rapport se met à jour à chaque modification.</p>
+        </div>
+      </header>
+      <div class="norm-wrap">
+        <div class="norm-table-wrap">
+          <table class="norm-table" id="norm-table">
+            <caption class="sr-only">Contrôle NF C 15-100 de la maison affichée</caption>
+            <thead><tr><th scope="col">Pièce</th><th scope="col" class="num">Surface</th><th scope="col" class="num">Prises</th><th scope="col" class="num">Éclairage</th><th scope="col">Statut</th></tr></thead>
+            <tbody><tr><td colspan="5" class="muted">Génération de la maison…</td></tr></tbody>
+          </table>
+        </div>
+        <aside class="norm-side">
+          <ul class="checks" id="norm-global"></ul>
+          <p class="disclaimer">Contrôle simplifié, à visée pédagogique : il ne remplace ni un électricien qualifié ni l’attestation du Consuel.</p>
+          <a class="link-arrow" href="app.html?ex=maison-t5&amp;tab=norm">Voir le rapport dans l’éditeur <span aria-hidden="true">→</span></a>
+        </aside>
+      </div>
+    </section>
+
+    <!-- C3 : tableau et physique -->
+    <section class="sec" id="tableau" aria-labelledby="t-tableau">
+      <header class="sec-head">
+        <span class="tag tag-c3">C3</span>
+        <div>
+          <p class="sec-kicker">Tableau &amp; physique</p>
+          <h2 id="t-tableau">Un tableau qui disjoncte pour de vrai.</h2>
+          <p class="sec-lead">Circuits, sections, différentiels 30 mA et abonnement sont calculés. Puis la simulation fait chauffer les disjoncteurs, détecte les courts-circuits et les fuites à la terre.</p>
+        </div>
+      </header>
+      <div class="bench-grid">
+        <div class="board-card">
+          <div class="board" id="board" aria-label="Tableau électrique calculé"></div>
+          <dl class="board-sum" id="board-sum"></dl>
+        </div>
+        <div class="bench" id="bench">
+          <h3>Banc d’essai</h3>
+          <p class="bench-sub">Branchez des appareils sur une ligne et regardez le disjoncteur réagir.</p>
+          <div class="seg" role="radiogroup" aria-label="Circuit" id="bench-circuit">
+            <button type="button" role="radio" aria-checked="true" data-in="20" data-s="2.5"><b>Prises</b><small>20 A · 2,5 mm²</small></button>
+            <button type="button" role="radio" aria-checked="false" data-in="16" data-s="1.5"><b>Éclairage</b><small>16 A · 1,5 mm²</small></button>
+            <button type="button" role="radio" aria-checked="false" data-in="32" data-s="6"><b>Plaque</b><small>32 A · 6 mm²</small></button>
+          </div>
+          <div class="loads" id="bench-loads" role="group" aria-label="Appareils branchés">
+            <button type="button" aria-pressed="true" data-w="2000">Radiateur <span>2 000 W</span></button>
+            <button type="button" aria-pressed="false" data-w="2200">Bouilloire <span>2 200 W</span></button>
+            <button type="button" aria-pressed="false" data-w="2500">Four <span>2 500 W</span></button>
+            <button type="button" aria-pressed="false" data-w="800">Aspirateur <span>800 W</span></button>
+            <button type="button" aria-pressed="true" data-w="150">Télévision <span>150 W</span></button>
+            <button type="button" aria-pressed="false" data-w="60">Lampe <span>60 W</span></button>
+          </div>
+          <label class="bench-len" for="bench-len">Longueur de câble <output id="bench-len-out">20 m</output></label>
+          <input type="range" id="bench-len" min="5" max="60" step="1" value="20" />
+          <div class="meters">
+            <div class="meter"><span>Courant</span><b id="m-i">—</b></div>
+            <div class="meter"><span>Charge</span><b id="m-load">—</b></div>
+            <div class="meter"><span>Chute de tension</span><b id="m-du">—</b></div>
+          </div>
+          <div class="breaker-row">
+            <div class="breaker" id="bench-breaker" aria-hidden="true"><span class="lever"></span><em id="bench-in">20 A</em></div>
+            <div class="heat">
+              <div class="heat-bar"><span id="heat-fill"></span><i class="heat-trip" title="Seuil de déclenchement"></i></div>
+              <p class="verdict" id="verdict" aria-live="polite">—</p>
+            </div>
+          </div>
+          <div class="bench-actions">
+            <button type="button" class="btn btn-small" id="bench-short">Provoquer un court-circuit</button>
+            <button type="button" class="btn btn-small btn-ghost" id="bench-reset">Réarmer</button>
+          </div>
+          <p class="bench-note">Modèle thermique du premier ordre (τ = 120 s, déclenchement à 1,13 In), déclenchement magnétique à 10 In, câble cuivre. Temps accéléré ×20.</p>
         </div>
       </div>
-      <div class="house-visual">
-        <canvas id="house3d"></canvas>
-        <div class="house-badge" id="house-badge" hidden></div>
+      <p class="sec-more"><a href="app.html?ex=maison-t3&amp;tab=install">Simuler le tableau d’un T3 dans l’éditeur <span aria-hidden="true">→</span></a></p>
+    </section>
+
+    <!-- C4 : visite 3D -->
+    <section class="sec" id="visite" aria-labelledby="t-visite">
+      <header class="sec-head">
+        <span class="tag tag-c4">C4</span>
+        <div>
+          <p class="sec-kicker">Visite 3D</p>
+          <h2 id="t-visite">Visitez la maison avant de percer le premier trou.</h2>
+          <p class="sec-lead">Un moteur WebGL écrit pour ÉlectriCAD : ombres du soleil, heure du jour, lampes qui éclairent leur pièce, visite à hauteur d’yeux et rayons X sur les câbles.</p>
+        </div>
+      </header>
+      <div class="shots">
+        <figure class="shot shot-big">
+          <img src="img/accueil/visite.jpg" alt="Vue à hauteur d’yeux dans le séjour de la maison T5" width="1280" height="800" loading="lazy" />
+          <figcaption><b>Visite</b> à hauteur d’yeux, au clavier, à la souris ou au joystick tactile.</figcaption>
+        </figure>
+        <figure class="shot">
+          <img src="img/accueil/rayons-x.jpg" alt="Rayons X : les câbles de chaque circuit visibles à travers les murs" width="1280" height="800" loading="lazy" />
+          <figcaption><b>Rayons X</b> : chaque câble, à la couleur de son circuit.</figcaption>
+        </figure>
+        <figure class="shot">
+          <img src="img/accueil/nuit.jpg" alt="La maison la nuit, vue de dessus, lampes allumées" width="1280" height="800" loading="lazy" />
+          <figcaption><b>De jour comme de nuit</b> : les lampes allumées éclairent leur pièce.</figcaption>
+        </figure>
       </div>
-    </div>
-  </section>
+      <p class="sec-more"><a href="app.html?ex=maison-t5&amp;3d=1">Lancer la visite de la maison T5 <span aria-hidden="true">→</span></a></p>
+    </section>
 
-  <!-- Exemples -->
-  <section class="section alt" id="exemples">
-    <div class="eyebrow">Bibliothèque</div>
-    <h2>Des schémas réalisés, prêts à explorer</h2>
-    <p class="section-sub">Chaque exemple s’ouvre dans l’éditeur, prêt à simuler — validé numériquement.</p>
-    <div class="gallery" id="gallery"></div>
-  </section>
-
-  <!-- Vitrine 3D -->
-  <section class="section" id="trois-d">
-    <div class="eyebrow">Moteur 3D intégré</div>
-    <h2>Vos composants, en trois dimensions</h2>
-    <p class="section-sub">Un moteur WebGL maison, sans aucune dépendance. Glissez pour manipuler.</p>
-    <div class="showcase">
-      <div class="show-card"><canvas data-comp="resistor"></canvas><span>Résistance</span></div>
-      <div class="show-card"><canvas data-comp="led"></canvas><span>LED</span></div>
-      <div class="show-card"><canvas data-comp="capacitor"></canvas><span>Condensateur</span></div>
-      <div class="show-card"><canvas data-comp="transistor_npn"></canvas><span>Transistor</span></div>
-    </div>
-  </section>
+    <!-- Électronique -->
+    <section class="sec" id="electronique" aria-labelledby="t-elec">
+      <header class="sec-head">
+        <span class="tag tag-el">∿</span>
+        <div>
+          <p class="sec-kicker">Électronique</p>
+          <h2 id="t-elec">Et un atelier d’électronique complet.</h2>
+          <p class="sec-lead">Le même éditeur dessine des schémas CEI et les simule : continu non linéaire, transitoire, Bode, logique. Tensions et courants s’affichent sur les fils.</p>
+        </div>
+      </header>
+      <div class="lab-grid">
+        <figure class="lab-preview">
+          <canvas id="lab-canvas" aria-label="Aperçu du schéma sélectionné"></canvas>
+          <figcaption id="lab-cap">—</figcaption>
+        </figure>
+        <div class="lab-table-wrap">
+          <table class="lab-table" id="lab-table">
+            <caption class="sr-only">Exemples de schémas prêts à simuler</caption>
+            <thead><tr><th scope="col">Schéma</th><th scope="col">Niveau</th><th scope="col">Simulation</th><th scope="col"><span class="sr-only">Ouvrir</span></th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
 
   <!-- Applications à télécharger -->
-  <section class="section dl-sec dl-only" id="telecharger">
-    <div class="eyebrow">Applications</div>
-    <h2>ÉlectriCAD sur tous vos appareils</h2>
-    <p class="section-sub">Gratuit, sans compte et <b>entièrement hors ligne</b> : vos schémas restent sur votre machine.</p>
+  <section class="sec dl-sec dl-only" id="telecharger" aria-labelledby="t-dl">
+    <header class="sec-head">
+      <span class="tag tag-dl">APP</span>
+      <div>
+        <h2 id="t-dl">Sur votre ordinateur, votre téléphone, votre tablette.</h2>
+        <p class="sec-lead">Gratuit, sans compte et <b>entièrement hors ligne</b> : vos plans restent sur votre machine.</p>
+      </div>
+    </header>
     <div class="dl-grid">
       <article class="dl-card" data-os="windows">
         <div class="dl-head">
@@ -271,30 +368,51 @@
     </details>
   </section>
 
-  <!-- Appel final -->
-  <section class="cta-final">
-    <h2>Prêt à dessiner votre premier circuit&nbsp;?</h2>
-    <a class="btn-hero" href="app.html">
-      <svg viewBox="0 0 24 24"><path d="M7.5 4.5l12 7.5-12 7.5z"/></svg>
-      Démarrer un schéma
-    </a>
-  </section>
+    <!-- Questions -->
+    <section class="sec faq" id="faq" aria-labelledby="t-faq">
+      <header class="sec-head">
+        <span class="tag tag-q">?</span>
+        <div><h2 id="t-faq">Questions fréquentes</h2></div>
+      </header>
+      <div class="faq-list">
+        <details><summary>C’est vraiment gratuit&nbsp;?</summary><p>Oui : pas de compte, pas de publicité, pas d’abonnement. Le code source est public sous licence MIT.</p></details>
+        <details><summary>Où sont enregistrés mes plans&nbsp;?</summary><p>Sur votre appareil uniquement : sauvegarde automatique dans le navigateur ou dans l’application, et export en fichier <code>.json</code>, PNG, SVG ou PDF. Rien n’est envoyé sur Internet.</p></details>
+        <details><summary>Le contrôle NF C 15-100 fait-il foi&nbsp;?</summary><p>Non. C’est un contrôle simplifié pour apprendre et préparer un projet. Pour une installation réelle, faites appel à un électricien qualifié ; l’attestation de conformité est délivrée par le Consuel.</p></details>
+        <details><summary>Puis-je partir de mon propre plan&nbsp;?</summary><p>Oui : dessinez les murs, posez les portes et nommez les pièces (Séjour, Chambre, Cuisine…). ÉlectriCAD calcule les surfaces, meuble les pièces vides, implante l’appareillage et trace les goulottes.</p></details>
+        <details><summary>Ça marche sur tablette et téléphone&nbsp;?</summary><p>Oui : pincer pour zoomer, deux doigts pour déplacer, tiroirs pour la palette et les propriétés, joystick pour la visite 3D. Application Android à télécharger ; sur iPhone et iPad, ajoutez le site à l’écran d’accueil.</p></details>
+        <details><summary>Faut-il une connexion Internet&nbsp;?</summary><p>Non. Une fois le site chargé, ou avec l’application installée, tout fonctionne hors ligne : génération, simulation et 3D.</p></details>
+      </div>
+    </section>
+
+    <!-- Appel final -->
+    <section class="final">
+      <h2>Votre maison est à un clic.</h2>
+      <p>Choisissez un type, et ÉlectriCAD dessine tout le reste.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="app.html?houses=1">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.5 12 4l9 7.5M5.5 9.5V20h13V9.5M10 20v-5.5h4V20"/></svg>
+          Créer ma maison
+        </a>
+        <a class="btn btn-ghost" href="app.html">Partir d’une page blanche</a>
+      </div>
+    </section>
+  </main>
 
   <footer class="footer">
     <div class="foot-grid">
       <div class="foot-brand">
         <a class="brand" href="index.html">
-          <span class="brand-mark"><svg viewBox="0 0 24 24"><path d="M13.5 2 5 14h5l-1.5 8L17 10h-5z"/></svg></span>
+          <span class="brand-mark"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 5 14h5l-1.5 8L17 10h-5z"/></svg></span>
           <span class="brand-text">Électri<b>CAD</b></span>
         </a>
-        <p>Éditeur, simulateur et visualisation 3D de schémas électriques — open source, sans dépendance, dans le navigateur.</p>
+        <p>Plans, installations électriques et schémas : dessin, contrôle, simulation et 3D. Open source, sans dépendance.</p>
       </div>
       <div class="foot-col">
         <h4>Application</h4>
         <a href="app.html">Ouvrir l’éditeur</a>
-        <a href="app.html?modal=examples">Bibliothèque d’exemples</a>
         <a href="app.html?houses=1">Nouvelle maison</a>
-        <a href="app.html?ex=led&amp;3d=1">Vue 3D (démo)</a>
+        <a href="app.html?modal=examples">Bibliothèque d’exemples</a>
+        <a href="https://github.com/anthonydepollier22-creator/autocad">Code source</a>
       </div>
       <div class="foot-col dl-only">
         <h4>Télécharger</h4>
@@ -302,18 +420,21 @@
         <a href="#telecharger" data-os-link="mac">macOS</a>
         <a href="#telecharger" data-os-link="linux">Linux</a>
         <a href="#telecharger" data-os-link="android">Android</a>
-        <a href="https://github.com/anthonydepollier22-creator/autocad/releases">Toutes les versions</a>
       </div>
       <div class="foot-col">
         <h4>Démos en un clic</h4>
         <a href="app.html?ex=maison-t3&amp;tab=install">Tableau simulé d’un T3</a>
-        <a href="app.html?ex=tableau&amp;sim=dc">Tableau NF C 15-100</a>
+        <a href="app.html?ex=maison-t5&amp;3d=1">Visite 3D d’une T5</a>
         <a href="app.html?ex=lowpass&amp;sim=bode">Filtre RC (Bode)</a>
         <a href="app.html?ex=counter&amp;sim=logic">Compteur 2 bits</a>
       </div>
     </div>
-    <div class="foot-bottom">
-      Fonctionne hors ligne · Vos schémas restent sur votre machine · Web, Windows, macOS, Linux et Android
+    <div class="foot-block" aria-label="Cartouche">
+      <div><span>Document</span><b>Page d’accueil</b></div>
+      <div><span>Échelle</span><b>1:1</b></div>
+      <div><span>Folio</span><b>1/1</b></div>
+      <div><span>Révision</span><b id="foot-rev">v1.0.0</b></div>
+      <div><span>Licence</span><b>MIT</b></div>
     </div>
   </footer>
 

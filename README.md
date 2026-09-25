@@ -13,7 +13,13 @@ Windows, macOS, Linux et Android — entièrement hors ligne.
 - **Site vitrine** : https://anthonydepollier22-creator.github.io/autocad/
 - **Éditeur** : https://anthonydepollier22-creator.github.io/autocad/app.html
 
-![Site vitrine — section maison](docs/screenshot-accueil-maison.png)
+![Site vitrine : la maison générée en direct](docs/screenshot-accueil.png)
+
+La page d'accueil est elle-même une démonstration : elle génère une maison en direct
+(studio → T5, dans un *worker*), l'affiche en 3D avec le curseur de l'heure, en plan
+ou en tableau, puis détaille le plan annoté, le contrôle NF C 15-100 pièce par pièce
+et un **banc d'essai** où l'on surcharge une ligne jusqu'au déclenchement du
+disjoncteur (mêmes lois physiques que l'éditeur).
 
 Liens directs : `app.html?ex=divider` (charge un exemple : `led`, `lowpass`, `bjt`,
 `halfadder`, `maison`, `maison-t3`, `maison-t5`…), `&theme=light` force le thème clair,
@@ -324,10 +330,12 @@ python3 -m http.server 8000
 
 ```
 .
-├── index.html         # Site vitrine (héros 3D, galerie, maison, composants 3D)
+├── index.html         # Site vitrine (démonstration vivante, plan, norme, banc d'essai)
 ├── app.html           # Éditeur (barre d'outils, palette, plan, propriétés)
 ├── sw.js, manifest.webmanifest  # Application installable (PWA, hors ligne, raccourcis)
 ├── screenshots/       # Captures de la fiche d'installation (PWA)
+├── fonts/             # IBM Plex Sans / Condensed / Mono (licence OFL), pour le site
+├── img/accueil/       # Captures 3D du site vitrine
 ├── desktop/           # Application de bureau Electron (main.js, icônes, electron-builder)
 ├── mobile/            # Application Android Capacitor (config, icônes, clé de signature)
 ├── tools/copy-web.js  # Copie le site dans desktop/www ou mobile/www
@@ -350,7 +358,8 @@ python3 -m http.server 8000
 │   ├── editor.js      # Moteur CAO : vue, modèle, outils, historique, rendu
 │   ├── house-ui.js    # Nouvelle maison, onglet Tableau, contrôle de la vue 3D
 │   ├── ui.js          # Câblage de l'interface et opérations fichier
-│   └── landing.js     # Animations du site vitrine
+│   ├── house-worker.js # Génération des maisons hors du fil principal (site)
+│   └── landing.js     # Site vitrine : démonstration, plan annoté, banc d'essai
 └── tests/
     └── run.js         # Suite de tests (node tests/run.js)
 ```
