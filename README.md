@@ -184,6 +184,8 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   séjour, allée jusqu'à la porte d'entrée, entrée de garage, haie et arbres autour du
   terrain — les lampes n'éclairent jamais le dessous du toit ;
 - **Journée** : 24 heures en 48 secondes, le soleil et les lampes suivent l'horloge ;
+- **Énergie** : le sol de chaque pièce se teinte selon la puissance qu'elle consomme
+  (échelle 0 → 4 kW), avec une étiquette en watts au-dessus de chaque pièce ;
 - **Export du modèle 3D** en glTF binaire (`.glb`, validé par l'outil officiel Khronos) :
   s'ouvre dans Blender, la visionneuse 3D de Windows, Aperçu, SketchUp ou un moteur de jeu.
 
@@ -407,7 +409,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-76 vérifications sans dépendance : valeurs numériques de chaque simulation
+77 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 5 types de maison** (pièces fermées, conformes, mobilier

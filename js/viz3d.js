@@ -278,6 +278,7 @@ class Viz3D {
       last = now || performance.now();
       this.update(dt);
       this.render();
+      if (this.onFrame) this.onFrame();
       this._raf = requestAnimationFrame(loop);
     };
     if (!this._raf) loop(performance.now());
@@ -1044,14 +1045,14 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
     viz.setLayer(0.5);
     info.rooms.forEach((room, i) => {
       if (!floored[i]) return;
-      const col = _floorColor(room);
+      const col = opts.energy ? opts.energy.color(i) : _floorColor(room);
       for (const r of roomRuns(info, i)) {
         viz.poly([[r.x, 0.3, r.y], [r.x + r.w, 0.3, r.y], [r.x + r.w, 0.3, r.y + r.h], [r.x, 0.3, r.y + r.h]], col);
       }
     });
     viz.setLayer(0.6);
     info.rooms.forEach((room, i) => {
-      if (!floored[i]) return;
+      if (!floored[i] || opts.energy) return;
       const k = room.type && room.type.floor;
       if (k === 'concrete') return;
       const tile = k === 'tile';

@@ -325,6 +325,15 @@ r = run(`(function(){
     js.materials.length === js.meshes[0].primitives.length, js.nodes[0].name, mx[1] - mn[1], js.materials.every(function(m){ return m.doubleSided; })];
 })()`);
 check('Export .glb : en-tête glTF 2.0, JSON + binaire, un matériau par primitive, tous les triangles', r[0] && r[1] === 2 && r[2] && r[3] && r[4] && r[5] && r[8], r.slice(0, 6).join(' / '));
+r = run(`(function(){
+  var d = getExampleData('maison-t3'), viz = new Viz3D(__cv, { interactive: false });
+  var info = computeRooms(d.components, d.wires);
+  var cuisine = info.rooms.findIndex(function(r){ return r.type && r.type.key === 'cuisine'; });
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { walls: 'cut', energy: { color: function(i){ return i === cuisine ? '#a83d12' : '#efe7de'; } } });
+  var hot = viz.faces.filter(function(f){ return f.color[0] === 0xa8 && f.color[1] === 0x3d && f.color[2] === 0x12; }).length;
+  return [cuisine >= 0, hot];
+})()`);
+check('Vue Énergie : le sol de chaque pièce prend la teinte de sa puissance', r[0] && r[1] > 0, `${r[1]} faces teintées`);
 check('Export .glb : nom accentué, dimensions en mètres (hauteur totale 5 à 7 m avec arbres et toit)', r[6] === 'Appartement T3' && r[7] > 4 && r[7] < 8, `${r[7].toFixed(2)} m`);
 
 // ---------------------------------------------------------------------------

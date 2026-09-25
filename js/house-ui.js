@@ -578,18 +578,96 @@ function initHouseUI(app) {
     }
   }
 
+  // ---- Vue Énergie : sol des pièces teinté selon la puissance consommée --------
+  // Échelle séquentielle orangée, 0 → 4 kW (racine : les petites charges restent visibles)
+  const ENERGY_RAMP = ['#efe7de', '#f7c9a1', '#f1995c', '#dc6326', '#a83d12'];
+  function energyColor(P) {
+    const t = Math.sqrt(Math.min(1, Math.max(0, P) / 4000)) * (ENERGY_RAMP.length - 1);
+    const i = Math.min(ENERGY_RAMP.length - 2, Math.floor(t)), f = t - i;
+    const a = parseInt(ENERGY_RAMP[i].slice(1), 16), b = parseInt(ENERGY_RAMP[i + 1].slice(1), 16);
+    const ch = (sh) => Math.round(((a >> sh) & 255) * (1 - f) + ((b >> sh) & 255) * f);
+    return '#' + [16, 8, 0].map((sh) => ch(sh).toString(16).padStart(2, '0')).join('');
+  }
+  function roomPowers() {
+    const info = computeRooms(editor.components, editor.wires);
+    const P = {}, snap = sim.snap;
+    if (snap) {
+      for (const c of editor.components) {
+        const dv = snap.devices[c.id];
+        if (!dv || !dv.P) continue;
+        const i = roomAt(info, c.x, c.y);
+        if (i >= 0) P[i] = (P[i] || 0) + dv.P;
+      }
+    }
+    return { info, P };
+  }
+  let energySig = '';
+  const labelsBox = $('v3-labels');
+  function energyLabels(en) {
+    labelsBox.replaceChildren();
+    labelsBox.hidden = !en;
+    if (!en) { viz.onFrame = null; return; }
+    const items = [];
+    en.info.rooms.forEach((room, i) => {
+      if (room.leaked || room.sharedWith !== null) return;
+      const lab = byId(room.id);
+      if (!lab) return;
+      const el = document.createElement('div');
+      el.className = 'v3-lab';
+      const name = document.createElement('span'); name.textContent = room.name;
+      const val = document.createElement('b'); val.className = 'num';
+      el.append(name, val);
+      labelsBox.appendChild(el);
+      items.push({ el, val, i, p: [lab.x, 150, lab.y] });
+    });
+    const legend = document.createElement('div');
+    legend.className = 'v3-energy-legend';
+    legend.innerHTML = '<span>0</span><i></i><span>4 kW</span>';
+    labelsBox.appendChild(legend);
+    const place = () => {
+      for (const it of items) {
+        const q = viz.project && viz.project(it.p);
+        it.el.style.display = q ? '' : 'none';
+        if (q) it.el.style.transform = `translate(${Math.round(q.x)}px, ${Math.round(q.y)}px) translate(-50%, -50%)`;
+      }
+    };
+    const update = () => {
+      const now = roomPowers();
+      for (const it of items) {
+        const P = now.P[it.i] || 0;
+        it.val.textContent = fmtW(P);
+        it.el.classList.toggle('off', P < 1);
+      }
+    };
+    labelsBox.__update = update;
+    update();
+    viz.onFrame = place;
+    place();
+  }
+  // À chaque pas de simulation : valeurs des étiquettes, et teintes si la puissance a bougé
+  function energyTick() {
+    if (!v3.energy || !viz || view3d.hidden || !labelsBox.__update) return;
+    labelsBox.__update();
+    const { P } = roomPowers();
+    const sig = Object.keys(P).map((k) => k + ':' + Math.round(P[k] / 150)).join('|');
+    if (sig !== energySig) { energySig = sig; build3D(false); }
+  }
+
   // ---- Vue 3D ---------------------------------------------------------------
   const view3d = $('view3d'), cv3 = $('canvas3d'), tip = $('v3-tip'), map = $('v3-map'), hud = $('v3-hud');
   let viz = null;
-  const v3 = { walls: 'full', xray: false, time: 15 };
+  const v3 = { walls: 'full', xray: false, time: 15, energy: false };
   function build3D(first) {
     const d = ensureDesign();
     const house = hasPlan();
     const walking = viz.mode === 'walk';
+    const energy = v3.energy && house ? roomPowers() : null;
     const r = buildBoard(viz, editor.components, editor.wires, SYMBOLS, {
       walls: walking ? 'full' : v3.walls, xray: v3.xray, ceiling: walking, ground: house, keepCamera: !first,
       sim: d && d.ok ? { snap: sim.snap, design: d, sim } : null,
+      energy: energy ? { color: (i) => energyColor(energy.P[i] || 0) } : null,
     });
+    energyLabels(energy);
     if (first) viz.fit(r * (house ? 0.82 : 1));
   }
   function open3D() {
@@ -680,6 +758,14 @@ function initHouseUI(app) {
     document.querySelectorAll('#v3-walls button').forEach((x) => x.classList.toggle('on', x === b));
     build3D(false);
   }));
+  $('v3-energy').addEventListener('click', () => {
+    v3.energy = !v3.energy;
+    $('v3-energy').classList.toggle('on', v3.energy);
+    $('v3-energy').setAttribute('aria-pressed', v3.energy ? 'true' : 'false');
+    energySig = '';
+    build3D(false);
+    if (v3.energy && !(design && design.ok)) showToast('Vue Énergie : il faut un tableau (onglet Tableau → Implanter) pour mesurer la puissance.');
+  });
   $('v3-day').addEventListener('click', () => {
     if (!(ensureDesign() || {}).ok) { showToast('La journée type a besoin d’un tableau : onglet Tableau → Implanter.'); return; }
     if (day.running) dayPause(); else dayStart();
@@ -762,6 +848,7 @@ function initHouseUI(app) {
     hud.innerHTML = (day.saved ? `<span class="hud-day num">${hhmm(day.h)} · ${DAY_SEASONS[day.season].label}</span>` : '') + `<b class="num">${fmtW(snap.P)}</b><span class="num">${fmtA(snap.I)}</span><span>${snap.lit.size} lampe${snap.lit.size > 1 ? 's' : ''}</span>` +
       (tripped ? `<span class="hud-bad">${tripped} protection${tripped > 1 ? 's' : ''} déclenchée${tripped > 1 ? 's' : ''}</span>` : '');
     if (viz.mode === 'walk') drawMinimap(snap);
+    energyTick();
   }
   function drawMinimap(snap) {
     const b = viz.bounds; if (!b || !viz.walk) return;

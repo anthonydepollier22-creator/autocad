@@ -387,6 +387,18 @@ class GL3D extends Viz3D {
     return _M4.mul(_M4.persp(cam.fov, W / H, near, near + span + this.dist * 2), _M4.look(cam.eye, cam.look, [0, 1, 0]));
   }
 
+  // Position à l'écran (px CSS) d'un point de la scène ; null s'il est derrière la caméra
+  project(p) {
+    const m = this._VP;
+    if (!m) return null;
+    const x = p[0], y = p[1], z = p[2];
+    const cx = m[0] * x + m[4] * y + m[8] * z + m[12];
+    const cy = m[1] * x + m[5] * y + m[9] * z + m[13];
+    const cw = m[3] * x + m[7] * y + m[11] * z + m[15];
+    if (cw <= 1e-6) return null;
+    return { x: (cx / cw * 0.5 + 0.5) * this.canvas.clientWidth, y: (0.5 - (cy / cw) * 0.5) * this.canvas.clientHeight };
+  }
+
   render() {
     const gl = this.gl;
     if (this.dirty || !this.sceneBox) this._upload();
