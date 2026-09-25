@@ -1,7 +1,7 @@
 {
   "name": "electricad",
   "productName": "ElectriCAD",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Éditeur, simulateur et visualisation 3D de schémas et d’installations électriques",
   "author": "ÉlectriCAD",
   "license": "MIT",
