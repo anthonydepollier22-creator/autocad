@@ -527,12 +527,13 @@ r = run(`(function(){
     planSVG: buildSVG(d.components, d.wires, SYMBOLS, { title: 'T3' }), unifilarSVG: unifilarSVG(des, { title: 'T3' }),
     materials: materialList(d.components, d.wires, des), images: [],
     day: { acc: simulateDay(d.components, d.wires, des, 'hiver', 10, 3), season: 'hiver' },
-    year: simulateYear(d.components, d.wires, des, 10, 3),
+    year: simulateYear(d.components, d.wires, des, 10, 3), lighting: lightingStudy(d.components, d.wires),
   });
   var h2 = (html.match(/<h2>/g) || []).length, svgs = (html.match(/<svg/g) || []).length;
-  return [html.indexOf('<!DOCTYPE html>') === 0, h2, svgs, html.indexOf('T3 &lt;test&gt;') > 0, html.indexOf('C1') > 0, html.indexOf('Production solaire') > 0, html.indexOf('Bilan annuel') > 0];
+  return [html.indexOf('<!DOCTYPE html>') === 0, h2, svgs, html.indexOf('T3 &lt;test&gt;') > 0, html.indexOf('C1') > 0, html.indexOf('Production solaire') > 0, html.indexOf('Bilan annuel') > 0,
+    html.indexOf('<h2>Éclairement</h2>') > 0 && (html.match(/class="st err">Insuffisant/g) || []).length === 1 && (html.match(/class="st warn">Un peu juste/g) || []).length === 1];
 })()`);
-check('Dossier : plan, norme, tableau, matériel, journée, bilan annuel ; titre échappé', r[0] && r[1] === 6 && r[2] === 3 && r[3] && r[4] && r[5] && r[6], `${r[1]} sections, ${r[2]} SVG`);
+check('Dossier : plan, norme, éclairement, tableau, matériel, journée, bilan annuel ; titre échappé', r[0] && r[1] === 7 && r[2] === 3 && r[3] && r[4] && r[5] && r[6] && r[7], `${r[1]} sections, ${r[2]} SVG`);
 
 // ---------------------------------------------------------------------------
 group('Maison à étage (R+1)');

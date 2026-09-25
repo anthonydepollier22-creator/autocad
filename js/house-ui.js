@@ -1445,14 +1445,20 @@ function initHouseUI(app) {
     let v;
     try { v = new GL3D(cv, { sky: true, time: 11, interactive: false, autoRotate: false }); } catch (e) { return shots; }
     const lv = levels();
-    // [murs, heure, légende, inclinaison, orientation, recul, niveau, coupe (0 → 1)]
+    // [murs, heure, légende, inclinaison, orientation, recul, niveau, coupe (0 → 1), éclairement]
+    const lux = lightingStudy(editor.components, editor.wires);
+    const withLux = lux && lux.rooms.some((R) => R.lamps);
     const views = lv ? [
       ['roof', 11, 'Extérieur', 0.38, -0.62, 1.05, 'all', null],
       ['roof', 15, 'Coupe verticale', 0.34, Math.PI / 2 - 0.5, 0.72, 'all', 0.33],
       ...lv.map((L, i) => ['cut', 15, `${L.name} (murs coupés à 1,15 m)`, 0.95, -0.5, 0.8, i, null]),
-    ] : [['roof', 11, 'Extérieur', 0.42, -0.62, 0.95, 'all', null], ['cut', 15, 'Intérieur (murs coupés à 1,15 m)', 0.95, -0.5, 0.8, 'all', null]];
-    for (const [walls, t, label, pitch, yaw, k, level, cut] of views) {
-      const r = buildBoard(v, editor.components, editor.wires, SYMBOLS, { walls, ground: true, pv: pvKwc(), levels: lv, level, sim: d && d.ok ? { snap: sim.snap, design: d, sim } : null });
+      ...(withLux ? lv.map((L, i) => ['cut', 21.5, `${L.name} : éclairement, tout allumé`, 0.95, -0.5, 0.8, i, null, true]) : []),
+    ] : [
+      ['roof', 11, 'Extérieur', 0.42, -0.62, 0.95, 'all', null], ['cut', 15, 'Intérieur (murs coupés à 1,15 m)', 0.95, -0.5, 0.8, 'all', null],
+      ...(withLux ? [['cut', 21.5, 'Éclairement, tout allumé (du sombre au jaune clair : 0 à 300 lx et plus)', 0.95, -0.5, 0.8, 'all', null, true]] : []),
+    ];
+    for (const [walls, t, label, pitch, yaw, k, level, cut, lx] of views) {
+      const r = buildBoard(v, editor.components, editor.wires, SYMBOLS, { walls, ground: true, pv: pvKwc(), levels: lv, level, lux: lx ? lux : null, sim: d && d.ok ? { snap: sim.snap, design: d, sim } : null });
       const b = v.bounds;
       v.setCut(cut === null || !b ? null : b.minX + (b.maxX - b.minX) * cut);
       // étage seul : on vise son plancher
@@ -1478,7 +1484,7 @@ function initHouseUI(app) {
         : d && d.ok ? { acc: simulateDay(editor.components, editor.wires, d, day.season, 5, pvKwc(), pvShift()), season: day.season } : null;
       const year = d && d.ok ? (day.year && day.yearDesign === d && day.yearSig === yearSig() ? day.year : simulateYear(editor.components, editor.wires, d, 10, pvKwc(), pvShift())) : null;
       const html = buildDossier({
-        meta: editor.meta, design: d, report, year,
+        meta: editor.meta, design: d, report, year, lighting: lightingStudy(editor.components, editor.wires),
         planSVG: buildSVG(editor.components, editor.wires, SYMBOLS, { ...editor.meta, date: new Date().toISOString().slice(0, 10) }),
         unifilarSVG: d && d.ok ? unifilarSVG(d, editor.meta) : '',
         materials: d && d.ok ? materialList(editor.components, editor.wires, d) : null,

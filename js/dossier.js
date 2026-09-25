@@ -47,6 +47,18 @@ function buildDossier(o) {
     h += '</tbody></table><ul class="checks">' + rep.global.map((g) => `<li class="${g.level}">${esc(g.msg)}</li>`).join('') + '</ul></section>';
   }
 
+  // Éclairement (étude lightingStudy : tout allumé, au plan de travail)
+  if (o.lighting && o.lighting.rooms.length) {
+    const st = { ok: ['ok', 'Atteint'], juste: ['warn', 'Un peu juste'], faible: ['err', 'Insuffisant'] };
+    h += '<section><h2>Éclairement</h2><table><thead><tr><th>Pièce</th><th class="n">Surface</th><th class="n">Points lumineux</th><th class="n">Flux</th><th class="n">Moyen</th><th class="n">Minimum</th><th class="n">Conseillé</th><th>Statut</th></tr></thead><tbody>';
+    for (const r of o.lighting.rooms) {
+      const [cls, word] = st[r.status];
+      h += `<tr><td>${esc(r.name)}</td><td class="n">${num(r.area || 0, 1)} m²</td><td class="n">${r.lamps}</td><td class="n">${num(r.lm)} lm</td>` +
+        `<td class="n">${num(r.avg)} lx</td><td class="n">${num(r.min)} lx</td><td class="n">${r.target} lx</td><td class="st ${cls}">${word}${r.need ? ` <span class="small">(+${num(r.need)} lm)</span>` : ''}</td></tr>`;
+    }
+    h += '</tbody></table><p class="small">Au plan de travail (0,85 m), tous les points lumineux allumés, luminaires LED à 60 lm/W ; parois claires (réflexion 50 %), portes fermées.</p></section>';
+  }
+
   // Tableau : unifilaire + circuits
   if (d && d.ok) {
     h += `<section class="page"><h2>Tableau électrique</h2>${o.unifilarSVG ? `<div class="svg">${o.unifilarSVG}</div>` : ''}`;
