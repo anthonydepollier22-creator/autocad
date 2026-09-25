@@ -180,7 +180,7 @@ button, a, input, label { touch-action: manipulation; }
 }
 .empty-state[hidden] { display: none; }
 .es-card {
-  pointer-events: auto; text-align: center; max-width: 400px;
+  pointer-events: auto; text-align: center; max-width: 460px;
   background: var(--surface); border: 1px solid var(--border);
   border-radius: 16px; padding: 32px 36px 26px; box-shadow: var(--shadow);
 }
@@ -200,6 +200,12 @@ button, a, input, label { touch-action: manipulation; }
 }
 .btn-primary:hover { background: var(--accent-strong); }
 .btn-primary:active { transform: scale(0.98); }
+.es-actions { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.es-actions .btn-ghost { padding: 10px 16px; font-size: 13px; }
+.es-link {
+  display: inline-block; margin-top: 10px; padding: 2px 4px; background: none; border: none;
+  color: var(--accent); font: inherit; font-size: 12.5px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+}
 .es-hints { display: flex; justify-content: center; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
 .es-hints span { font-size: 11px; color: var(--faint); display: flex; align-items: center; gap: 4px; }
 
@@ -903,3 +909,37 @@ body.light .day-sec { --dc7: #4a3aa7; }
 #btn-underlay.pulse { animation: ul-pulse 1s ease-in-out 5; border-color: var(--accent); color: var(--accent); }
 @keyframes ul-pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 35%, transparent); } }
 @media (prefers-reduced-motion: reduce) { #btn-underlay.pulse { animation: none; } }
+
+/* Import DXF */
+.dxf-box { width: min(1020px, calc(100vw - 48px)); }
+.dxf-body { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 18px; padding: 16px 22px; overflow: auto; min-height: 0; }
+.dxf-side { display: flex; flex-direction: column; gap: 9px; font-size: 12.5px; min-width: 0; }
+.dxf-side h3 { margin: 2px 0 0; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.dxf-layers {
+  display: flex; flex-direction: column; gap: 1px; max-height: 230px; overflow: auto;
+  padding: 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+}
+.dxf-layer { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 5px 7px; border-radius: 6px; cursor: pointer; }
+.dxf-layer:hover { background: var(--surface-3); }
+.dxf-layer input { accent-color: var(--accent); margin: 0; }
+.dxf-ln { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.dxf-ln em { font-style: normal; font-weight: 600; font-size: 10.5px; color: var(--amber); }
+.dxf-layer small { color: var(--faint); font-variant-numeric: tabular-nums; }
+.dxf-units { display: flex; flex-direction: column; gap: 5px; color: var(--muted); font-weight: 600; }
+.dxf-units select {
+  font: inherit; font-weight: 500; color: var(--text); background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: 8px; padding: 7px 8px;
+}
+.dxf-side .check-row { color: var(--text); }
+.dxf-main { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+#dxf-preview { width: 100%; height: 380px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; display: block; }
+.dxf-stats { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.55; }
+.dxf-stats b { color: var(--text); }
+.dxf-warn { display: block; color: var(--amber); margin-top: 3px; }
+.dxf-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 12px 22px 16px; border-top: 1px solid var(--border); }
+.dxf-foot .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: none; }
+@media (max-width: 760px) {
+  .dxf-body { grid-template-columns: minmax(0, 1fr); padding: 14px 16px; }
+  #dxf-preview { height: 240px; }
+  .dxf-layers { max-height: 150px; }
+}

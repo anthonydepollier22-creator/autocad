@@ -28,7 +28,7 @@
     <div class="toolbar">
       <div class="group">
         <button id="btn-new" class="icon-btn" data-icon="file" title="Nouveau schéma"></button>
-        <button id="btn-open" class="icon-btn" data-icon="folder" title="Ouvrir un fichier .json"></button>
+        <button id="btn-open" class="icon-btn" data-icon="folder" title="Ouvrir un schéma (.json) ou importer un plan AutoCAD (.dxf)"></button>
         <button id="btn-save" class="icon-btn" data-icon="save" title="Enregistrer (JSON)"></button>
         <button id="btn-png" class="icon-btn" data-icon="image" title="Exporter en PNG"></button>
         <button id="btn-svg" class="icon-btn" data-icon="vector" title="Exporter en SVG vectoriel"></button>
@@ -99,8 +99,12 @@
             <svg viewBox="0 0 24 24"><path d="M13.5 2 5 14h5l-1.5 8L17 10h-5z"/></svg>
           </div>
           <h2>Bienvenue dans ÉlectriCAD</h2>
-          <p>Choisis un composant dans la palette de gauche et clique sur le plan pour le poser — ou pars d’un circuit d’exemple prêt à simuler.</p>
-          <button id="es-examples" class="btn-primary">Parcourir les exemples</button>
+          <p>Choisis un composant dans la palette de gauche et clique sur le plan pour le poser — ou pars d’un circuit d’exemple prêt à simuler, ou du plan AutoCAD de ta maison.</p>
+          <div class="es-actions">
+            <button id="es-examples" class="btn-primary">Parcourir les exemples</button>
+            <button id="es-dxf" class="btn-ghost" title="Plan d’architecte au format DXF (AutoCAD, LibreCAD, ArchiCAD…)">Importer un plan DXF</button>
+          </div>
+          <button id="es-dxf-sample" type="button" class="es-link">ou essayer avec un plan d’architecte d’exemple</button>
           <div class="es-hints">
             <span><kbd>V</kbd> Sélection</span>
             <span><kbd>W</kbd> Fil</span>
@@ -217,6 +221,7 @@
             <li><b>Maison</b> : génère un studio, un T2, un T3 ou une maison avec mobilier, installation NF C 15-100 et goulottes.</li>
             <li>Plan de maison : <kbd>M</kbd> mur · <kbd>G</kbd> goulotte · <kbd>L</kbd> règle · pose une étiquette <b>Pièce</b> dans chaque pièce pour sa surface et le contrôle NF.</li>
             <li><b>Calque</b> (icône des feuilles) : importe le plan de ta maison en image, mets-le à l’échelle sur une cote connue, puis trace les murs par-dessus (double-clic ou <kbd>Entrée</kbd> pour finir).</li>
+            <li><b>Importer un plan DXF</b> (icône dossier, ou glisser le fichier) : les murs d’un plan d’architecte (AutoCAD, LibreCAD, ArchiCAD…) sont repris à leur épaisseur avec portes, fenêtres et noms des pièces, puis meublés et équipés en un clic. Pas de plan sous la main ? <a href="samples/plan-exemple-t4.dxf" download>plan d’exemple (T4)</a>.</li>
             <li><b>DXF</b> : exporte le plan pour AutoCAD, LibreCAD ou QCAD, en mètres, avec un calque par nature d’objet (murs, menuiseries, électricité, goulottes, fils, cotes).</li>
             <li>Onglet <b>Tableau</b> : installation simulée — allume, surcharge, provoque un court-circuit ; <b>double-clic</b> sur un appareil pour le mettre en marche.</li>
             <li><kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> annuler / refaire · <kbd>Ctrl+D</kbd> dupliquer · <kbd>Ctrl+A</kbd> tout sélectionner</li>
@@ -306,9 +311,50 @@
     </div>
   </div>
 
+  <!-- Import d'un plan DXF -->
+  <div id="dxf-modal" class="modal" hidden>
+    <div class="modal-backdrop"></div>
+    <div class="modal-box dxf-box" role="dialog" aria-label="Importer un plan DXF">
+      <header class="modal-head">
+        <div>
+          <h2>Importer un plan DXF</h2>
+          <p id="dxf-sub">Murs en double trait ramenés à leur axe, portes et fenêtres, noms des pièces.</p>
+        </div>
+        <button id="dxf-close" class="icon-btn" title="Fermer" aria-label="Fermer">✕</button>
+      </header>
+      <div class="dxf-body">
+        <div class="dxf-side">
+          <h3>Calques des murs</h3>
+          <div id="dxf-layers" class="dxf-layers"></div>
+          <label class="dxf-units">Unités du dessin
+            <select id="dxf-units">
+              <option value="auto">Automatique</option>
+              <option value="0.1">millimètres</option>
+              <option value="1">centimètres</option>
+              <option value="100">mètres</option>
+              <option value="2.54">pouces</option>
+            </select>
+          </label>
+          <h3>Ensuite</h3>
+          <label class="check-row"><input type="checkbox" id="dxf-furnish" checked /> Meubler les pièces</label>
+          <label class="check-row"><input type="checkbox" id="dxf-elec" checked /> Implanter l’électricité (NF C 15-100)</label>
+          <label class="check-row"><input type="checkbox" id="dxf-3d" checked /> Ouvrir la 3D</label>
+        </div>
+        <div class="dxf-main">
+          <canvas id="dxf-preview" aria-label="Aperçu du plan importé"></canvas>
+          <p id="dxf-stats" class="dxf-stats" aria-live="polite"></p>
+        </div>
+      </div>
+      <footer class="dxf-foot">
+        <button id="dxf-cancel" type="button" class="btn-ghost">Annuler</button>
+        <button id="dxf-go" type="button" class="btn-primary">Importer le plan</button>
+      </footer>
+    </div>
+  </div>
+
   <div id="toast" class="toast" hidden></div>
 
-  <input type="file" id="file-input" accept=".json,application/json" hidden />
+  <input type="file" id="file-input" accept=".json,application/json,.dxf,.dwg" hidden />
   <input type="file" id="ul-input" accept="image/*" hidden />
   <div id="ul-panel" class="ul-panel" hidden role="dialog" aria-label="Calque du plan importé">
     <div class="ul-head"><b>Calque</b><button type="button" data-ul="close" class="ul-x" aria-label="Fermer">✕</button></div>

@@ -13,7 +13,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..');
 const out = path.resolve(process.argv[2] || 'www');
 const entryApp = process.argv.includes('--entry') && process.argv[process.argv.indexOf('--entry') + 1] === 'app';
-const ITEMS = ['index.html', 'app.html', 'manifest.webmanifest', 'sw.js', 'css', 'js', 'icons', 'fonts', 'img'];
+const ITEMS = ['index.html', 'app.html', 'manifest.webmanifest', 'sw.js', 'css', 'js', 'icons', 'fonts', 'img', 'samples'];
 
 fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(out, { recursive: true });

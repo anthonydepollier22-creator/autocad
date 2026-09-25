@@ -670,6 +670,92 @@ check('Été : hauteur 67,4° à 14 h, lever au nord-est, encore levé à 21 h 3
 check('Sans saison : course du soleil habituelle (6 h – 18 h, 51° à midi)', near(r.neutral, 51.3, 0.2), r.neutral.toFixed(1) + '°');
 
 // ---------------------------------------------------------------------------
+group('Import DXF');
+// Aller-retour : chaque maison exportée en DXF puis réimportée garde ses pièces et ses ouvertures
+r = run(`(function(){
+  return HOUSE_TYPES.map(function(T){
+    var d = buildHouse(T.key), im = importDXFPlan(parseDXF(buildDXF(d.components, d.wires, SYMBOLS, {})));
+    var area = function(doc){ var o = {}; computeRooms(doc.components, doc.wires).rooms.forEach(function(r){ o[r.name.toLowerCase()] = r.area; }); return o; };
+    var a0 = area(d), a1 = area(im), bad = [];
+    Object.keys(a0).forEach(function(k){ if (!a0[k] || !a1[k] || Math.abs(a0[k] - a1[k]) > 0.2) bad.push(k); });
+    var n = function(doc, t){ return doc.components.filter(function(c){ return c.type === t; }).length; };
+    ['door', 'window_a', 'garage_door'].forEach(function(t){ if (n(d, t) !== n(im, t)) bad.push(t + ' ' + n(d, t) + '→' + n(im, t)); });
+    return T.key + (bad.length ? ' ✗ ' + bad.join(',') : '');
+  });
+})()`);
+check('Aller-retour DXF des 6 maisons : mêmes surfaces (±0,2 m²), portes, fenêtres, garage', r.every((x) => x.indexOf('✗') < 0), r.join(' · '));
+
+// Plan d'architecte (ezdxf, R2018, mm) : murs en double et triple trait, blocs, MTEXT
+sb.__archi = fs.readFileSync(path.join(__dirname, 'fixtures', 'plan-architecte.dxf'));
+sb.__sketch = fs.readFileSync(path.join(__dirname, 'fixtures', 'croquis-metres.dxf'));
+r = run(`(function(){
+  var P = parseDXF(decodeDXFBytes(__archi)), g = dxfGuessLayers(P), im = importDXFPlan(P);
+  var info = computeRooms(im.components, im.wires), rooms = {};
+  info.rooms.forEach(function(r){ rooms[r.name] = r.leaked ? -1 : +r.area.toFixed(1); });
+  var doc = { components: im.components, wires: im.wires, counters: {} };
+  furnishPlan(doc); autoImplant(doc); autoConduits(doc);
+  var nf = checkNFC15100(doc.components, doc.wires), des = designInstallation(doc.components, doc.wires);
+  return { units: P.units, walls: g.walls, open: g.openings, st: im.stats, rooms: rooms, nf: nf.errors, circuits: des.ok ? des.circuits.length : 0,
+    ins: P.inserts.map(function(i){ return i.kind + ' ' + Math.round(i.w); }) };
+})()`);
+check('Plan d’architecte : calques des murs devinés, millimètres lus dans l’en-tête, blocs porte/fenêtre reconnus',
+  r.units === 4 && r.walls.join() === 'MURS_EXT,CLOISONS' && r.open.join() === 'MENUISERIES' && r.st.scale === 0.1 && !r.st.guessed && r.ins.join() === 'door 900,window_a 1200', r.walls.join('+') + ' · ' + r.ins.join(', '));
+check('Double trait → axe : 6 murs dont 4 extérieurs (30 cm, doublage absorbé), 11,7 × 8,7 m', r.st.walls === 6 && r.st.ext === 4 && near(r.st.size[0], 11.7, 0.05) && near(r.st.size[1], 8.7, 0.05), `${r.st.walls} murs · ${r.st.size.join(' × ')} m`);
+check('Ouvertures : 4 portes (bloc, arcs, trou de 83 cm), 2 fenêtres (bloc, vitrage dans le mur)', r.st.doors === 4 && r.st.windows === 2 && r.st.garages === 0, `${r.st.doors} portes · ${r.st.windows} fenêtres`);
+check('Pièces lues (MTEXT mis en forme décodé) et fermées : Séjour 49,9, Chambre 1 et Salle de bain 24,9 m²', r.rooms['Séjour'] === 49.9 && r.rooms['Chambre 1'] === 24.9 && r.rooms['Salle de bain'] === 24.9, JSON.stringify(r.rooms));
+check('Plan importé → meublé, électricité implantée : conforme NF C 15-100', r.nf === 0 && r.circuits >= 6, `${r.circuits} circuits`);
+
+// Exemple fourni (samples/plan-exemple-t4.dxf) : T4 d'architecte, faces coupées aux T, blocs tournés, cotes, cartouche
+sb.__t4 = fs.readFileSync(path.join(ROOT, 'samples', 'plan-exemple-t4.dxf'));
+r = run(`(function(){
+  var im = importDXFPlan(parseDXF(decodeDXFBytes(__t4))), d = buildHouse('t4'), bad = [];
+  var area = function(doc){ var o = {}; computeRooms(doc.components, doc.wires).rooms.forEach(function(r){ o[r.name.toLowerCase()] = r.area; }); return o; };
+  var a0 = area(d), a1 = area(im);
+  Object.keys(a0).forEach(function(k){ if (!a1[k] || Math.abs(a0[k] - a1[k]) > 0.2) bad.push(k + ' ' + (a1[k] || 0).toFixed(1)); });
+  return { st: im.stats, bad: bad, n: Object.keys(a1).length };
+})()`);
+check('Plan d’exemple T4 (double trait, blocs) : les 10 pièces retrouvées à ±0,2 m² du plan d’origine', r.bad.length === 0 && r.n === 10, r.bad.join(', ') || `${r.n} pièces`);
+check('Plan d’exemple T4 : 10 portes, 11 fenêtres, 4 murs de façade, cotes et cartouche ignorés', r.st.doors === 10 && r.st.windows === 11 && r.st.ext === 4 && near(r.st.size[0], 12.4, 0.05) && near(r.st.size[1], 8.4, 0.05), `${r.st.walls} murs · ${r.st.size.join(' × ')} m`);
+
+// Croquis R12 en simple trait, en mètres, sans unités déclarées
+r = run(`(function(){
+  var P = parseDXF(decodeDXFBytes(__sketch)), im = importDXFPlan(P);
+  var info = computeRooms(im.components, im.wires);
+  var doc = { components: im.components, wires: im.wires, counters: {} };
+  furnishPlan(doc); autoImplant(doc); autoConduits(doc);
+  var nf = checkNFC15100(doc.components, doc.wires);
+  var flat = im.wires.every(function(w){ var a = w.points[0], b = w.points[1]; return a.x === b.x || a.y === b.y; });
+  return { st: im.stats, closed: info.rooms.filter(function(r){ return !r.leaked; }).length, names: info.rooms.map(function(r){ return r.name; }), nf: nf.errors, flat: flat,
+    daaf: doc.components.filter(function(c){ return c.type === 'smoke_detector'; }).length };
+})()`);
+check('Croquis : mètres devinés, murs extérieurs trouvés par l’extérieur, trait presque droit redressé', r.st.guessed && r.st.scale === 100 && r.st.walls === 6 && r.st.ext === 4 && r.flat, `${r.st.walls} murs, ${r.st.ext} ext.`);
+check('Croquis : passage de 90 cm → porte, 3 pièces fermées (CUISINE → Cuisine, SDB gardé)', r.st.doors === 1 && r.closed === 3 && r.names.join() === 'Cuisine,Chambre,SDB', r.names.join(', '));
+check('Sans circulation : le DAAF va au séjour ou à la cuisine, plan conforme', r.daaf === 1 && r.nf === 0);
+
+// Lecture : Windows-1252, DXF binaire, arcs de polyligne, bloc tourné
+{
+  const cp = '0\nSECTION\n2\nENTITIES\n0\nTEXT\n8\nPIECES\n10\n1\n20\n1\n40\n0.2\n1\nSéjour\n0\nENDSEC\n0\nEOF\n';
+  sb.__cp1252 = Uint8Array.from(cp, (ch) => ch.charCodeAt(0)); // é = 0xE9 : pas de l'UTF-8
+  sb.__bin = new TextEncoder().encode('AutoCAD Binary DXF\r\n\x1a\0');
+  sb.__arc = '0\nSECTION\n2\nENTITIES\n0\nLWPOLYLINE\n8\nM\n90\n2\n70\n0\n10\n0\n20\n0\n42\n1\n10\n2\n20\n0\n0\nENDSEC\n0\nEOF\n';
+  sb.__blk = '0\nSECTION\n2\nBLOCKS\n0\nBLOCK\n2\nMEUBLE\n10\n0\n20\n0\n0\nLINE\n8\n0\n10\n0\n20\n0\n11\n100\n21\n0\n0\nENDBLK\n0\nENDSEC\n0\nSECTION\n2\nENTITIES\n0\nINSERT\n8\nMURS\n2\nMEUBLE\n10\n50\n20\n50\n41\n2\n50\n90\n0\nENDSEC\n0\nEOF\n';
+}
+r = run(`(function(){
+  var out = {};
+  out.cp1252 = parseDXF(decodeDXFBytes(__cp1252)).texts[0].text;
+  try { decodeDXFBytes(__bin); out.bin = 'accepté'; } catch (e) { out.bin = e.message; }
+  var A = parseDXF(__arc).segs, far = 0;
+  A.forEach(function(s){ far = Math.max(far, Math.abs(Math.hypot(s.ax - 1, s.ay) - 1)); });
+  out.arc = [A.length, A.every(function(s){ return s.arc; }), far < 1e-9, Math.min.apply(null, A.map(function(s){ return s.ay; }))];
+  var B = parseDXF(__blk).segs[0];
+  out.blk = [B.layer, Math.round(B.ax), Math.round(B.ay), Math.round(B.bx), Math.round(B.by)];
+  try { parseDXF('bonjour'); out.bad = 'accepté'; } catch (e) { out.bad = e.message; }
+  return out;
+})()`);
+check('Lecture : accents Windows-1252, DXF binaire et fichier non DXF refusés avec un message clair', r.cp1252 === 'Séjour' && /binaire/.test(r.bin) && /DXF/.test(r.bad), `${r.cp1252} · ${r.bin.slice(0, 22)}…`);
+check('Lecture : arc de polyligne (bulge) en segments sur le cercle, bloc inséré tourné et mis à l’échelle, calque 0 hérité', r.arc[0] >= 6 && r.arc[1] && r.arc[2] && near(r.arc[3], -1, 1e-9) && r.blk.join() === 'MURS,50,50,50,250', JSON.stringify(r.arc) + ' ' + r.blk.join(','));
+
+// ---------------------------------------------------------------------------
 group('Éditeur 2D : tracés et calque');
 {
   // contexte séparé : l'éditeur a besoin d'un faux navigateur (fenêtre, canevas, stockage)

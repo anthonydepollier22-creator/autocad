@@ -392,6 +392,35 @@ Fichier vérifié avec la bibliothèque ezdxf (0 erreur).
 
 ![Plan exporté en DXF, vu dans un lecteur DXF](docs/screenshot-dxf.png)
 
+### 📥 Import d'un plan DXF (AutoCAD, LibreCAD, ArchiCAD…)
+
+Le bouton **Ouvrir** (ou un glisser-déposer) accepte aussi un **plan d'architecte en
+`.dxf`**. ÉlectriCAD en retrouve la maison :
+
+- **murs en double trait → un mur à son épaisseur** : les faces parallèles (4 à 60 cm)
+  sont appariées, les plus proches d'abord, et chaque portion de face ne sert qu'une
+  fois (deux cloisons voisines ne fusionnent pas). Un doublage collé au mur est
+  absorbé, un trait seul devient une cloison. Les angles et les T sont raccordés à l'axe ;
+- **portes et fenêtres** : blocs nommés (`PORTE`, `FENETRE`, `DOOR`, `WINDOW`,
+  `GARAGE`…), dessins du calque des menuiseries (un arc de débattement signale une
+  porte), et trous dans les murs, recousus avec une ouverture ;
+- **façades** : repérées depuis l'extérieur du plan, sinon par l'épaisseur ;
+- **noms des pièces** lus dans les textes (`CHAMBRE 1` → « Chambre 1 », surfaces
+  écrites ignorées), avec la mise en forme MTEXT et les accents Windows-1252 ;
+- **unités** lues dans l'en-tête (`$INSUNITS`), sinon devinées d'après la taille du
+  dessin ; blocs insérés développés, cotes, hachures et cartouche ignorés.
+
+Une fenêtre d'aperçu montre le résultat en direct : choix des calques des murs,
+unités, surfaces des pièces, avertissements (pièce non fermée, unités douteuses). Un
+clic ensuite pour **meubler**, **implanter l'électricité NF C 15-100** et **ouvrir la
+3D**. Le [plan d'exemple](samples/plan-exemple-t4.dxf) (un T4 d'architecte en double
+trait) redonne les **10 pièces à ±0,2 m²** du plan d'origine ; `app.html?dxf=exemple`
+l'ouvre directement. Le format DWG, fermé, se convertit d'abord en DXF.
+
+![Import d'un plan d'architecte : calques, unités et aperçu](docs/screenshot-dxf-import.png)
+
+![Le même plan, meublé et équipé, en 3D](docs/screenshot-dxf-import-3d.png)
+
 ### 🛠️ Éditeur
 
 - **Plan de travail CAO** : grille avec magnétisme (snap), zoom à la molette, panoramique
@@ -521,14 +550,16 @@ python3 -m http.server 8000
 │   ├── gl3d.js        # Rendu WebGL2 : ombres, jour/nuit, lampes, vitrages, sélection
 │   ├── export3d.js    # Export du modèle 3D en glTF binaire (.glb)
 │   ├── svg.js         # Export vectoriel SVG
-│   ├── dxf.js         # Export DXF (AutoCAD R12), un calque par nature d'objet
+│   ├── dxf.js         # DXF : export R12 par calques, import de plans d'architecte
 │   ├── editor.js      # Moteur CAO : vue, modèle, outils, historique, rendu
 │   ├── house-ui.js    # Nouvelle maison, onglet Tableau, contrôle de la vue 3D
 │   ├── ui.js          # Câblage de l'interface et opérations fichier
 │   ├── house-worker.js # Génération des maisons hors du fil principal (site)
 │   └── landing.js     # Site vitrine : démonstration, plan annoté, banc d'essai
+├── samples/           # Plan d'architecte d'exemple (DXF) pour essayer l'import
 └── tests/
-    └── run.js         # Suite de tests (node tests/run.js)
+    ├── run.js         # Suite de tests (node tests/run.js)
+    └── fixtures/      # Plans DXF de test (ezdxf : double et triple trait, croquis en mètres)
 ```
 
 ## ✅ Tests
@@ -537,7 +568,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-118 vérifications sans dépendance : valeurs numériques de chaque simulation
+131 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
@@ -549,8 +580,9 @@ magnétique, différentiel, disjoncteur de branchement, énergie, va-et-vient), 
 (montée de 3 m, circuits par niveau, étage posé à 2,80 m, trémie, filtre par niveau,
 montée et descente de l'escalier en visite, visite guidée jusqu'à l'étage), la vue en
 coupe, la course du soleil selon la saison, les interactions de l'éditeur 2D (fin d'un
-mur au double-clic, à `Entrée` ou en fermant le contour, mise à l'échelle du calque)
-et les exports SVG. Le déploiement GitHub Pages **exécute ces tests d'abord** : une
+mur au double-clic, à `Entrée` ou en fermant le contour, mise à l'échelle du calque),
+les exports SVG et DXF et **l'import DXF** (aller-retour des 6 maisons, plans
+d'architecte produits par ezdxf, croquis en mètres, accents, arcs, blocs tournés). Le déploiement GitHub Pages **exécute ces tests d'abord** : une
 régression bloque la mise en ligne.
 
 ## 🧱 Format de fichier

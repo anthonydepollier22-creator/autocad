@@ -364,6 +364,15 @@ function initHouseUI(app) {
     const area = info.rooms.reduce((s, r) => s + (r.area || 0), 0);
     showToast(`<b>${esc(T.name)}</b> : ${info.rooms.length} pièces, ${fmtArea(area)}` + (d && d.ok ? `, ${d.circuits.length} circuits — ouvre la <b>3D</b> pour la visiter !` : '.'), 5200);
   }
+  // Plan venu d'ailleurs (import DXF) : même accueil qu'une maison générée
+  function loadPlan(doc, go3D) {
+    editor.load(doc);
+    sim.events = []; sim.energy = 0; sim.t = 0;
+    const d = ensureDesign(true);
+    showTab(d && d.ok ? 'install' : 'norm');
+    if (go3D) open3D();
+    return d;
+  }
   $('btn-houses').addEventListener('click', openHouses);
   $('houses-close').addEventListener('click', closeHouses);
   hModal.querySelector('.modal-backdrop').addEventListener('click', closeHouses);
@@ -1428,7 +1437,7 @@ function initHouseUI(app) {
   }
 
   return {
-    open3D, close3D, openHouses, sim, materialsHTML, exportMaterials,
+    open3D, close3D, openHouses, loadPlan, sim, materialsHTML, exportMaterials,
     design: () => ensureDesign(),
     refresh: () => { structKey = null; tick(0, true); },
   };

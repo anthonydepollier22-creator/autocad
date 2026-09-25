@@ -874,7 +874,11 @@ function autoImplant(doc, opts) {
   // 7. Sécurité et ventilation : DAAF en circulation, VMC dans une pièce d'eau
   if (!doc.components.some((c) => c.type === 'smoke_detector')) {
     const circ = info.rooms.map((r, i) => i).filter((i) => roomsOk[i] && typeOf(i) === 'circ');
-    const targets = circ.length ? circ : info.rooms.map((r, i) => i).filter((i) => roomsOk[i] && typeOf(i) === 'sejour').slice(0, 1);
+    // sans circulation : le séjour, sinon la pièce de vie la plus proche (jamais une pièce d'eau)
+    const order = ['sejour', 'cuisine', 'bureau', 'chambre'];
+    const targets = circ.length ? circ : info.rooms.map((r, i) => i)
+      .filter((i) => roomsOk[i] && order.includes(typeOf(i)))
+      .sort((a, b) => order.indexOf(typeOf(a)) - order.indexOf(typeOf(b))).slice(0, 1);
     for (const i of targets) {
       const cen = _roomCentroid(info, i);
       const p = _ceilingSpot(ctx, i, cen.x + 50, cen.y);
