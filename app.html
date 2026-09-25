@@ -32,6 +32,7 @@
         <button id="btn-save" class="icon-btn" data-icon="save" title="Enregistrer (JSON)"></button>
         <button id="btn-png" class="icon-btn" data-icon="image" title="Exporter en PNG"></button>
         <button id="btn-svg" class="icon-btn" data-icon="vector" title="Exporter en SVG vectoriel"></button>
+        <button id="btn-dxf" class="icon-btn" data-icon="dxf" title="Exporter en DXF (AutoCAD, LibreCAD, DraftSight…) : plan en mètres, un calque par nature d'objet"></button>
         <button id="btn-print" class="icon-btn" data-icon="printer" title="Imprimer / PDF"></button>
         <button id="btn-underlay" class="icon-btn" data-icon="layers" title="Calque : importer le plan de ta maison (image) et le décalquer"></button>
       </div>
@@ -216,6 +217,7 @@
             <li><b>Maison</b> : génère un studio, un T2, un T3 ou une maison avec mobilier, installation NF C 15-100 et goulottes.</li>
             <li>Plan de maison : <kbd>M</kbd> mur · <kbd>G</kbd> goulotte · <kbd>L</kbd> règle · pose une étiquette <b>Pièce</b> dans chaque pièce pour sa surface et le contrôle NF.</li>
             <li><b>Calque</b> (icône des feuilles) : importe le plan de ta maison en image, mets-le à l’échelle sur une cote connue, puis trace les murs par-dessus (double-clic ou <kbd>Entrée</kbd> pour finir).</li>
+            <li><b>DXF</b> : exporte le plan pour AutoCAD, LibreCAD ou QCAD, en mètres, avec un calque par nature d’objet (murs, menuiseries, électricité, goulottes, fils, cotes).</li>
             <li>Onglet <b>Tableau</b> : installation simulée — allume, surcharge, provoque un court-circuit ; <b>double-clic</b> sur un appareil pour le mettre en marche.</li>
             <li><kbd>Ctrl+Z</kbd>/<kbd>Ctrl+Y</kbd> annuler / refaire · <kbd>Ctrl+D</kbd> dupliquer · <kbd>Ctrl+A</kbd> tout sélectionner</li>
           </ul>
@@ -326,6 +328,7 @@
   <script src="js/simulate.js"></script>
   <script src="js/digital.js"></script>
   <script src="js/svg.js"></script>
+  <script src="js/dxf.js"></script>
   <script src="js/viz3d.js"></script>
   <script src="js/gl3d.js"></script>
   <script src="js/export3d.js"></script>

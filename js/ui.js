@@ -15,6 +15,7 @@ const ICONS = {
   printer: '<svg viewBox="0 0 24 24"><path d="M7 8V3.5h10V8"/><path d="M7 16.5H4.5A1.5 1.5 0 0 1 3 15V9.5A1.5 1.5 0 0 1 4.5 8h15A1.5 1.5 0 0 1 21 9.5V15a1.5 1.5 0 0 1-1.5 1.5H17"/><path d="M7 13.5h10v7H7z"/></svg>',
   cursor: '<svg viewBox="0 0 24 24"><path d="M5.5 3.5l6.7 16.3 2.2-6.4 6.4-2.2z"/></svg>',
   wire: '<svg viewBox="0 0 24 24"><path d="M4 18h5v-6h6V6h5"/><circle cx="4" cy="18" r="1.7"/><circle cx="20" cy="6" r="1.7"/></svg>',
+  dxf: '<svg viewBox="0 0 24 24"><path d="M4 20V8l6-4 10 6v10z"/><path d="M4 20h16M10 4v16"/><path d="M13.5 13h4M13.5 16h4"/></svg>',
   ruler: '<svg viewBox="0 0 24 24"><path d="M3.5 15.5l12-12 5 5-12 12z"/><path d="M7 12l2 2M9.5 9.5l1.5 1.5M12 7l2 2M14.5 4.5l1.5 1.5"/></svg>',
   move: '<svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/><path d="M9.5 5.5L12 3l2.5 2.5M9.5 18.5L12 21l2.5-2.5M5.5 9.5L3 12l2.5 2.5M18.5 9.5L21 12l-2.5 2.5"/></svg>',
   rotate: '<svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.9-6.2"/><path d="M20 3.5V8h-4.5"/></svg>',
@@ -322,6 +323,12 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('btn-svg').addEventListener('click', () => {
     const blob = new Blob([editor.exportSVG()], { type: 'image/svg+xml' });
     download(blob, (editor.meta.title || 'schema') + '.svg');
+  });
+  document.getElementById('btn-dxf').addEventListener('click', () => {
+    if (!editor.components.length && !editor.wires.length) { showToast('Rien à exporter : le plan est vide.'); return; }
+    const dxf = buildDXF(editor.components, editor.wires, SYMBOLS, { ...editor.meta, date: new Date().toISOString().slice(0, 10) });
+    download(new Blob([dxf], { type: 'application/dxf' }), (editor.meta.title || 'plan') + '.dxf');
+    showToast('Plan exporté en DXF (mètres, un calque par nature d’objet) : s’ouvre dans AutoCAD, LibreCAD, DraftSight, QCAD…', 4200);
   });
   document.getElementById('btn-print').addEventListener('click', () => editor.print());
 

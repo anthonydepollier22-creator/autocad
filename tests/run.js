@@ -13,7 +13,7 @@ const vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const sb = { Math, JSON, console, TextEncoder, TextDecoder, performance };
 vm.createContext(sb);
-for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'day', 'materials', 'svg', 'viz3d', 'gl3d', 'export3d', 'dossier']) {
+for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'day', 'materials', 'svg', 'dxf', 'viz3d', 'gl3d', 'export3d', 'dossier']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f + '.js'), 'utf8'), sb, { filename: f + '.js' });
 }
 const run = (code) => vm.runInContext(code, sb);
@@ -339,6 +339,27 @@ check('Chaque composant a un volume 3D', r.length === 0, r.join(', ') || undefin
 r = ex('maison', 'return buildSVG(d.components, d.wires, SYMBOLS, { title: "T2" });');
 check('Export SVG du plan : murs épais, sols, cotations, surfaces',
   r.startsWith('<?xml') && r.includes('stroke-width="9"') && r.includes('fill-opacity="0.14"') && r.includes('5,20 m'));
+// Export DXF (AutoCAD R12) : structure, calques, entités, unités
+r = run(`(function(){
+  var d = buildHouse('t3'), dxf = buildDXF(d.components, d.wires, SYMBOLS, { title: 'T3 à tester' });
+  var lines = dxf.split('\\r\\n'); if (lines[lines.length - 1] === '') lines.pop();
+  var codesOk = true, n = { POLYLINE: 0, VERTEX: 0, SEQEND: 0, TEXT: 0 }, layers = {}, maxX = -1e9, minX = 1e9;
+  for (var i = 0; i < lines.length; i += 2) {
+    if (!/^-?\\d+$/.test(lines[i].trim())) { codesOk = false; break; }
+    var code = +lines[i], v = lines[i + 1];
+    if (code === 0 && n[v] !== undefined) n[v]++;
+    if (code === 8) layers[v] = 1;
+    if (code === 10) { maxX = Math.max(maxX, +v); minX = Math.min(minX, +v); }
+  }
+  var walls = d.wires.filter(function(w){ return w.kind === 'wall'; }).length;
+  var murs = (dxf.match(/\\r\\n0\\r\\nPOLYLINE\\r\\n8\\r\\nMURS\\r\\n/g) || []).length;
+  // symboles : aucun n'échoue dans le contexte DXF
+  var bad = [];
+  SYMBOLS.__order.forEach(function(k){ try { buildDXF([{ id: 'x', type: k, x: 0, y: 0, rot: 30, value: 'haut' }], [], SYMBOLS, {}); } catch (e) { bad.push(k); } });
+  return [lines.length % 2 === 0, codesOk, dxf.indexOf('AC1009') > 0 && /EOF\\r\\n$/.test(dxf), n, Object.keys(layers).sort().join(','), murs === walls, walls, maxX - minX, dxf.indexOf('\\\\U+00E0') > 0, bad];
+})()`);
+check('Export DXF R12 : paires code/valeur, en-tête, calques, un mur = une polyligne épaisse', r[0] && r[1] && r[2] && r[3].POLYLINE === r[3].SEQEND && r[3].VERTEX > r[3].POLYLINE && r[3].TEXT > 20 && r[5], `${r[3].POLYLINE} polylignes, ${r[3].TEXT} textes, ${r[6]} murs`);
+check('Export DXF : en mètres (largeur 5 à 30 m), accents en \\U+, chaque symbole exportable', r[7] > 5 && r[7] < 30 && r[8] && r[9].length === 0, `${r[7].toFixed(1)} m · calques ${r[4]}`);
 // l'export SVG a son propre contexte de dessin : chaque symbole doit s'y dessiner
 r = run(`(function(){
   var bad = [];

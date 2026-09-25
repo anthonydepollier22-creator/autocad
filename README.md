@@ -380,6 +380,18 @@ Le paramètre `&sim=dc|trans|bode|logic` lance l'analyse au chargement.
 
 ![Bibliothèque d'exemples](docs/screenshot-exemples.png)
 
+### 📐 Export DXF (AutoCAD)
+
+Le bouton **DXF** exporte le plan au format d'échange d'AutoCAD (R12, ASCII) : il
+s'ouvre dans **AutoCAD, LibreCAD, DraftSight, QCAD, FreeCAD**… En **mètres** (Y vers le
+haut), avec **un calque par nature d'objet** — `MURS` (polylignes à l'épaisseur réelle :
+20 cm en façade, 10 cm en cloison), `MENUISERIES`, `MOBILIER`, `ELECTRICITE`,
+`GOULOTTES`, `FILS`, `PIECES` (nom et surface), `REPERES`, `COTES` et `CARTOUCHE` ; les
+accents passent en `\U+XXXX`. Les symboles sont dessinés par le même code que l'écran.
+Fichier vérifié avec la bibliothèque ezdxf (0 erreur).
+
+![Plan exporté en DXF, vu dans un lecteur DXF](docs/screenshot-dxf.png)
+
 ### 🛠️ Éditeur
 
 - **Plan de travail CAO** : grille avec magnétisme (snap), zoom à la molette, panoramique
@@ -509,6 +521,7 @@ python3 -m http.server 8000
 │   ├── gl3d.js        # Rendu WebGL2 : ombres, jour/nuit, lampes, vitrages, sélection
 │   ├── export3d.js    # Export du modèle 3D en glTF binaire (.glb)
 │   ├── svg.js         # Export vectoriel SVG
+│   ├── dxf.js         # Export DXF (AutoCAD R12), un calque par nature d'objet
 │   ├── editor.js      # Moteur CAO : vue, modèle, outils, historique, rendu
 │   ├── house-ui.js    # Nouvelle maison, onglet Tableau, contrôle de la vue 3D
 │   ├── ui.js          # Câblage de l'interface et opérations fichier
@@ -524,7 +537,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-116 vérifications sans dépendance : valeurs numériques de chaque simulation
+118 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
