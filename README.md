@@ -171,6 +171,11 @@ l'éditeur du tableau, **avec ou sans plan** :
   (éclairage, prises, cuisine, plaque 32 A / 6 mm², four, lave-linge, chauffe-eau,
   chauffage, VMC, borne IRVE 40 A / 10 mm², volets, PAC…), **+ Différentiel**,
   abonnement, coffret et **parafoudre** ;
+- **Monophasé ou triphasé** : en 400 V, disjoncteur de branchement 4P réglé à
+  kVA × 5/3 A par phase (6 à 36 kVA), ID 4P, chaque circuit sur L1, L2, L3 ou en
+  **3P+N** (borne 11 kW, plaque ou PAC triphasées, câble 5G…), phases **équilibrées**
+  automatiquement (modifiables), ΔU des départs triphasés sous 400 V
+  (√3·ρ·L·I / S), simulation par phase (la plus chargée fait déclencher l'AGCP) ;
 - **Déduit du plan** au départ : la première modification le fige en tableau
   **personnalisé** (les appareils du plan gardent leurs câbles et leurs longueurs ;
   ceux ajoutés ensuite sont signalés puis **répartis** en un clic), annulable avec
@@ -627,7 +632,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-146 vérifications sans dépendance : valeurs numériques de chaque simulation
+149 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
@@ -642,7 +647,7 @@ coupe, la course du soleil selon la saison, les interactions de l'éditeur 2D (f
 mur au double-clic, à `Entrée` ou en fermant le contour, mise à l'échelle du calque),
 **le tableau et l'unifilaire** (tableau personnalisé identique à l'automatique,
 contrôles NF, circuit sans différentiel en simulation, appareils ajoutés puis
-répartis, tableau sans plan, face avant, folios, DXF, métré), **l'éclairement** (formule du plafonnier, lumière confinée à sa pièce, appliques
+répartis, tableau sans plan, triphasé équilibré, face avant, folios, DXF, métré), **l'éclairement** (formule du plafonnier, lumière confinée à sa pièce, appliques
 jusqu'à l'objectif), les exports SVG et DXF et **l'import DXF** (aller-retour des 6 maisons, plans
 d'architecte produits par ezdxf, maison à étage, croquis en mètres, accents, arcs,
 blocs tournés). Le déploiement GitHub Pages **exécute ces tests d'abord** : une

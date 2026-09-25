@@ -989,6 +989,8 @@ body.light .day-sec { --dc7: #4a3aa7; }
 .bd-table select[data-cf="In"] { width: 62px; }
 .bd-table select[data-cf="S"] { width: 74px; }
 .bd-table select[data-cf="rcd"] { width: 56px; }
+.bd-table select[data-cf="phase"] { width: 62px; }
+.bd-table select.bd-auto { color: var(--muted); font-style: italic; }
 .bd-table th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding: 7px 6px; background: var(--surface-2); position: sticky; top: 0; }
 .bd-table td { padding: 4px 4px; border-top: 1px solid var(--border); vertical-align: middle; }
 .bd-table tr.bd-rcd td { background: var(--accent-soft); padding: 7px 8px; }

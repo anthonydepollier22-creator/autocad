@@ -836,6 +836,26 @@ check('Face avant : rangées de 13 modules au plus, 20 % de réserve au moins', 
 check('Folio unifilaire SVG : désignations verticales, cartouche ; grand tableau réparti sur plusieurs folios sans perte', r.svg && r.folios >= 2 && r.inFolios === r.nbig, `${r.nbig} circuits sur ${r.folios} folios`);
 check('Unifilaire DXF (mm, calques, textes à 90°) et matériel : parafoudre, contacteur HC, ID type F, coffret', r.dxf[1] && r.dxf[2] && r.dxf[3] > 10 && r.mat.every(Boolean), `${r.dxf[3]} textes verticaux`);
 
+// Triphasé : phases équilibrées, AGCP 4P, ΔU sous 400 V, simulation par phase
+r = run(`(function(){
+  var b = boardTemplate(180, { tri: true, ev: true }), d = designInstallation([], [], b);
+  var L = d.phaseLoad, v = [L.L1, L.L2, L.L3], spread = (Math.max.apply(null, v) - Math.min.apply(null, v)) / Math.max.apply(null, v);
+  var ev = d.circuits.find(function(c){ return c.appliance === 'ev_charger'; });
+  var expDU = Math.sqrt(3) * RHO_CU * ev.length * (ev.power / (Math.sqrt(3) * 400)) / ev.S / 400 * 100;
+  var errs = d.checks.filter(function(c){ return c.level === 'err'; }).map(function(c){ return c.msg; });
+  // simulation : la phase la plus chargée décide du déclenchement de l'AGCP
+  var sim = new InstallSim(); sim.setDesign(d); sim.step(0.1, [], []);
+  // un départ 3P+N sur une alimentation monophasée est refusé
+  var b1 = JSON.parse(JSON.stringify(b)); b1.supply.phases = 1; b1.supply.kva = null;
+  var d1 = designInstallation([], [], b1), bad = d1.checks.some(function(c){ return c.level === 'err' && /triphasé sur une alimentation monophasée/.test(c.msg); });
+  var svg = unifilarSVG(d, {}), mat = materialList([], [], d).lines.map(function(l){ return l.name; }).join('|');
+  return { kva: d.agcp.kva, setting: d.agcp.setting, poles: d.agcp.poles, spread: spread, evPhase: ev.phase, du: [ev.dUpct, expDU], errs: errs, sim: !!sim.snap && !!sim.snap.phases, bad: bad,
+    svg: svg.indexOf('3P+N') > 0 && /4P/.test(svg) && /5G6/.test(svg), mat: /4P 40 A/.test(mat) && mat.indexOf('3P+N 20 A') >= 0 && /5G6/.test(mat) };
+})()`);
+check('Triphasé : AGCP 4P réglé à kVA × 5/3, phases équilibrées (écart < 10 %), borne 11 kW en 3P+N', r.poles === 4 && r.setting === r.kva * 5 / 3 && r.spread < 0.1 && r.evPhase === '3P' && r.errs.length === 0, `${r.kva} kVA · ${r.setting} A · écart ${(r.spread * 100).toFixed(1)} %`);
+check('Triphasé : ΔU d’un départ 3P+N = √3·ρ·L·I / S sous 400 V ; 3P+N sur du monophasé refusé', near(r.du[0], r.du[1], 1e-9) && r.bad && r.sim, r.du[0].toFixed(2) + ' %');
+check('Triphasé : folio (barre 3P+N, 4P, câble 5G6) et métré (ID 4P, disjoncteurs 3P+N, 5G)', r.svg && r.mat);
+
 // ---------------------------------------------------------------------------
 group('Éclairement (lux)');
 r = run(`(function(){

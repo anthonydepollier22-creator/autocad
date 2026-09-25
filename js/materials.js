@@ -12,6 +12,7 @@ const MAT_PRICES = {
   rcd: { AC25: 42, AC40: 46, AC63: 62, A: 78, A63: 95, F: 135, B: 290 },
   breaker: { 2: 9, 6: 9, 10: 8, 16: 8, 20: 8.5, 25: 10, 32: 11.5, 40: 15, 50: 24, 63: 28 },
   surge: 69, contactor: 22, teleruptor: 18,
+  tri: { rcd: 2.6, breaker3P: 45, surge: 145 }, // triphasé : ID 4P (≈ 2,6 × le prix 2P), disjoncteurs 3P+N
   comb: 8.5,            // peigne d'alimentation, par rangée
   earthBar: 14,         // bornier de terre / répartiteur
   earthKit: 48,         // piquet de terre, câble 16 mm², barrette de coupure
@@ -50,13 +51,15 @@ function materialList(components, wires, design) {
       AC25: 'Interrupteur différentiel 25 A 30 mA type AC', AC40: 'Interrupteur différentiel 40 A 30 mA type AC', AC63: 'Interrupteur différentiel 63 A 30 mA type AC',
       A: 'Interrupteur différentiel 40 A 30 mA type A', A63: 'Interrupteur différentiel 63 A 30 mA type A', F: 'Interrupteur différentiel 40 A 30 mA type F', B: 'Interrupteur différentiel 40 A 30 mA type B',
     };
-    for (const k of ['AC25', 'AC40', 'AC63', 'A', 'A63', 'F', 'B']) add('Tableau', rcdName[k], rcdKind[k], 'u', P.rcd[k]);
-    const byIn = {};
-    for (const c of design.circuits) byIn[c.In] = (byIn[c.In] || 0) + 1;
+    const tri = design.supply && design.supply.phases === 3;
+    for (const k of ['AC25', 'AC40', 'AC63', 'A', 'A63', 'F', 'B']) add('Tableau', rcdName[k].replace('différentiel', tri ? 'différentiel 4P' : 'différentiel'), rcdKind[k], 'u', tri ? Math.round(P.rcd[k] * P.tri.rcd) : P.rcd[k]);
+    const byIn = {}, byIn3 = {};
+    for (const c of design.circuits) { const m = c.phase === '3P' ? byIn3 : byIn; m[c.In] = (m[c.In] || 0) + 1; }
     if (design.supply && design.supply.surge) {
-      add('Tableau', 'Parafoudre type 2 (monophasé)', 1, 'u', P.surge);
-      byIn[10] = (byIn[10] || 0) + 1; // son disjoncteur de déconnexion
+      add('Tableau', tri ? 'Parafoudre type 2 (triphasé)' : 'Parafoudre type 2 (monophasé)', 1, 'u', tri ? P.tri.surge : P.surge);
+      const m = tri ? byIn3 : byIn; m[10] = (m[10] || 0) + 1; // son disjoncteur de déconnexion
     }
+    for (const In of Object.keys(byIn3).map(Number).sort((a, b) => a - b)) add('Tableau', `Disjoncteur 3P+N ${In} A courbe C`, byIn3[In], 'u', P.tri.breaker3P);
     add('Tableau', 'Contacteur jour / nuit 20 A (heures creuses)', design.circuits.filter((c) => c.contactor).length, 'u', P.contactor);
     add('Tableau', 'Télérupteur 16 A', design.circuits.filter((c) => c.teleruptor).length, 'u', P.teleruptor);
     for (const In of Object.keys(byIn).map(Number).sort((a, b) => a - b)) {
@@ -68,9 +71,14 @@ function materialList(components, wires, design) {
 
     // --- Câbles et conduits : longueurs des circuits + 10 % de chutes --------
     const bySection = {};
-    for (const c of design.circuits) bySection[c.S] = (bySection[c.S] || 0) + c.length;
+    for (const c of design.circuits) if (c.phase !== '3P') bySection[c.S] = (bySection[c.S] || 0) + c.length;
     for (const S of Object.keys(bySection).map(Number).sort((a, b) => a - b)) {
       add('Câbles et conduits', `Gaine ICTA préfilée 3G${String(S).replace('.', ',')} mm²`, Math.ceil(bySection[S] * 1.1), 'm', P.cable[S] || 1.2, `${Math.round(bySection[S])} m mesurés + 10 %`);
+    }
+    const bySection5 = {};
+    for (const c of design.circuits) if (c.phase === '3P') bySection5[c.S] = (bySection5[c.S] || 0) + c.length;
+    for (const S of Object.keys(bySection5).map(Number).sort((a, b) => a - b)) {
+      add('Câbles et conduits', `Câble U1000 R2V 5G${String(S).replace('.', ',')} mm² (triphasé)`, Math.ceil(bySection5[S] * 1.1), 'm', (P.cable[S] || 1.2) * 1.6, `${Math.round(bySection5[S])} m mesurés + 10 %`);
     }
   }
   const conduitLen = wires.filter((w) => w.kind === 'conduit').reduce((s, w) => {

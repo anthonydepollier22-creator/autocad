@@ -47,7 +47,8 @@ function initBoardUI(app) {
     if (!d || !d.ok) { renderCreate(); renderPreview(null); return; }
     const custom = !!editor.meta.board;
     $('bd-sub').textContent = `${editor.meta.title || 'Installation'} — ${d.circuits.length} circuits, ${d.rcds.length} différentiels · ${custom ? 'tableau personnalisé' : 'tableau déduit du plan (automatique)'}`;
-    const kvaOpts = KVA_STEPS.map((k) => `<option value="${k}"${d.agcp.kva === k && custom && editor.meta.board.supply && +editor.meta.board.supply.kva === k ? ' selected' : ''}>${k} kVA</option>`).join('');
+    const tri = d.supply && d.supply.phases === 3;
+    const kvaOpts = (tri ? KVA_STEPS_TRI : KVA_STEPS).map((k) => `<option value="${k}"${d.agcp.kva === k && custom && editor.meta.board.supply && +editor.meta.board.supply.kva === k ? ' selected' : ''}>${k} kVA</option>`).join('');
     const rowsWant = custom && editor.meta.board.supply ? +editor.meta.board.supply.rows || 0 : 0;
     const M = boardModules(d);
     let h = '<div class="bd-mode">' +
@@ -56,23 +57,24 @@ function initBoardUI(app) {
       (d.orphans && d.orphans.length ? `<button type="button" class="btn-ghost" data-bact="distribute">Répartir ${d.orphans.length} appareil${d.orphans.length > 1 ? 's' : ''}</button>` : '') +
       (custom && d.panel ? '<button type="button" class="btn-ghost" data-bact="auto">Revenir à l’automatique</button>' : '') + '</div>';
     h += '<div class="bd-supply">' +
+      `<label>Réseau <select data-sf="phases"><option value="1"${tri ? '' : ' selected'}>Monophasé 230 V</option><option value="3"${tri ? ' selected' : ''}>Triphasé 400 V</option></select></label>` +
       `<label>Abonnement <select data-sf="kva"><option value="">auto (${d.agcp.auto || d.agcp.kva} kVA)</option>${kvaOpts}</select></label>` +
       `<label>Coffret <select data-sf="rows"><option value="">auto (${M.rowsCount} rangée${M.rowsCount > 1 ? 's' : ''})</option>${[1, 2, 3, 4, 5].map((n) => `<option value="${n}"${rowsWant === n ? ' selected' : ''}>${n} rangée${n > 1 ? 's' : ''} × 13</option>`).join('')}</select></label>` +
       (d.panel ? '' : `<label>Surface <input type="number" min="10" max="1000" step="1" data-sf="area" value="${Math.round(d.area || 0)}"> m²</label>`) +
       `<label class="check-row"><input type="checkbox" data-sf="surge"${d.supply && d.supply.surge ? ' checked' : ''}> Parafoudre</label>` +
-      `<span class="bd-agcp">AGCP ${d.agcp.setting} A · 500 mA</span></div>`;
+      `<span class="bd-agcp">AGCP ${tri ? '4P' : '2P'} ${d.agcp.setting} A · 500 mA${tri && d.phaseLoad ? ` · L1 ${num(d.phaseLoad.L1 / 1000, 1)} / L2 ${num(d.phaseLoad.L2 / 1000, 1)} / L3 ${num(d.phaseLoad.L3 / 1000, 1)} kW` : ''}</span></div>`;
     // Tableau des circuits, par différentiel
     const checks = d.checks || [];
     const flag = (ref) => { const l = checks.filter((c) => c.ref === ref && (c.level === 'err' || c.level === 'warn')); return l.length ? { cls: l.some((c) => c.level === 'err') ? 'err' : 'warn', tip: l.map((c) => c.msg).join('\n') } : null; };
     const opt = (list, v, fmt) => list.map((x) => `<option value="${x}"${+v === +x || v === x ? ' selected' : ''}>${fmt ? fmt(x) : x}</option>`).join('');
     const rcdOpts = (v) => `<option value=""${!v ? ' selected' : ''}>—</option>` + d.rcds.map((r) => `<option value="${esc(r.id)}"${r.id === v ? ' selected' : ''}>${esc(r.id)}</option>`).join('');
-    h += '<div class="bd-scroll"><table class="bd-table"><thead><tr><th>Repère</th><th>Désignation</th><th>Type</th><th>Calibre</th><th>Section</th><th>Charge</th><th>Long.</th><th>ID</th><th><span class="sr-only">Actions</span></th></tr></thead>';
+    h += '<div class="bd-scroll"><table class="bd-table"><thead><tr><th>Repère</th><th>Désignation</th><th>Type</th><th>Calibre</th><th>Section</th><th>Charge</th><th>Long.</th>' + (tri ? '<th>Ph.</th>' : '') + '<th>ID</th><th><span class="sr-only">Actions</span></th></tr></thead>';
     const groups = d.rcds.map((r) => ({ r, cs: d.circuits.filter((c) => c.rcd === r.id) }));
     const loose = d.circuits.filter((c) => !d.rcds.some((r) => r.id === c.rcd));
     if (loose.length) groups.push({ r: null, cs: loose });
     for (const g of groups) {
       const f = g.r && flag(g.r.id);
-      h += `<tbody data-rcd="${g.r ? esc(g.r.id) : ''}"><tr class="bd-rcd ${f ? f.cls : ''}"${f ? ` title="${esc(f.tip)}"` : ''}><td colspan="9">`;
+      h += `<tbody data-rcd="${g.r ? esc(g.r.id) : ''}"><tr class="bd-rcd ${f ? f.cls : ''}"${f ? ` title="${esc(f.tip)}"` : ''}><td colspan="${tri ? 10 : 9}">`;
       if (g.r) {
         h += `<b>${esc(g.r.id)}</b> Interrupteur différentiel <select data-rf="In" aria-label="Calibre">${opt(BOARD_RCD_IN, g.r.In, (x) => x + ' A')}</select> 30 mA type <select data-rf="type" aria-label="Type">${opt(BOARD_RCD_TYPES, g.r.type)}</select>` +
           `<span class="bd-count">${g.cs.length}/8 circuits</span>` + (g.cs.length ? '' : '<button type="button" class="bd-x" data-ract="del" title="Supprimer ce différentiel">Supprimer</button>');
@@ -91,6 +93,7 @@ function initBoardUI(app) {
           `<td><select data-cf="In" aria-label="Calibre">${opt(BOARD_IN, c.In, (x) => 'C' + x)}</select></td>` +
           `<td><select data-cf="S" aria-label="Section">${opt(BOARD_S, c.S, (x) => String(x).replace('.', ',') + ' mm²')}</select></td>` +
           `<td class="bd-load">${load}</td><td class="bd-load">${len}</td>` +
+          (tri ? `<td><select data-cf="phase" aria-label="Phase" class="${c.phaseAuto ? 'bd-auto' : ''}" title="${c.phaseAuto ? 'Phase choisie pour équilibrer' : 'Phase'}">${['L1', 'L2', 'L3', '3P'].map((p) => `<option value="${p}"${c.phase === p ? ' selected' : ''}>${p === '3P' ? '3P+N' : p}</option>`).join('')}</select></td>` : '') +
           `<td><select data-cf="rcd" aria-label="Différentiel">${rcdOpts(c.rcd)}</select></td>` +
           `<td class="bd-acts"><button type="button" data-cact="hc" aria-pressed="${c.contactor ? 'true' : 'false'}" title="Contacteur jour / nuit (heures creuses)">HC</button>` +
           `<button type="button" data-cact="tl" aria-pressed="${c.teleruptor ? 'true' : 'false'}" title="Télérupteur">TL</button>` +
@@ -122,6 +125,7 @@ function initBoardUI(app) {
       '<label class="check-row"><input type="checkbox" id="bd-heat" checked> Chauffage électrique</label>' +
       '<label class="check-row"><input type="checkbox" id="bd-cook" checked> Plaque de cuisson électrique</label>' +
       '<label class="check-row"><input type="checkbox" id="bd-ev"> Borne de recharge (IRVE)</label>' +
+      '<label class="check-row"><input type="checkbox" id="bd-tri"> Alimentation triphasée (400 V)</label>' +
       '<button type="button" class="btn-primary" data-bact="create">Créer le tableau</button></div>';
   }
 
@@ -173,6 +177,7 @@ function initBoardUI(app) {
         else if (f === 'kva') b.supply.kva = t.value ? +t.value : null;
         else if (f === 'rows') b.supply.rows = t.value ? +t.value : 0;
         else if (f === 'area') b.supply.area = Math.max(10, +t.value || 0);
+        else if (f === 'phases') { b.supply.phases = +t.value; b.supply.kva = null; if (+t.value === 1) b.circuits.forEach((c) => { if (c.phase === '3P') c.phase = null; }); }
       });
     }
   });
@@ -216,7 +221,7 @@ function initBoardUI(app) {
         editor.pushHistory(); houseUI.redesign(); render();
       } else if (a === 'implant') { houseUI.implant(); render(); }
       else if (a === 'create') {
-        editor.meta.board = boardTemplate(+$('bd-area').value || 80, { heating: $('bd-heat').checked, cooktop: $('bd-cook').checked, ev: $('bd-ev').checked });
+        editor.meta.board = boardTemplate(+$('bd-area').value || 80, { heating: $('bd-heat').checked, cooktop: $('bd-cook').checked, ev: $('bd-ev').checked, tri: $('bd-tri').checked });
         if (!editor.meta.title) editor.meta.title = 'Tableau électrique';
         editor.pushHistory(); houseUI.redesign(); render();
         showToast('Tableau créé : ajuste les circuits, le schéma unifilaire suit.', 3500);

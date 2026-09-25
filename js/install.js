@@ -33,6 +33,8 @@ const TAU_BREAKER = 120;     // s — constante de temps thermique d'un disjonct
 const TAU_AGCP = 90;         // s — disjoncteur de branchement
 const I_LEAK = 0.23;         // A — fuite à la terre d'un défaut franc sur une masse (230 V / ~1 kΩ)
 const KVA_STEPS = [3, 6, 9, 12, 15, 18];
+const KVA_STEPS_TRI = [6, 9, 12, 15, 18, 24, 30, 36]; // triphasé 400 V : AGCP réglé à kVA × 5/3 A par phase
+const U_TRI = 400;
 
 // Hauteur de pose (m) : sert aux remontées de câble depuis la goulotte en plinthe
 const MOUNT_H = {
@@ -261,7 +263,7 @@ function designInstallation(components, wires, board) {
   const design = {
     ok: false, circuits: [], rcds: [], agcp: null, issues: [], area: 0, byDevice: {}, plugs: {},
     installed: 0, probable: 0, cableTotal: 0, panel: null, custom: !!B, orphans: [],
-    supply: { phases: 1, surge: !!(B && B.supply && B.supply.surge), kva: null, rows: (B && B.supply && +B.supply.rows) || 0 },
+    supply: { phases: B && B.supply && +B.supply.phases === 3 ? 3 : 1, surge: !!(B && B.supply && B.supply.surge), kva: null, rows: (B && B.supply && +B.supply.rows) || 0 },
   };
   const tb = components.find((c) => c.type === 'panel_house');
   if (!tb && !B) { design.issues.push({ level: 'err', msg: 'Aucun tableau électrique : place-le (ou lance l’implantation automatique).' }); return design; }
@@ -355,6 +357,7 @@ function designInstallation(components, wires, board) {
         rooms: list.length ? roomsLabel(list) : bc.rooms || '', points: list.length ? pts : Math.max(0, +bc.points || 0),
         manual: !list.length, lengthIn: +bc.length || 0, Pin: +bc.P || 0, appliance: bc.appliance || null,
         typeA: !!bc.typeA, typeF: !!bc.typeF, contactor: bc.contactor || null, teleruptor: !!bc.teleruptor, rcd: bc.rcd || null,
+        phase: ['L1', 'L2', 'L3', '3P'].includes(bc.phase) ? bc.phase : null,
       });
     }
     design.orphans = devs.filter((c) => !taken.has(c.id) && !SWITCHES_PLAN.has(c.type)).map((c) => c.id);
@@ -462,6 +465,28 @@ function designInstallation(components, wires, board) {
     if (!ct.ok) design.issues.push({ level: 'warn', msg: `${ct.id} ${ct.name} : chute de tension ${ct.dUpct.toFixed(1).replace('.', ',')} % > ${ct.limit} % — augmenter la section ou scinder le circuit.` });
   }
 
+  // Triphasé : phase de chaque circuit (équilibrage des puissances pour ceux qui n'en ont pas),
+  // chute de tension des départs 3P+N sous 400 V : ΔU = √3·ρ·L·I / S
+  if (design.supply.phases === 3) {
+    const load = { L1: 0, L2: 0, L3: 0 };
+    for (const ct of circuits) {
+      if (ct.phase === '3P') { for (const k in load) load[k] += ct.power / 3; }
+      else if (ct.phase) load[ct.phase] += ct.power;
+    }
+    for (const ct of circuits.filter((c) => !c.phase).sort((a, b) => b.power - a.power)) {
+      const k = Object.keys(load).sort((a, b) => load[a] - load[b])[0];
+      ct.phase = k; ct.phaseAuto = true; load[k] += ct.power;
+    }
+    design.phaseLoad = load;
+    for (const ct of circuits) {
+      if (ct.phase !== '3P') continue;
+      const I = ct.kind === 'socket' ? ct.In : ct.power / (Math.sqrt(3) * U_TRI);
+      ct.dU = (Math.sqrt(3) * RHO_CU * (ct.far || ct.length) * I) / ct.S;
+      ct.dUpct = (ct.dU / U_TRI) * 100;
+      ct.ok = ct.dUpct <= ct.limit;
+    }
+  }
+
   if (B) {
     // Différentiels du tableau personnalisé ; un circuit sans différentiel reste signalé
     for (const r of B.rcds || []) design.rcds.push({ id: String(r.id), In: +r.In || 40, type: r.type || 'AC', sens: +r.sens || 30, circuits: [] });
@@ -507,11 +532,14 @@ function designInstallation(components, wires, board) {
   design.probable = 0.65 * sum((c) => c.kind === 'heating') + 0.5 * sum((c) => c.appliance === 'water_heater')
     + 0.3 * cook + 0.2 * laundry + 0.3 * sum((c) => c.appliance === 'ev_charger')
     + 0.5 * sum((c) => c.kind === 'light') + 800;
-  const kvaAuto = KVA_STEPS.find((k) => k * 1000 >= design.probable) || 18;
-  const kva = B && B.supply && KVA_STEPS.includes(+B.supply.kva) ? +B.supply.kva : kvaAuto;
-  design.agcp = { In: kva * 5, kva, setting: kva * 5, auto: kvaAuto };
+  const tri = design.supply.phases === 3, steps = tri ? KVA_STEPS_TRI : KVA_STEPS;
+  const kvaAuto = steps.find((k) => k * 1000 >= design.probable) || steps[steps.length - 1];
+  const kva = B && B.supply && steps.includes(+B.supply.kva) ? +B.supply.kva : kvaAuto;
+  const setting = tri ? (kva * 5) / 3 : kva * 5; // intensité de réglage par phase
+  design.agcp = { In: setting, kva, setting, auto: kvaAuto, poles: tri ? 4 : 2 };
   design.supply.kva = kva;
-  if (design.probable > 18000) design.issues.push({ level: 'warn', msg: 'Puissance probable > 18 kVA : prévoir un branchement triphasé.' });
+  if (!tri && design.probable > 18000) design.issues.push({ level: 'warn', msg: 'Puissance probable > 18 kVA : prévoir un branchement triphasé.' });
+  if (tri && design.probable > 36000) design.issues.push({ level: 'warn', msg: 'Puissance probable > 36 kVA : branchement tarif jaune (au-delà du tarif bleu).' });
 
   // Section / protection : garde-fous
   for (const ct of circuits) {
@@ -625,6 +653,7 @@ class InstallSim {
     // Courants et tensions par circuit (charges résistives : P ∝ U²)
     const circ = [], dev = {};
     let Itot = 0, Ptot = 0;
+    const Iph = { L1: 0, L2: 0, L3: 0 }; // triphasé : la phase la plus chargée fait déclencher l'AGCP
     for (const ct of d.circuits) {
       const on = live(ct);
       let I = 0, P = 0, Umin = U_NOM;
@@ -684,11 +713,15 @@ class InstallSim {
         this.log(`Surcharge sur ${ct.id} ${ct.name} : ${I.toFixed(1).replace('.', ',')} A pour ${ct.In} A → déclenchement thermique.`, 'warn');
       }
       circ.push({ id: ct.id, I: live(ct) ? I : 0, P: live(ct) ? P : 0, Umin, heat: b.heat, live: live(ct) });
-      if (live(ct)) { Itot += I; Ptot += P; }
+      if (live(ct)) {
+        Itot += I; Ptot += P;
+        if (ct.phase === '3P') { for (const k in Iph) Iph[k] += I / 3; } else Iph[ct.phase || 'L1'] += I;
+      }
     }
 
     // Disjoncteur de branchement : dépassement de la puissance souscrite
-    const tA = (Itot / d.agcp.setting) ** 2;
+    const Ibr = d.supply && d.supply.phases === 3 ? Math.max(Iph.L1, Iph.L2, Iph.L3) : Itot;
+    const tA = (Ibr / d.agcp.setting) ** 2;
     a.heat = tA + (a.heat - tA) * Math.exp(-dts / TAU_AGCP);
     if (a.closed && a.heat >= THERMAL_TRIP) {
       a.closed = false; a.tripped = true;
@@ -698,7 +731,7 @@ class InstallSim {
     this.energy += (Ptot * dts) / 3600;
     const lit = new Set();
     for (const id in dev) if (dev[id].on && LOADS[comp[id] && comp[id].type] && LOADS[comp[id].type].cls === 'light') lit.add(id);
-    this.snap = { t: this.t, P: Ptot, I: Itot, circuits: circ, devices: dev, lit, energy: this.energy, cost: (this.energy / 1000) * TARIF_KWH, agcpLoad: Itot / d.agcp.setting };
+    this.snap = { t: this.t, P: Ptot, I: Itot, circuits: circ, devices: dev, lit, energy: this.energy, cost: (this.energy / 1000) * TARIF_KWH, agcpLoad: Ibr / d.agcp.setting, phases: Iph };
     return this.snap;
   }
 }

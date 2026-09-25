@@ -35,6 +35,9 @@ const BOARD_PRESETS = [
   { key: 'heating', name: 'Chauffage', kind: 'heating', In: 20, S: 2.5, points: 3, P: 3000 },
   { key: 'vmc', name: 'VMC', kind: 'dedicated', appliance: 'vmc', In: 2, S: 1.5, points: 1, P: 35 },
   { key: 'ev', name: 'Borne de recharge (IRVE)', kind: 'dedicated', appliance: 'ev_charger', In: 40, S: 10, points: 1, P: 7400, typeF: true },
+  { key: 'ev_tri', name: 'Borne de recharge 11 kW (tri)', kind: 'dedicated', appliance: 'ev_charger', In: 20, S: 6, points: 1, P: 11000, typeF: true, phase: '3P', tri: true },
+  { key: 'cooktop_tri', name: 'Plaque de cuisson (tri)', kind: 'dedicated', appliance: 'cooktop', In: 20, S: 2.5, points: 1, P: 7200, typeA: true, phase: '3P', tri: true },
+  { key: 'hvac_tri', name: 'Pompe à chaleur (tri)', kind: 'dedicated', In: 16, S: 2.5, points: 1, P: 6000, phase: '3P', tri: true },
   { key: 'shutters', name: 'Volets roulants', kind: 'other', In: 16, S: 1.5, points: 4, P: 600 },
   { key: 'freezer', name: 'Congélateur', kind: 'dedicated', In: 20, S: 2.5, points: 1, P: 200 },
   { key: 'hvac', name: 'Pompe à chaleur / climatisation', kind: 'dedicated', In: 20, S: 2.5, points: 1, P: 2500 },
@@ -63,8 +66,8 @@ function _bFitLines(t, width, size, minSize) {
   return { lines: [String(t).slice(0, n), String(t).slice(n, 2 * n)].filter(Boolean), size: minSize || 1.5 };
 }
 
-// Câble U1000 R2V : « 3G2,5 » (phase, neutre, terre)
-function boardCable(S) { return '3G' + _bS(S); }
+// Câble U1000 R2V : « 3G2,5 » (phase, neutre, terre) ; départ triphasé : « 5G6 » (3 phases, neutre, terre)
+function boardCable(S, phase) { return (phase === '3P' ? '5G' : '3G') + _bS(S); }
 
 // ---------------------------------------------------------------------------
 // Tableau personnalisé ← conception automatique (copie modifiable)
@@ -72,22 +75,23 @@ function boardCable(S) { return '3G' + _bS(S); }
 function boardFromDesign(design) {
   return {
     v: 1,
-    supply: { kva: design.agcp ? design.agcp.kva : 9, phases: 1, surge: !!(design.supply && design.supply.surge), area: Math.round(design.area || 0) },
+    supply: { kva: design.agcp ? design.agcp.kva : 9, phases: (design.supply && design.supply.phases) || 1, surge: !!(design.supply && design.supply.surge), area: Math.round(design.area || 0) },
     rcds: design.rcds.map((r) => ({ id: r.id, In: r.In, type: r.type, sens: r.sens || 30 })),
     circuits: design.circuits.map((c) => ({
       id: c.id, name: c.name, kind: c.kind, In: c.In, S: c.S, curve: c.curve || 'C', rcd: c.rcd,
       devices: (c.devices || []).slice(), points: c.points, length: Math.round((c.length || 0) * 10) / 10,
       P: Math.round(c.power || 0), appliance: c.appliance || null, typeA: !!c.typeA, typeF: !!c.typeF,
       contactor: c.contactor || (c.appliance === 'water_heater' ? 'hc' : null), teleruptor: !!c.teleruptor,
+      phase: c.phaseAuto ? null : c.phase || null,
     })),
   };
 }
 
 // Tableau sans plan : circuits usuels d'un logement de la surface donnée
 function boardTemplate(area, opts) {
-  opts = Object.assign({ heating: true, cooktop: true, ev: false }, opts || {});
+  opts = Object.assign({ heating: true, cooktop: true, ev: false, tri: false }, opts || {});
   const A = Math.max(10, +area || 60);
-  const b = { v: 1, supply: { kva: null, phases: 1, surge: false, area: A }, rcds: [], circuits: [] }; // abonnement : d'après la puissance probable
+  const b = { v: 1, supply: { kva: null, phases: opts.tri ? 3 : 1, surge: false, area: A }, rcds: [], circuits: [] }; // abonnement : d'après la puissance probable
   const nAC = A <= 35 ? 1 : A <= 100 ? 2 : 3;
   for (let i = 0; i < nAC; i++) b.rcds.push({ id: 'ID' + (i + 1), In: A <= 35 ? 25 : 40, type: 'AC', sens: 30 });
   b.rcds.push({ id: 'ID' + (nAC + 1), In: 40, type: 'A', sens: 30 });
@@ -96,10 +100,10 @@ function boardTemplate(area, opts) {
   for (let i = 0; i < lights; i++) add('light', { name: 'Éclairage' + (lights > 1 ? ' ' + (i + 1) : '') });
   for (let i = 0; i < sockets; i++) add('socket', { name: 'Prises' + (sockets > 1 ? ' ' + (i + 1) : '') });
   add('kitchen');
-  if (opts.cooktop) add('cooktop');
+  if (opts.cooktop) add(opts.tri ? 'cooktop_tri' : 'cooktop');
   add('oven'); add('washer'); add('dishwasher'); add('water_heater'); add('vmc');
   if (opts.heating) { const n = Math.max(1, Math.ceil((A * 80) / 4500)); for (let i = 0; i < n; i++) add('heating', { name: 'Chauffage' + (n > 1 ? ' ' + (i + 1) : ''), P: Math.round((A * 80) / n / 250) * 250 }); }
-  if (opts.ev) add('ev');
+  if (opts.ev) add(opts.tri ? 'ev_tri' : 'ev');
   return b;
 }
 
@@ -116,7 +120,8 @@ function boardAddCircuit(board, key, over) {
   const c = {
     id: boardNextId(board, 'C'), name: pr.name, kind: pr.kind, In: pr.In, S: pr.S, curve: 'C', rcd: null,
     devices: [], points: pr.points || 1, length: 15, P: pr.P || 0, appliance: pr.appliance || null,
-    typeA: !!pr.typeA, typeF: !!pr.typeF, contactor: pr.contactor || null, teleruptor: false, ...(over || {}),
+    typeA: !!pr.typeA, typeF: !!pr.typeF, contactor: pr.contactor || null, teleruptor: false,
+    phase: pr.phase && +(board.supply && board.supply.phases) === 3 ? pr.phase : null, ...(over || {}),
   };
   c.rcd = c.rcd || boardPickRcd(board, c);
   board.circuits.push(c);
@@ -193,7 +198,8 @@ function checkBoard(design) {
       if (c.S < 2.5 && c.In > 16) push('err', `${c.id} : prises en 1,5 mm² protégées à 16 A au plus.`, c.id);
     }
     if (c.kind === 'heating' && c.power > (c.S >= 2.5 ? 4500 : 3500)) push('err', `${c.id} ${c.name} : ${_bNum(c.power)} W de chauffage — ${c.S >= 2.5 ? '4 500' : '3 500'} W au plus en ${_bS(c.S)} mm².`, c.id);
-    if (c.appliance === 'cooktop' && (c.In < 32 || c.S < 6)) push('err', `${c.id} Plaque de cuisson : 32 A et 6 mm² en monophasé.`, c.id);
+    if (c.appliance === 'cooktop' && c.phase !== '3P' && (c.In < 32 || c.S < 6)) push('err', `${c.id} Plaque de cuisson : 32 A et 6 mm² en monophasé.`, c.id);
+    if (c.appliance === 'cooktop' && c.phase === '3P' && (c.In < 16 || c.S < 2.5)) push('err', `${c.id} Plaque de cuisson triphasée : 20 A et 2,5 mm² (5G2,5).`, c.id);
     if (['oven', 'washer', 'dishwasher', 'dryer', 'water_heater'].includes(c.appliance) && (c.In < 16 || c.S < 2.5)) push('err', `${c.id} ${c.name} : circuit spécialisé 20 A en 2,5 mm².`, c.id);
     const rc = rcds.find((r) => r.id === c.rcd);
     if (rc && c.typeA && !['A', 'F', 'B'].includes(rc.type)) push('err', `${c.id} ${c.name} : sous ${rc.id} type ${rc.type} — il faut un différentiel type A (ou F).`, c.id);
@@ -215,6 +221,13 @@ function checkBoard(design) {
   const nAC = rcds.filter((r) => r.type === 'AC' && byR(r).length).length, nA = rcds.filter((r) => r.type !== 'AC' && byR(r).length).length;
   if (A && nAC + nA < needAC + 1) push('warn', `${Math.round(A)} m² : ${needAC + 1} interrupteurs différentiels au moins (${needAC} type AC + 1 type A).`);
   if (cs.some((c) => c.typeA) && !rcds.some((r) => ['A', 'F', 'B'].includes(r.type))) push('err', 'Plaque de cuisson ou lave-linge : un différentiel type A est obligatoire.');
+  // Triphasé : départs 3P+N sur un réseau monophasé, déséquilibre des phases
+  const tri = design.supply && design.supply.phases === 3;
+  for (const c of cs) if (!tri && c.phase === '3P') push('err', `${c.id} ${c.name} : départ triphasé sur une alimentation monophasée.`, c.id);
+  if (tri && design.phaseLoad) {
+    const L = design.phaseLoad, v = [L.L1, L.L2, L.L3], mx = Math.max(...v), mn = Math.min(...v);
+    if (mx > 3000 && mx - mn > 0.3 * mx) push('warn', `Phases déséquilibrées : L1 ${_bNum(L.L1 / 1000, 1)} kW, L2 ${_bNum(L.L2 / 1000, 1)} kW, L3 ${_bNum(L.L3 / 1000, 1)} kW — répartir les gros circuits.`);
+  }
   // Abonnement
   if (design.agcp && design.probable > design.agcp.kva * 1000) push('warn', `Puissance probable ${_bNum(design.probable / 1000, 1)} kW > abonnement ${design.agcp.kva} kVA : le disjoncteur de branchement risque de couper.`);
   // Réserve et options
@@ -232,8 +245,9 @@ const BOARD_ROW = 13;
 function boardModules(design) {
   const items = [];
   if (design.supply && design.supply.surge) {
-    items.push({ kind: 'breaker', w: 1, ref: 'QF', text: 'Disj. parafoudre', In: 10 });
-    items.push({ kind: 'surge', w: 2, ref: 'PF', text: 'Parafoudre' });
+    const tri = design.supply.phases === 3;
+    items.push({ kind: 'breaker', w: tri ? 4 : 1, ref: 'QF', text: 'Disj. parafoudre', In: 10 });
+    items.push({ kind: 'surge', w: tri ? 4 : 2, ref: 'PF', text: 'Parafoudre' });
   }
   const groups = design.rcds.map((r) => ({ r, cs: design.circuits.filter((c) => c.rcd === r.id) })).filter((g) => g.cs.length);
   const loose = design.circuits.filter((c) => !design.rcds.some((r) => r.id === c.rcd));
@@ -245,9 +259,10 @@ function boardModules(design) {
   for (const it of items) put(it);
   for (const g of groups) {
     const mods = [];
-    if (g.r) mods.push({ kind: 'rcd', w: 2, ref: g.r.id, text: `${g.r.In} A ${g.r.type}`, rcd: g.r });
+    const tri = design.supply && design.supply.phases === 3;
+    if (g.r) mods.push({ kind: 'rcd', w: tri ? 4 : 2, ref: g.r.id, text: `${g.r.In} A ${g.r.type}${tri ? ' 4P' : ''}`, rcd: g.r });
     for (const c of g.cs) {
-      mods.push({ kind: 'breaker', w: 1, ref: c.id, text: c.name, In: c.In, ct: c });
+      mods.push({ kind: 'breaker', w: c.phase === '3P' ? 4 : 1, ref: c.id, text: c.name, In: c.In, ct: c, phase: tri ? c.phase : null });
       if (c.contactor) mods.push({ kind: 'contactor', w: 1, ref: 'KM' + c.id.replace(/^C/, ''), text: c.contactor === 'hc' ? 'Contacteur HC' : 'Contacteur', ct: c });
       if (c.teleruptor) mods.push({ kind: 'teleruptor', w: 1, ref: 'KL' + c.id.replace(/^C/, ''), text: 'Télérupteur', ct: c });
     }
@@ -267,7 +282,7 @@ function boardModules(design) {
 // ---------------------------------------------------------------------------
 // Folio unifilaire (A3 paysage, unités : point, 1 pt = 0,353 mm)
 // ---------------------------------------------------------------------------
-const UNI = { W: 1190, H: 842, colW: 34, gap: 14, bus: 232, sub: 356, text: 648, table: 656, row: 13.5 };
+const UNI = { W: 1190, H: 842, colW: 34, gap: 14, bus: 232, sub: 356, text: 646, table: 652, row: 12.8 };
 
 // Groupes « différentiel + circuits », répartis sur un ou plusieurs folios
 function unifilarLayout(design) {
@@ -357,7 +372,8 @@ function drawUnifilar(ctx, design, meta, folio) {
   text('Schéma unifilaire du tableau de répartition', 26, cy + 42, { size: 9.5 });
   text('Dessiné avec ÉlectriCAD', 26, cy + 55, { size: 7.5, color: mute });
   const d0 = design.agcp;
-  text(`Monophasé 230 V ~ · abonnement ${d0.kva} kVA`, 440, cy + 22, { size: 9 });
+  const tri = design.supply && design.supply.phases === 3;
+  text(`${tri ? 'Triphasé 400 V ~ (3P+N)' : 'Monophasé 230 V ~'} · abonnement ${d0.kva} kVA`, 440, cy + 22, { size: 9 });
   text(`AGCP ${d0.setting} A 500 mA · ${design.rcds.length} ID 30 mA · ${design.circuits.length} circuits`, 440, cy + 37, { size: 9 });
   text(`${_bNum(design.cableTotal)} m de câble · puissance probable ${f1(design.probable / 1000)} kW`, 440, cy + 52, { size: 8, color: mute });
   const date = (meta && meta.date) || new Date().toISOString().slice(0, 10);
@@ -385,7 +401,7 @@ function drawUnifilar(ctx, design, meta, folio) {
   layer('UNIFILAIRE');
   const sx = 70;
   if (k === 0) {
-    text('Réseau public', sx, 34, { align: 'center', size: 8, color: mute }); text('230 V ~ 50 Hz', sx, 44, { align: 'center', size: 8, color: mute });
+    text('Réseau public', sx, 34, { align: 'center', size: 8, color: mute }); text(tri ? '3 × 400 V ~ 50 Hz' : '230 V ~ 50 Hz', sx, 44, { align: 'center', size: 8, color: mute });
     _uLine(ctx, sx, 50, sx, 68, 2);
     ctx.lineWidth = 1.4; ctx.strokeRect(sx - 17, 68, 34, 24);
     text('kWh', sx, 84, { align: 'center', size: 8.5, bold: true });
@@ -393,7 +409,7 @@ function drawUnifilar(ctx, design, meta, folio) {
     _uLine(ctx, sx, 92, sx, 112, 2);
     _uBreaker(ctx, sx, 112, 56); _uTorus(ctx, sx, 112 + 44, 112 + 32);
     text('AGCP', sx + 24, 128, { bold: true, size: 9 });
-    text(`2P ${d0.setting} A`, sx + 24, 139, { size: 8 }); text('500 mA sélectif', sx + 24, 149, { size: 8 });
+    text(`${tri ? '4P' : '2P'} ${d0.setting} A`, sx + 24, 139, { size: 8 }); text('500 mA sélectif', sx + 24, 149, { size: 8 });
     text(`${d0.kva} kVA`, sx + 24, 159, { size: 8, color: mute });
     _uLine(ctx, sx, 168, sx, bus, 2);
     // Parafoudre (tête de tableau) et terre
@@ -422,6 +438,10 @@ function drawUnifilar(ctx, design, meta, folio) {
   // Barre principale (jeu de barres / peigne)
   const busX0 = k === 0 ? sx : 30;
   _uLine(ctx, busX0, bus, F.xEnd + 10, bus, 2.4);
+  if (tri) { // barre 3P+N : quatre traits obliques
+    for (let i = 0; i < 4; i++) _uLine(ctx, busX0 + 40 + i * 5, bus + 5, busX0 + 46 + i * 5, bus - 5, 1);
+    layer('TEXTES'); text('3P+N', busX0 + 34, bus - 9, { size: 7.5, color: mute }); layer('UNIFILAIRE');
+  }
   if (k < nF - 1) { text(`Suite folio ${k + 2} →`, F.xEnd + 14, bus + 4, { size: 8, color: mute }); }
 
   // Différentiels et départs
@@ -437,7 +457,7 @@ function drawUnifilar(ctx, design, meta, folio) {
       layer('TEXTES');
       const tx = xc + 17;
       text(g.r.id + (g.cont ? ' (suite)' : ''), tx, bus + 34, { bold: true, size: 9, color: blue });
-      text(`${g.r.In} A`, tx, bus + 45, { size: 8 }); text(`${g.r.sens || 30} mA`, tx, bus + 55, { size: 8 });
+      text(`${g.r.In} A${tri ? ' 4P' : ''}`, tx, bus + 45, { size: 8 }); text(`${g.r.sens || 30} mA`, tx, bus + 55, { size: 8 });
       text(`type ${g.r.type}`, tx, bus + 65, { size: 8 });
     } else {
       layer('TEXTES');
@@ -455,13 +475,15 @@ function drawUnifilar(ctx, design, meta, folio) {
       _uBreaker(ctx, x, sub + 14, 50);
       layer('TEXTES');
       text(`${c.curve || 'C'}${c.In}`, x + 4, sub + 34, { size: 7.5, bold: true });
+      if (tri && c.phase) text(c.phase === '3P' ? '3P+N' : c.phase, x + 4, sub + 44, { size: 7, color: c.phase === '3P' ? ink : mute });
       layer('UNIFILAIRE');
       let y = sub + 64;
       if (c.contactor || c.teleruptor) { _uContactor(ctx, x, y + 4, 38, c.contactor ? (c.contactor === 'hc' ? 'HC' : 'KM') : 'TL'); _uLine(ctx, x, y, x, y + 4, 1.3); y += 42; }
       else { _uLine(ctx, x, y, x, y + 42, 1.3); y += 42; }
       _uLine(ctx, x, y, x, y + 10, 1.3); _uArrow(ctx, x, y + 10);
+      if (c.phase === '3P') for (let i = 0; i < 4; i++) _uLine(ctx, x - 5, y - 26 + i * 4, x + 5, y - 30 + i * 4, 0.9); // 3 phases + neutre
       layer('TEXTES');
-      const detail = `${boardCable(c.S)} · ${f1(c.length)} m` + (c.rooms ? ' · ' + c.rooms : '');
+      const detail = `${boardCable(c.S, c.phase)} · ${f1(c.length)} m` + (c.rooms ? ' · ' + c.rooms : '');
       text(fit(c.name, 30), x - 2, UNI.text, { rot: -Math.PI / 2, bold: true, size: 8.5 });
       text(fit(detail, 40), x + 8, UNI.text, { rot: -Math.PI / 2, size: 7, color: mute });
     });
@@ -469,9 +491,10 @@ function drawUnifilar(ctx, design, meta, folio) {
 
   // Nomenclature des départs
   layer('CARTOUCHE');
-  const rowsT = [['Repère', (c) => c.id], ['Protection', (c) => `${c.curve || 'C'}${c.In} A`], ['Différentiel', (c) => c.rcd || '—'], ['Câble', (c) => boardCable(c.S)],
+  const rowsT = [['Repère', (c) => c.id], ['Protection', (c) => `${c.curve || 'C'}${c.In} A`], ['Différentiel', (c) => c.rcd || '—'], ['Câble', (c) => boardCable(c.S, c.phase)],
     ['Longueur', (c) => f1(c.length) + ' m'], ['Charge', (c) => (c.kind === 'light' ? c.points + ' pts' : c.kind === 'socket' ? c.points + ' PC' : c.power >= 1000 ? f1(c.power / 1000) + ' kW' : Math.round(c.power) + ' W')],
     ['ΔU', (c) => f1(c.dUpct) + ' %']];
+  if (tri) rowsT.splice(3, 0, ['Phase', (c) => (c.phase === '3P' ? '3P+N' : c.phase || '—')]);
   const t0 = UNI.table, rh = UNI.row, tx0 = 22, tx1 = F.xEnd + colW / 2;
   ctx.lineWidth = 0.8;
   for (let r = 0; r <= rowsT.length; r++) _uLine(ctx, tx0, t0 + r * rh, tx1, t0 + r * rh, r === 0 || r === rowsT.length ? 1.1 : 0.6);
@@ -564,7 +587,7 @@ function drawBoardFront(ctx, design, meta) {
       // manette
       box(x + w / 2 - 2.6 + 0.4, y + 14, 5.2, 12, m.kind === 'rcd' ? blue : '#2b3342', null, 0.2);
       text(m.ref, x + w / 2 + 0.4, y + 6.5, { size: 3, bold: true, color: m.kind === 'rcd' ? blue : ink });
-      const sub = m.kind === 'breaker' ? `C${m.In}` : m.kind === 'rcd' ? m.text : m.kind === 'surge' ? 'Type 2' : m.kind === 'contactor' ? 'HC' : 'TL';
+      const sub = m.kind === 'breaker' ? `C${m.In}${m.phase ? ' · ' + (m.phase === '3P' ? '3P+N' : m.phase) : ''}` : m.kind === 'rcd' ? m.text : m.kind === 'surge' ? 'Type 2' : m.kind === 'contactor' ? 'HC' : 'TL';
       text(sub, x + w / 2 + 0.4, y + 34, { size: 2.8 });
       if (m.kind === 'rcd') { ctx.beginPath(); ctx.arc(x + w - 4, y + 38.5, 1.6, 0, Math.PI * 2); ctx.strokeStyle = ink; ctx.lineWidth = 0.3; ctx.stroke(); text('T', x + w - 4, y + 39.5, { size: 2 }); }
       // étiquette sous l'appareil
