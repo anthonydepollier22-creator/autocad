@@ -256,7 +256,8 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   séjour, allée jusqu'à la porte d'entrée, entrée de garage, haie et arbres autour du
   terrain, **éclairage extérieur crépusculaire** (applique près de la porte, bornes le
   long de l'allée, qui s'allument à la tombée de la nuit) — les lampes n'éclairent
-  jamais le dessous du toit ;
+  jamais le dessous du toit — et, le soir, **les fenêtres des pièces allumées
+  rayonnent** d'une lumière chaude vue du dehors ;
 - **Soleil** (en vue Extérieur) : la course du soleil d'hiver puis d'été se dessine en
   arc au-dessus de la maison (une perle par heure, midi solaire marqué, le soleil à
   l'heure du curseur), et la lumière suit la vraie position du soleil de la saison —
@@ -514,7 +515,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-109 vérifications sans dépendance : valeurs numériques de chaque simulation
+110 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

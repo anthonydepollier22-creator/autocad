@@ -761,9 +761,12 @@ const BUILDERS3D = {
     _lb(v, c, 0, 0, 3, 6, bot, top - bot, '#f7f7f5');            // meneau
     _lb(v, c, 0, 0, 80, 7, bot, 4, '#f7f7f5');
     if (top === 215) _lb(v, c, 0, 0, 80, 7, top - 4, 4, '#f7f7f5');
-    const a0 = v.alpha; v.alpha = 0.28;
-    _lb(v, c, 0, 0, 74, 1.5, bot + 4, top - bot - 8, '#bcd9ee');
-    v.alpha = a0;
+    // vitrage ; pièce éclairée derrière : il rayonne d'une lumière chaude (vu du dehors)
+    const a0 = v.alpha, e0 = v.em;
+    v.alpha = c.__glow ? 0.62 : 0.28;
+    if (c.__glow) v.em = 0.7;
+    _lb(v, c, 0, 0, 74, 1.5, bot + 4, top - bot - 8, c.__glow ? '#ffb45e' : '#bcd9ee');
+    v.alpha = a0; v.em = e0;
   },
   room: () => {}, // l'étiquette n'a pas de volume : la pièce se voit à son sol
 
@@ -1184,6 +1187,17 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
       const sock = design && design.plugs[c.id];
       c.__on = !!(sock && snap.devices[sock] && snap.devices[sock].U > 0);
     }
+  }
+
+  // Fenêtres des pièces éclairées : vitrage lumineux vu de l'extérieur (pas en visite)
+  const litRooms = new Set();
+  if (info && !opts.ceiling) for (const c of components) if (c.__lit) { const r = roomAt(info, c.x, c.y); if (r >= 0) litRooms.add(r); }
+  for (const c of components) {
+    if (c.type !== 'window_a') continue;
+    c.__glow = false;
+    if (!litRooms.size) continue;
+    const n = rotY([0, 0, 1], c.rot || 0);
+    c.__glow = litRooms.has(roomAt(info, c.x + n[0] * 40, c.y + n[2] * 40)) || litRooms.has(roomAt(info, c.x - n[0] * 40, c.y - n[2] * 40));
   }
 
   // Terrain, dalle, sols des pièces

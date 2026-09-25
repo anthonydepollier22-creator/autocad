@@ -286,6 +286,19 @@ r = run(`(function(){
 })()`);
 check('Défaut en 3D : court-circuit → disjoncteur, fuite → différentiel, étincelles et éclair dans la pièce', r[0] && r[1] && r[2] && r[3] && r[4] === 'err', r.join(' / '));
 r = run(`(function(){
+  var d = buildHouse('t3'), des = designInstallation(d.components, d.wires), sim = new InstallSim(); sim.setDesign(des);
+  var viz = new Viz3D(__cv, { interactive: false }), glow = function(){ return d.components.filter(function(c){ return c.type === 'window_a' && c.__glow; }).length; };
+  var snap0 = sim.step(0.1, d.components, d.wires);
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { walls: 'roof', sim: { snap: snap0, design: des, sim: sim } }); var off = glow();
+  d.components.forEach(function(c){ if (c.type === 'switch_sa') c.closed = true; });
+  var snap = sim.step(0.1, d.components, d.wires);
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { walls: 'roof', sim: { snap: snap, design: des, sim: sim } }); var on = glow();
+  var warm = viz.faces.some(function(f){ return f.em > 0.5 && f.alpha > 0.5 && f.alpha < 0.7; });
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { walls: 'full', ceiling: true, sim: { snap: snap, design: des, sim: sim } }); var walk = glow();
+  return [off, on, warm, walk];
+})()`);
+check('Nuit : les fenêtres des pièces éclairées rayonnent vues du dehors, pas en visite', r[0] === 0 && r[1] > 0 && r[2] && r[3] === 0, r.join(' / '));
+r = run(`(function(){
   var scene = { colliders: { segs: [{ a: { x: 0, y: -500 }, b: { x: 0, y: 500 }, r: 5 }], polys: [] } };
   var p = collideCircle(scene, 8, 0, 22);
   return p.x;
