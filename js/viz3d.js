@@ -189,8 +189,10 @@ class Viz3D {
       if (l > 0.05) { tx = (tx / l) * speed; tz = (tz / l) * speed; } else { tx = 0; tz = 0; }
       const a = Math.min(1, dt * 9);
       w.vx += (tx - w.vx) * a; w.vz += (tz - w.vz) * a;
-      const p = collideCircle(this.scene, w.x + w.vx * dt, w.z + w.vz * dt, HOUSE3D.RADIUS);
-      w.x = p.x; w.z = p.z;
+      if (!this.guided) { // visite guidée : la trajectoire passe par les portes, pas de collisions
+        const p = collideCircle(this.scene, w.x + w.vx * dt, w.z + w.vz * dt, HOUSE3D.RADIUS);
+        w.x = p.x; w.z = p.z;
+      }
       const v = Math.hypot(w.vx, w.vz);
       w.phase += v * dt * 0.045;
       w.bob = v > 10 ? Math.sin(w.phase) * 1.6 : w.bob * 0.9;
@@ -1338,6 +1340,61 @@ function _buildGarden(viz, components, info, ex) {
   });
   viz.obj = null;
   viz.setLayer(1);
+}
+
+// ---------------------------------------------------------------------------
+// Visite guidée : parcours en profondeur des pièces à partir de l'entrée, en
+// passant par les portes (jamais à travers un mur). Points { x, z, room, stop }.
+// ---------------------------------------------------------------------------
+function tourPath(components, wires) {
+  const info = computeRooms(components, wires);
+  if (!info || !info.owner) return [];
+  const ok = (i) => i >= 0 && info.rooms[i] && !info.rooms[i].leaked && info.rooms[i].sharedWith === null;
+  const center = (i) => {
+    const lab = components.find((c) => c.id === info.rooms[i].id);
+    return lab ? { x: lab.x, z: lab.y } : null;
+  };
+  // Portes intérieures : pièces de part et d'autre
+  const adj = {};
+  for (const d of components) {
+    if (d.type !== 'door') continue;
+    const n = rotY([0, 0, 1], d.rot || 0);
+    const a = roomAt(info, d.x + n[0] * 45, d.y + n[2] * 45), b = roomAt(info, d.x - n[0] * 45, d.y - n[2] * 45);
+    if (!ok(a) || !ok(b) || a === b) continue;
+    (adj[a] = adj[a] || []).push({ to: b, d, n: [n[0], n[2]], s: 1 });
+    (adj[b] = adj[b] || []).push({ to: a, d, n: [n[0], n[2]], s: -1 });
+  }
+  const start = _walkStart(components, info, { minX: 0, minZ: 0, maxX: 0, maxZ: 0 });
+  const r0 = roomAt(info, start.x, start.z);
+  if (!ok(r0)) return [];
+  const pts = [{ x: start.x, z: start.z, room: r0, stop: false }];
+  const c0 = center(r0);
+  if (c0) pts.push({ ...c0, room: r0, stop: true });
+  const seen = new Set([r0]);
+  const via = (e, from, to) => {
+    // côté « from » de la porte, seuil, côté « to »
+    const k = e.s; // n pointe vers la pièce a (s = 1 : from = a)
+    pts.push({ x: e.d.x + e.n[0] * 60 * k, z: e.d.y + e.n[1] * 60 * k, room: from, stop: false });
+    pts.push({ x: e.d.x, z: e.d.y, room: from, stop: false });
+    pts.push({ x: e.d.x - e.n[0] * 60 * k, z: e.d.y - e.n[1] * 60 * k, room: to, stop: false });
+  };
+  const visit = (r) => {
+    const edges = (adj[r] || []).slice().sort((p, q) => (info.rooms[q.to].area || 0) - (info.rooms[p.to].area || 0));
+    for (const e of edges) {
+      if (seen.has(e.to)) continue;
+      seen.add(e.to);
+      via(e, r, e.to);
+      const c = center(e.to);
+      if (c) pts.push({ ...c, room: e.to, stop: true });
+      visit(e.to);
+      // retour par la même porte
+      via({ ...e, s: -e.s }, e.to, r);
+    }
+  };
+  visit(r0);
+  // on s'arrête après la dernière pièce visitée (pas de retour inutile)
+  while (pts.length && !pts[pts.length - 1].stop) pts.pop();
+  return pts;
 }
 
 function _walkStart(components, info, b) {

@@ -336,6 +336,29 @@ r = run(`(function(){
 })()`);
 check('Vue Énergie : le sol de chaque pièce prend la teinte de sa puissance', r[0] && r[1] > 0, `${r[1]} faces teintées`);
 
+r = run(`(function(){
+  var out = [];
+  ['studio', 't3', 't5'].forEach(function(k){
+    var d = buildHouse(k, { furnish: false, elec: false }), info = computeRooms(d.components, d.wires);
+    var pts = tourPath(d.components, d.wires);
+    var rooms = info.rooms.filter(function(r){ return !r.leaked && r.sharedWith === null; }).length;
+    var stops = new Set(pts.filter(function(p){ return p.stop; }).map(function(p){ return p.room; })).size;
+    // aucun segment du parcours ne traverse un mur (les portes sont des ouvertures)
+    var cross = function(a, b, c, e){
+      var d1 = (e.x - c.x) * (a.z - c.y) - (e.y - c.y) * (a.x - c.x), d2 = (e.x - c.x) * (b.z - c.y) - (e.y - c.y) * (b.x - c.x);
+      var d3 = (b.x - a.x) * (c.y - a.z) - (b.z - a.z) * (c.x - a.x), d4 = (b.x - a.x) * (e.y - a.z) - (b.z - a.z) * (e.x - a.x);
+      return d1 * d2 < 0 && d3 * d4 < 0;
+    };
+    var hits = 0;
+    d.wires.filter(function(w){ return w.kind === 'wall'; }).forEach(function(w){
+      for (var i = 1; i < w.points.length; i++) for (var j = 1; j < pts.length; j++) if (cross(pts[j - 1], pts[j], w.points[i - 1], w.points[i])) hits++;
+    });
+    out.push([k, stops, rooms, hits]);
+  });
+  return out;
+})()`);
+check('Visite guidée : toutes les pièces, sans jamais traverser un mur', r.every(function (x) { return x[1] === x[2] && x[3] === 0; }), r.map(function (x) { return x[0] + ' ' + x[1] + '/' + x[2] + (x[3] ? ' (' + x[3] + ' murs traversés)' : ''); }).join(', '));
+
 // ---------------------------------------------------------------------------
 group('Matériel et budget');
 r = run(`(function(){

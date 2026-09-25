@@ -653,6 +653,74 @@ function initHouseUI(app) {
     if (sig !== energySig) { energySig = sig; build3D(false); }
   }
 
+  // ---- Visite guidée : la caméra parcourt les pièces en passant par les portes --
+  const tour = { on: false, pts: [], i: 0, t: 0, wait: 0, raf: 0, last: 0, room: -1 };
+  function tourCaption(text) {
+    const el = $('v3-caption');
+    if (text) el.textContent = text; // le texte reste pendant le fondu de sortie
+    el.classList.toggle('show', !!text);
+  }
+  function tourStop() {
+    if (!tour.on) return;
+    tour.on = false;
+    viz.guided = false;
+    cancelAnimationFrame(tour.raf);
+    tourCaption('');
+    const b = $('v3-tour');
+    b.textContent = '▶ Visite guidée'; b.classList.remove('on'); b.setAttribute('aria-pressed', 'false');
+  }
+  function tourStart() {
+    const pts = tourPath(editor.components, editor.wires);
+    if (pts.length < 2) { showToast('Visite guidée : il faut un plan avec des pièces fermées et des portes.'); return; }
+    const info = computeRooms(editor.components, editor.wires);
+    Object.assign(tour, { on: true, pts, i: 0, t: 0, wait: 0.6, fade: 0, last: performance.now(), room: -1, names: info.rooms.map((r) => r.name) });
+    tourCaption(tour.names[pts[0].room] || '');
+    const b = $('v3-tour');
+    b.textContent = '■ Arrêter'; b.classList.add('on'); b.setAttribute('aria-pressed', 'true');
+    if (viz.mode !== 'walk') enterWalk();
+    viz.guided = true;
+    const SPEED = 190; // cm/s
+    const step = (now) => {
+      if (!tour.on) return;
+      const dt = Math.min(0.25, Math.max(0, (now - tour.last) / 1000)); // trajectoire : pas besoin de petits pas
+      tour.last = now;
+      const w = viz.walk;
+      if (viz.mode !== 'walk' || !w || viz.trans) { tour.raf = requestAnimationFrame(step); return; }
+      // un appui sur une touche de déplacement rend la main
+      if (Object.values(viz.keys).some(Boolean) || viz.stick) { tourStop(); return; }
+      const a = tour.pts[tour.i], b = tour.pts[tour.i + 1];
+      if (!b) { tourCaption(''); tourStop(); showToast('Fin de la visite guidée.'); return; }
+      if (tour.i === 0 && tour.t === 0) { w.x = a.x; w.z = a.z; }
+      let yawTarget;
+      if (tour.wait > 0) {
+        tour.wait -= dt;
+        w.yaw += dt * 0.55; // on regarde autour de soi
+        if (tour.wait <= 0) tour.fade = 1.2; // le nom de la pièce s'efface peu après le départ
+      } else {
+        if (tour.fade > 0 && (tour.fade -= dt) <= 0) tourCaption('');
+        const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+        tour.t += (SPEED * dt) / len;
+        const t = Math.min(1, tour.t);
+        w.x = a.x + (b.x - a.x) * t;
+        w.z = a.z + (b.z - a.z) * t;
+        w.phase += SPEED * dt * 0.045;
+        w.bob = Math.sin(w.phase) * 1.2;
+        yawTarget = Math.atan2(-(b.x - a.x), -(b.z - a.z));
+        if (tour.t >= 1) { tour.i++; tour.t = 0; if (b.stop) { tour.wait = 1.6; tour.room = b.room; tour.fade = 0; tourCaption(tour.names[b.room] || ''); } }
+      }
+      if (yawTarget !== undefined) {
+        let d = yawTarget - w.yaw;
+        d = Math.atan2(Math.sin(d), Math.cos(d));
+        w.yaw += d * Math.min(1, dt * 4);
+      }
+      w.pitch += (-0.06 - w.pitch) * Math.min(1, dt * 3);
+      w.vx = 0; w.vz = 0;
+      viz.dirty = true;
+      tour.raf = requestAnimationFrame(step);
+    };
+    tour.raf = requestAnimationFrame(step);
+  }
+
   // ---- Vue 3D ---------------------------------------------------------------
   const view3d = $('view3d'), cv3 = $('canvas3d'), tip = $('v3-tip'), map = $('v3-map'), hud = $('v3-hud');
   let viz = null;
@@ -708,6 +776,8 @@ function initHouseUI(app) {
     $('view3d-hint').textContent = walking ? 'Visite : ZQSD ou flèches · glisser pour regarder' : 'Glisser : tourner · clic droit : déplacer · molette : zoom · clic : interrupteurs et appareils';
     if (touch) $('v3-walkhelp').textContent = 'Joystick : marcher · glisser : regarder · touche un interrupteur ou un appareil pour le basculer';
     $('v3-walkhelp').hidden = !walking;
+    $('v3-tour').hidden = !walking || !hasPlan();
+    if (!walking) tourStop();
     $('v3-stick').hidden = !(walking && touch);
     map.hidden = !walking;
     view3d.classList.toggle('walking', walking);
@@ -758,6 +828,7 @@ function initHouseUI(app) {
     document.querySelectorAll('#v3-walls button').forEach((x) => x.classList.toggle('on', x === b));
     build3D(false);
   }));
+  $('v3-tour').addEventListener('click', () => (tour.on ? tourStop() : tourStart()));
   $('v3-energy').addEventListener('click', () => {
     v3.energy = !v3.energy;
     $('v3-energy').classList.toggle('on', v3.energy);

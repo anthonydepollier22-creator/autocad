@@ -811,3 +811,15 @@ body.light .day-chart-wrap {
   padding: 6px 10px; border-radius: 8px; background: rgba(12, 16, 23, 0.8); color: #dfe6f0; font-size: 11px;
 }
 .v3-energy-legend i { width: 120px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #efe7de, #f7c9a1, #f1995c, #dc6326, #a83d12); }
+
+/* ---------- Visite guidée ---------- */
+#v3-tour[hidden] { display: none; }
+.v3-caption {
+  position: absolute; left: 50%; top: 42%; z-index: 3; pointer-events: none;
+  transform: translate(-50%, -50%) translateY(8px); opacity: 0;
+  padding: 10px 22px; border-radius: 12px; background: rgba(10, 14, 20, 0.62); color: #fff;
+  font-size: 26px; font-weight: 700; letter-spacing: 0.01em; white-space: nowrap;
+  transition: opacity 0.35s ease-out, transform 0.35s ease-out;
+}
+.v3-caption.show { opacity: 1; transform: translate(-50%, -50%); }
+@media (prefers-reduced-motion: reduce) { .v3-caption { transition: none; } }
