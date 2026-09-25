@@ -144,8 +144,9 @@ function buildSVG(components, wires, symbols, meta) {
     sym.draw(ctx, c); ctx.restore();
     const txt = [c.label, c.value].filter(Boolean).join(' ');
     if (txt && !sym.ownLabel) {
-      ctx.fillStyle = '#333'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-      ctx.fillText(txt, c.x, c.y - sym.bbox.h / 2 - 12);
+      const la = labelAnchor(c, sym);
+      ctx.fillStyle = '#333'; ctx.font = '11px sans-serif'; ctx.textAlign = la.align; ctx.textBaseline = 'alphabetic';
+      ctx.fillText(txt, la.x, la.y);
     }
   }
 

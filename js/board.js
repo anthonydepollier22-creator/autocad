@@ -644,3 +644,63 @@ function boardLabelsSVG(design, meta) {
   });
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}mm" height="${H}mm" font-family="sans-serif"><rect width="${W}" height="${H}" fill="#fff"/>${ctx.out.join('')}</svg>`;
 }
+
+// ---------------------------------------------------------------------------
+// Le tableau en schéma modifiable dans l'éditeur : symboles verticaux reliés
+// par des fils (réseau, compteur, AGCP, jeu de barres, ID, disjoncteurs,
+// contacteurs, récepteurs). Grille de 20, colonnes de 120.
+// ---------------------------------------------------------------------------
+function boardToSchematic(design, meta) {
+  const comps = [], wires = [];
+  let n = 0;
+  const id = () => 'u' + ++n;
+  const put = (type, x, y, label, value, extra) => { const c = { id: id(), type, x, y, rot: 90, label: label || '', value: value || '', ...(extra || {}) }; comps.push(c); return c; };
+  const wire = (x1, y1, x2, y2) => { if (x1 !== x2 || y1 !== y2) wires.push({ id: id(), points: [{ x: x1, y: y1 }, { x: x2, y: y2 }] }); };
+  const tri = design.supply && design.supply.phases === 3;
+  const X0 = 100, BUS = 360, SUB = 560, COL = 120;
+  put('ac_source', X0, 0, 'Réseau', tri ? '400 V 3P+N' : '230 V');
+  put('meter_kwh', X0, 120, 'Compteur', '');
+  wire(X0, 40, X0, 80);
+  put('agcp', X0, 240, 'AGCP', `${design.agcp.setting} A ${tri ? '4P' : '2P'}`, { closed: true });
+  wire(X0, 160, X0, 200); wire(X0, 280, X0, BUS);
+  let x = X0 + 120;
+  if (design.supply && design.supply.surge) {
+    put('breaker', x, 440, 'QF', 'C10', { closed: true }); wire(x, BUS, x, 400);
+    put('surge', x, 560, 'PF', 'type 2'); wire(x, 480, x, 520);
+    comps.push({ id: id(), type: 'ground', x, y: 640, rot: 0, label: '', value: '' }); wire(x, 600, x, 620);
+    x += 120;
+  }
+  const groups = design.rcds.map((r) => ({ r, cs: design.circuits.filter((c) => c.rcd === r.id) })).filter((g) => g.cs.length);
+  const loose = design.circuits.filter((c) => !design.rcds.some((r) => r.id === c.rcd));
+  if (loose.length) groups.push({ r: null, cs: loose });
+  const loadType = (c) => (c.kind === 'light' ? 'lamp' : c.kind === 'socket' ? 'socket' : ['vmc', 'hvac'].includes(c.appliance) || /pompe|clim|vmc/i.test(c.name) ? 'motor' : 'resistor_iec');
+  const cut = (t) => (t.length > 20 ? t.slice(0, 19) + '…' : t);
+  let xEnd = x;
+  for (const g of groups) {
+    const xs = g.cs.map((c, i) => x + 20 + i * COL);
+    const xc = Math.round((xs[0] + xs[xs.length - 1]) / 2 / 20) * 20;
+    if (g.r) { put('rcd', xc, 440, g.r.id, `${g.r.In} A ${g.r.type}`, { closed: true }); wire(xc, BUS, xc, 400); wire(xc, 480, xc, SUB); }
+    else wire(xc, BUS, xc, SUB);
+    if (xs.length > 1) wire(xs[0], SUB, xs[xs.length - 1], SUB);
+    g.cs.forEach((c, i) => {
+      const cx = xs[i];
+      put('breaker', cx, 640, c.id, `${c.curve || 'C'}${c.In}${tri && c.phase ? ' ' + (c.phase === '3P' ? '3P+N' : c.phase) : ''}`, { closed: true });
+      wire(cx, SUB, cx, 600);
+      let y = 680;
+      if (c.contactor || c.teleruptor) {
+        put(c.contactor ? 'contactor' : 'teleruptor', cx, 760, c.contactor ? 'KM' : 'KL', c.contactor ? 'HC' : '');
+        wire(cx, 680, cx, 720); y = 800;
+      }
+      put(loadType(c), cx, y + 120, '', cut(c.name));
+      wire(cx, y, cx, y + 80);
+    });
+    x = xs[xs.length - 1] + 100;
+    xEnd = Math.max(xEnd, xs[xs.length - 1]);
+  }
+  wire(X0, BUS, xEnd, BUS); // jeu de barres
+  return {
+    version: 1,
+    meta: { title: ((meta && meta.title) || 'Installation') + ' — schéma unifilaire', author: (meta && meta.author) || '' },
+    components: comps, wires, counters: {},
+  };
+}

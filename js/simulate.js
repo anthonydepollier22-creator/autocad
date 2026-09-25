@@ -107,8 +107,10 @@ function collectElements(components, wires, symbols) {
     } else if (c.type === 'transistor_npn' || c.type === 'transistor_pnp') {
       // terminaux : [base, collecteur, émetteur]
       E.Q.push({ b: t[0], c: t[1], e: t[2], Is: BJT_IS, bf: parseValue(c.value, 100), br: BJT_BR, pol: c.type === 'transistor_npn' ? 1 : -1, comp: c });
-    } else if (c.type === 'switch' || c.type === 'push_button' || c.type === 'breaker' || c.type === 'rcd') {
+    } else if (c.type === 'switch' || c.type === 'push_button' || c.type === 'breaker' || c.type === 'rcd' || c.type === 'agcp' || c.type === 'contactor' || c.type === 'teleruptor') {
       if (c.closed) E.R.push({ a: t[0], b: t[1], R: 1e-6, comp: c });
+    } else if (c.type === 'meter_kwh') {
+      E.R.push({ a: t[0], b: t[1], R: 1e-6, comp: c }); // compteur : pas de chute de tension
     } else if (c.type === 'sw_vv') {
       // va-et-vient : COM relié à L1 (haut) ou L2 (bas) selon la position
       E.R.push({ a: t[0], b: c.closed ? t[2] : t[1], R: 1e-6, comp: c });

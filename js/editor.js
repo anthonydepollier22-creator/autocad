@@ -6,7 +6,7 @@
 const GRID = 20; // pas de grille (unités monde)
 
 // Composants basculables au double-clic (ouvert / fermé)
-const SWITCHABLE = new Set(['switch', 'push_button', 'breaker', 'rcd', 'sw_vv', 'switch_sa', 'switch_vv_wall']);
+const SWITCHABLE = new Set(['switch', 'push_button', 'breaker', 'rcd', 'agcp', 'contactor', 'teleruptor', 'sw_vv', 'switch_sa', 'switch_vv_wall']);
 // Appareils du plan de maison qu'on met en marche au double-clic
 const APPLIANCES = new Set(['oven', 'cooktop', 'washer', 'dishwasher', 'dryer', 'water_heater', 'radiator', 'ev_charger', 'tv_unit', 'desk']);
 
@@ -184,7 +184,7 @@ class Editor {
   addComponent(type, wx, wy) {
     const p = this.snapPt({ x: wx, y: wy });
     const c = { id: this.uid(), type, x: p.x, y: p.y, rot: this.placeRot, label: this.nextRef(type), value: '' };
-    if (type === 'breaker' || type === 'rcd') c.closed = true; // conduisent par défaut
+    if (type === 'breaker' || type === 'rcd' || type === 'agcp') c.closed = true; // conduisent par défaut
     if (type === 'room') c.value = 'Pièce'; // à renommer : Chambre, Séjour, Cuisine…
     this.components.push(c);
     this.pushHistory();
@@ -1032,11 +1032,10 @@ class Editor {
       ctx.save();
       ctx.fillStyle = selected ? this.colors.labelSel : this.colors.label;
       ctx.font = `${11}px sans-serif`;
-      ctx.textAlign = 'center';
       const txt = [c.label, c.value].filter(Boolean).join(' ');
-      const sym2 = SYMBOLS[c.type];
-      const off = (sym2.bbox.h / 2) + 12;
-      ctx.fillText(txt, c.x, c.y - off);
+      const la = labelAnchor(c, SYMBOLS[c.type]);
+      ctx.textAlign = la.align;
+      ctx.fillText(txt, la.x, la.y);
       ctx.restore();
     }
 
@@ -1298,8 +1297,9 @@ class Editor {
       ctx.strokeStyle = '#111'; ctx.fillStyle = '#111'; ctx.lineWidth = 2;
       sym.draw(ctx, c); ctx.restore();
       if ((c.label || c.value) && !sym.ownLabel) {
-        ctx.fillStyle = '#333'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-        ctx.fillText([c.label, c.value].filter(Boolean).join(' '), c.x, c.y - sym.bbox.h / 2 - 12);
+        const la = labelAnchor(c, sym);
+        ctx.fillStyle = '#333'; ctx.font = '11px sans-serif'; ctx.textAlign = la.align; ctx.textBaseline = 'alphabetic';
+        ctx.fillText([c.label, c.value].filter(Boolean).join(' '), la.x, la.y);
       }
     }
     // cotations

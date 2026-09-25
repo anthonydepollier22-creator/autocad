@@ -836,6 +836,31 @@ check('Face avant : rangées de 13 modules au plus, 20 % de réserve au moins', 
 check('Folio unifilaire SVG : désignations verticales, cartouche ; grand tableau réparti sur plusieurs folios sans perte', r.svg && r.folios >= 2 && r.inFolios === r.nbig, `${r.nbig} circuits sur ${r.folios} folios`);
 check('Unifilaire DXF (mm, calques, textes à 90°) et matériel : parafoudre, contacteur HC, ID type F, coffret', r.dxf[1] && r.dxf[2] && r.dxf[3] > 10 && r.mat.every(Boolean), `${r.dxf[3]} textes verticaux`);
 
+// Le tableau en schéma modifiable : connexions exactes, symboles NF simulés
+r = run(`(function(){
+  var d = buildHouse('t3'), des = designInstallation(d.components, d.wires); des.supply.surge = true;
+  var doc = boardToSchematic(des, { title: 'T3' });
+  var tn = buildNets(doc.components, doc.wires, SYMBOLS).terminalNet;
+  var find = function(t, l){ return doc.components.find(function(c){ return c.type === t && c.label === l; }); };
+  var okC = des.circuits.every(function(c){ var b = find('breaker', c.id), r = find('rcd', c.rcd); return b && r && tn[b.id][0] === tn[r.id][1]; });
+  var agcp = doc.components.find(function(c){ return c.type === 'agcp'; });
+  var okR = des.rcds.every(function(r){ return tn[find('rcd', r.id).id][0] === tn[agcp.id][1]; });
+  var hc = doc.components.filter(function(c){ return c.type === 'contactor'; }).length;
+  // AGCP, compteur, contacteur : une pile, un AGCP fermé, un compteur, une lampe → le courant passe ; AGCP ouvert → plus rien
+  var mk = function(closed){ return { components: [
+      { id: 'B', type: 'dc_source', x: 0, y: 0, rot: 90, value: '9 V' }, { id: 'Q', type: 'agcp', x: 100, y: -80, rot: 0, closed: closed },
+      { id: 'K', type: 'meter_kwh', x: 240, y: -80, rot: 0 }, { id: 'L', type: 'lamp', x: 380, y: -80, rot: 0, value: '100' },
+      { id: 'G', type: 'ground', x: 0, y: 80, rot: 0 } ],
+    wires: [ { id: 'w1', points: [{ x: 0, y: -40 }, { x: 0, y: -80 }, { x: 60, y: -80 }] }, { id: 'w2', points: [{ x: 140, y: -80 }, { x: 200, y: -80 }] },
+      { id: 'w3', points: [{ x: 280, y: -80 }, { x: 340, y: -80 }] }, { id: 'w4', points: [{ x: 420, y: -80 }, { x: 460, y: -80 }, { x: 460, y: 40 }, { x: 0, y: 40 }] },
+      { id: 'w5', points: [{ x: 0, y: 40 }, { x: 0, y: 60 }] } ] }; };
+  var on = mk(true), off = mk(false);
+  var Ion = simulateDC(on.components, on.wires, SYMBOLS).compI.L, Ioff = simulateDC(off.components, off.wires, SYMBOLS).compI.L;
+  return { okC: okC, okR: okR, hc: hc, surge: doc.components.some(function(c){ return c.type === 'surge'; }), Ion: Ion, Ioff: Ioff || 0, title: doc.meta.title };
+})()`);
+check('Tableau → schéma dans l’éditeur : chaque disjoncteur sous son ID, chaque ID sur le jeu de barres, contacteur HC, parafoudre', r.okC && r.okR && r.hc === 1 && r.surge && /unifilaire/.test(r.title));
+check('Symboles NF en simulation : AGCP fermé et compteur conduisent (9 V / 100 Ω = 90 mA), AGCP ouvert coupe', near(Math.abs(r.Ion), 0.09, 1e-3) && Math.abs(r.Ioff) < 1e-9, `${(Math.abs(r.Ion) * 1000).toFixed(1)} mA`);
+
 // Triphasé : phases équilibrées, AGCP 4P, ΔU sous 400 V, simulation par phase
 r = run(`(function(){
   var b = boardTemplate(180, { tri: true, ev: true }), d = designInstallation([], [], b);

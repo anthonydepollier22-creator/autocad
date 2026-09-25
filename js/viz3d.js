@@ -722,6 +722,11 @@ const BUILDERS3D = {
     v.box(c.x, 34, c.y, 8, 6, 10, c.closed === false ? C3D.led : C3D.lever, c.rot || 0);
   },
   rcd: (v, c) => BUILDERS3D.breaker(v, c),
+  agcp: (v, c) => { v.box(c.x, 0, c.y, 44, 38, 28, C3D.module, c.rot || 0); v.box(c.x, 38, c.y, 10, 6, 12, c.closed === false ? C3D.led : C3D.lever, c.rot || 0); },
+  contactor: (v, c) => { v.box(c.x, 0, c.y, 30, 34, 24, C3D.module, c.rot || 0); v.box(c.x, 34, c.y, 12, 3, 8, c.closed ? C3D.lever : '#8a97ab', c.rot || 0); },
+  teleruptor: (v, c) => BUILDERS3D.contactor(v, c),
+  surge: (v, c) => { v.box(c.x, 0, c.y, 36, 34, 24, '#e9d9b5', c.rot || 0); },
+  meter_kwh: (v, c) => { v.box(c.x, 0, c.y, 40, 20, 30, '#e8ebf0', c.rot || 0); v.box(c.x, 20, c.y, 26, 2, 12, '#3b8f5a', c.rot || 0); },
   socket: (v, c) => {
     v.box(c.x, 0, c.y, 36, 12, 36, C3D.module, c.rot || 0);
     v.cyl(c.x, 12, c.y, 13, 3, '#d5d9df');

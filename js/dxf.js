@@ -116,8 +116,9 @@ function buildDXF(components, wires, symbols, meta) {
     ctx.restore();
     const txt = [c.label, c.value].filter(Boolean).join(' ');
     if (txt && !sym.ownLabel) {
-      ctx.layer = 'REPERES'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-      ctx.fillText(txt, c.x, c.y - sym.bbox.h / 2 - 12);
+      const la = labelAnchor(c, sym);
+      ctx.layer = 'REPERES'; ctx.font = '11px sans-serif'; ctx.textAlign = la.align; ctx.textBaseline = 'alphabetic';
+      ctx.fillText(txt, la.x, la.y);
     }
   }
   // Cotations des murs

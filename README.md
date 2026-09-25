@@ -194,6 +194,12 @@ l'éditeur du tableau, **avec ou sans plan** :
   et **cartouche** ; plusieurs folios numérotés si le tableau est grand ;
 - **Face avant** du coffret (rangées de 13 modules de 18 mm, réserve, GTL) et
   **étiquettes** de repérage à imprimer à l'échelle 1 ;
+- **Dans l'éditeur** : le tableau devient un schéma ordinaire (réseau, compteur, AGCP,
+  jeu de barres, ID, disjoncteurs, contacteurs, récepteurs, reliés par des fils) à
+  compléter librement avec la palette — nouveaux symboles NF : **AGCP 500 mA**,
+  **compteur kWh**, **contacteur**, **télérupteur**, **parafoudre** (manœuvrables et
+  simulés comme les disjoncteurs) ; les étiquettes des symboles verticaux passent à
+  droite ;
 - **Exports** : SVG, **DXF** (en millimètres, calques UNIFILAIRE / TEXTES / CARTOUCHE,
   validé par ezdxf) et **Imprimer / PDF** (folios A3, face avant, étiquettes A4) ; le
   dossier du projet et le métré (coffret, parafoudre, contacteurs, ID 63 A…) suivent.
@@ -632,7 +638,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-149 vérifications sans dépendance : valeurs numériques de chaque simulation
+151 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

@@ -569,6 +569,67 @@ const SYMBOLS = {
       line(ctx, 20, 0, 40, 0);
     },
   },
+  agcp: {
+    name: 'Disjoncteur de branchement (AGCP 500 mA)', category: 'Domestique (NF)', prefix: 'QG',
+    terminals: T2, bbox: { x: -40, y: -24, w: 80, h: 44 },
+    draw(ctx, c) {
+      const closed = !c || c.closed !== false;
+      line(ctx, -40, 0, -20, 0);
+      dot(ctx, -20, 0, 2.5); dot(ctx, 20, 0, 2.5);
+      const ex = closed ? 20 : 14, ey = closed ? -3 : -16;
+      line(ctx, -20, 0, ex, ey);
+      const mx = (-20 + ex) / 2, my = ey / 2;
+      line(ctx, mx - 4, my - 4, mx + 4, my + 4); line(ctx, mx - 4, my + 4, mx + 4, my - 4);
+      line(ctx, 20, 0, 40, 0);
+      ctx.beginPath(); ctx.ellipse(28, 0, 4, 8, 0, 0, Math.PI * 2); ctx.stroke(); // tore différentiel
+      ctx.save(); ctx.fillStyle = ctx.strokeStyle; ctx.font = '8px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText('500mA', 4, 10); ctx.restore();
+    },
+  },
+  meter_kwh: {
+    name: 'Compteur d’énergie (kWh)', category: 'Domestique (NF)', prefix: 'CPT',
+    terminals: T2, bbox: { x: -40, y: -16, w: 80, h: 32 },
+    draw(ctx) {
+      line(ctx, -40, 0, -20, 0); line(ctx, 20, 0, 40, 0);
+      ctx.strokeRect(-20, -13, 40, 26);
+      ctx.save(); ctx.fillStyle = ctx.strokeStyle; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('kWh', 0, 1); ctx.restore();
+    },
+  },
+  contactor: {
+    name: 'Contacteur (heures creuses)', category: 'Domestique (NF)', prefix: 'KM',
+    terminals: T2, bbox: { x: -40, y: -34, w: 80, h: 40 },
+    draw(ctx, c) {
+      const closed = c && c.closed;
+      line(ctx, -40, 0, -20, 0); line(ctx, 20, 0, 40, 0);
+      ctx.beginPath(); ctx.arc(20, -3, 3, Math.PI / 2, (3 * Math.PI) / 2); ctx.stroke(); // contact de contacteur
+      line(ctx, -20, 0, closed ? 20 : 14, closed ? -3 : -16);
+      ctx.strokeRect(-7, -32, 14, 10); // bobine
+      ctx.save(); ctx.setLineDash([3, 3]); line(ctx, 0, -22, 0, -8); ctx.restore();
+    },
+  },
+  teleruptor: {
+    name: 'Télérupteur', category: 'Domestique (NF)', prefix: 'KL',
+    terminals: T2, bbox: { x: -40, y: -34, w: 80, h: 40 },
+    draw(ctx, c) {
+      const closed = c && c.closed;
+      line(ctx, -40, 0, -20, 0); line(ctx, 20, 0, 40, 0);
+      dot(ctx, -20, 0, 2.5); dot(ctx, 20, 0, 2.5);
+      line(ctx, -20, 0, closed ? 20 : 14, closed ? -3 : -16);
+      ctx.strokeRect(-7, -32, 14, 10);
+      line(ctx, -7, -22, 7, -32); // bobine à impulsion (télérupteur)
+      ctx.save(); ctx.setLineDash([3, 3]); line(ctx, 0, -22, 0, -8); ctx.restore();
+    },
+  },
+  surge: {
+    name: 'Parafoudre', category: 'Domestique (NF)', prefix: 'PF',
+    terminals: T2, bbox: { x: -40, y: -14, w: 80, h: 28 },
+    draw(ctx) {
+      line(ctx, -40, 0, -16, 0); line(ctx, 16, 0, 40, 0);
+      ctx.strokeRect(-16, -9, 32, 18);
+      line(ctx, -8, -4, 0, 3); line(ctx, 0, 3, 2, -3); line(ctx, 2, -3, 9, 5); // éclair (varistance)
+    },
+  },
   socket: {
     name: 'Prise 2P+T', category: 'Domestique (NF)', prefix: 'PC',
     terminals: T2, bbox: { x: -40, y: -26, w: 80, h: 30 },
@@ -1065,3 +1126,11 @@ function meterLetter(ctx, ch) {
 
 // Référence automatique : R1, C1, etc. selon le préfixe.
 SYMBOLS.__order = Object.keys(SYMBOLS).filter((k) => !k.startsWith('__'));
+
+// Position de l'étiquette (repère + valeur) : au-dessus du symbole, ou à sa
+// droite quand il est tourné à la verticale (schéma unifilaire, colonnes).
+function labelAnchor(c, sym) {
+  const a = ((c.rot || 0) * Math.PI) / 180;
+  if (Math.abs(Math.sin(a)) > 0.7) return { x: c.x + sym.bbox.h / 2 + 8, y: c.y + 4, align: 'left' };
+  return { x: c.x, y: c.y - sym.bbox.h / 2 - 12, align: 'center' };
+}

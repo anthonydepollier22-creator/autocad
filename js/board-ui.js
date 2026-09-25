@@ -248,6 +248,14 @@ function initBoardUI(app) {
       download(new Blob([unifilarDXF(d, meta())], { type: 'application/dxf' }), fileName(base() + ' - unifilaire.dxf'));
       showToast('Schéma unifilaire exporté en <b>DXF</b> (millimètres, calques UNIFILAIRE, TEXTES, CARTOUCHE).', 3500);
     } else if (k === 'print') printAll(d);
+    else if (k === 'schema') {
+      if ((editor.components.length || editor.wires.length) && !confirm('Le schéma unifilaire va remplacer le document ouvert dans l’éditeur (plan compris). Enregistre-le d’abord (bouton Enregistrer) pour le retrouver. Continuer ?')) return;
+      const doc = boardToSchematic(d, meta());
+      close();
+      editor.load(doc);
+      houseUI.redesign();
+      showToast('Schéma unifilaire ouvert dans l’éditeur : déplace, modifie ou complète chaque symbole (catégorie « Domestique (NF) » de la palette) ; disjoncteurs et différentiels se manœuvrent au double-clic.', 7000);
+    }
   }));
 
   // Impression : folios A3 paysage, face avant et étiquettes à l'échelle 1
