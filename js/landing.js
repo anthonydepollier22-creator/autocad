@@ -37,24 +37,43 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Héros : carte de démonstration 3D, rotation automatique -------------
   const heroCanvas = document.getElementById('hero3d');
   if (heroCanvas) {
-    const viz = new Viz3D(heroCanvas, { pitch: 0.68, yaw: -0.45 });
+    const viz = createViz3D(heroCanvas, { pitch: 0.68, yaw: -0.45, time: 14 });
     const radius = buildBoard(viz, DEMO_BOARD.components, DEMO_BOARD.wires, SYMBOLS);
-    viz.fit(radius * 0.98);
+    viz.fit(radius * 0.8);
     runWhenVisible(viz, heroCanvas);
   }
 
-  // --- Plan de maison : maison 3D + badge de conformité calculé -----------
+  // --- Maison T5 au crépuscule, lumières allumées, installation calculée ----
   const houseCanvas = document.getElementById('house3d');
   if (houseCanvas && typeof getExampleData === 'function') {
-    const data = getExampleData('maison');
-    const viz = new Viz3D(houseCanvas, { pitch: 0.78, yaw: -0.55 });
-    viz.fit(buildBoard(viz, data.components, data.wires, SYMBOLS) * 0.8);
+    const data = getExampleData('maison-t5') || getExampleData('maison');
+    const design = typeof designInstallation === 'function' ? designInstallation(data.components, data.wires) : null;
+    let simState = null;
+    if (design && design.ok) {
+      // une soirée : séjour, cuisine, couloir et deux chambres éclairés, plaque et TV en marche
+      const info = computeRooms(data.components, data.wires);
+      const litRooms = new Set(['Séjour', 'Cuisine', 'Couloir', 'Chambre 1', 'Bureau', 'Entrée']);
+      const seen = new Set();
+      for (const c of data.components) {
+        if (c.type !== 'switch_sa' && c.type !== 'switch_vv_wall') continue;
+        const i = c.ctrl ? info.rooms.findIndex((r) => r.id === c.ctrl) : roomAt(info, c.x, c.y);
+        const name = i >= 0 ? info.rooms[i].name : '';
+        c.closed = litRooms.has(name) && !seen.has(name);
+        seen.add(name);
+      }
+      for (const c of data.components) if (c.type === 'cooktop' || c.type === 'tv_unit' || c.type === 'desk') c.on = true;
+      const sim = new InstallSim();
+      sim.setDesign(design);
+      simState = { snap: sim.step(0.1, data.components, data.wires), design, sim };
+    }
+    const viz = createViz3D(houseCanvas, { pitch: 0.86, yaw: -0.5, time: 19.4 });
+    viz.fit(buildBoard(viz, data.components, data.wires, SYMBOLS, { walls: 'full', sim: simState }) * 0.72);
     runWhenVisible(viz, houseCanvas);
     const rep = checkNFC15100(data.components, data.wires);
     const area = rep.rooms.reduce((s, r) => s + (r.area || 0), 0);
     const badge = document.getElementById('house-badge');
     badge.innerHTML = (rep.ok ? '<span class="hb-ok">✓</span> Conforme NF C 15-100' : '<span class="hb-ko">!</span> À vérifier') +
-      ` · ${rep.rooms.length} pièces · ${fmtArea(area)}`;
+      ` · ${rep.rooms.length} pièces · ${fmtArea(area)}` + (design && design.ok ? ` · ${design.circuits.length} circuits` : '');
     badge.hidden = false;
   }
 
@@ -111,13 +130,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Vitrine de composants 3D ---------------------------------------------
   document.querySelectorAll('.show-card canvas').forEach((cv, i) => {
     const type = cv.dataset.comp;
-    const viz = new Viz3D(cv, { pitch: 0.55, yaw: -0.4 + i * 0.5, fov: 36 * Math.PI / 180 });
+    const viz = createViz3D(cv, { pitch: 0.55, yaw: -0.4 + i * 0.5, fov: 36 * Math.PI / 180, time: 14 });
     // Petit plateau + composant seul
-    viz.box(0, -6, 0, 130, 6, 130, '#17663b');
+    viz.box(0, -6, 0, 112, 6, 112, '#17663b');
     const comp = { x: 0, y: 0, rot: 0, closed: true, high: true };
     (BUILDERS3D[type] || (() => {}))(viz, comp);
     viz.target = [0, 8, 0];
-    viz.fit(78);
+    viz.fit(62);
     runWhenVisible(viz, cv);
   });
 });
@@ -126,6 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function runWhenVisible(viz, canvas) {
   window.addEventListener('resize', () => viz.resize());
   if (!('IntersectionObserver' in window)) { viz.start(); return; }
+  viz.resize(); viz.render(); // première image immédiate
   new IntersectionObserver((entries) => {
     for (const e of entries) {
       if (e.isIntersecting) { viz.resize(); viz.start(); } else viz.stop();

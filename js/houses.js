@@ -72,7 +72,7 @@ const HOUSE_TYPES = [
     windows: [[150, 0], [430, 0], [0, 220], [0, 600], [150, 760], [810, 0], [1040, 170], [1040, 450], [870, 760]],
   },
   {
-    key: 't4', name: 'Maison T4', tag: 'plain-pied', desc: 'Maison de plain-pied : trois chambres, cellier technique, cuisine avec coin repas.',
+    key: 't4', name: 'Maison T4', tag: 'plain-pied', desc: 'Maison de plain-pied : trois chambres, cellier technique, grande cuisine équipée.',
     rooms: [
       { name: 'Séjour', r: [0, 0, 620, 460], items: ['tv_unit', 'sofa', 'table', 'plant', 'plant'] },
       { name: 'Cuisine', r: [0, 460, 320, 840], items: ['fridge', 'counter', 'cooktop', 'dishwasher', 'oven'] },

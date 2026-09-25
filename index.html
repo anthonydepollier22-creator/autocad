@@ -50,10 +50,10 @@
         <a class="btn-ghost" href="#exemples">Voir les exemples</a>
       </div>
       <div class="hero-stats">
-        <div><b>63</b><span>symboles<br />dont normes NF</span></div>
-        <div><b>4</b><span>types<br />d’analyses</span></div>
-        <div><b>13</b><span>circuits<br />d’exemple</span></div>
-        <div><b>3D</b><span>vue carte<br />interactive</span></div>
+        <div><b>83</b><span>symboles<br />dont normes NF</span></div>
+        <div><b>5</b><span>types<br />de maison</span></div>
+        <div><b>15</b><span>exemples<br />prêts à simuler</span></div>
+        <div><b>3D</b><span>WebGL, visite<br />jour &amp; nuit</span></div>
       </div>
     </div>
     <div class="hero-visual">
@@ -71,7 +71,7 @@
       <div class="step">
         <span class="step-n">1</span>
         <h3>Dessine</h3>
-        <p>Choisis parmi 63 symboles (CEI, NF C 15-100, mobilier), trace murs et goulottes, pose-les sur la grille magnétique.</p>
+        <p>Choisis parmi 83 symboles (CEI, NF C 15-100, électroménager, mobilier) — ou génère une maison complète en un clic.</p>
       </div>
       <div class="step">
         <span class="step-n">2</span>
@@ -114,8 +114,8 @@
       </div>
       <div class="feature">
         <div class="f-ico"><svg viewBox="0 0 24 24"><path d="M12 2.8l8 4.6v9.2l-8 4.6-8-4.6V7.4z"/><path d="M12 12l8-4.6M12 12L4 7.4M12 12v9.2"/></svg></div>
-        <h3>Vue 3D de la carte</h3>
-        <p>Carte électronique en relief — ou <b>maison en volume</b> : murs, mobilier, goulottes et appareillage extrudés, rotation libre.</p>
+        <h3>3D temps réel (WebGL)</h3>
+        <p>Ombres du soleil, <b>heure du jour</b>, lampes qui éclairent vraiment leur pièce, <b>visite à hauteur d’yeux</b> et <b>rayons X</b> sur les câbles.</p>
       </div>
       <div class="feature">
         <div class="f-ico"><svg viewBox="0 0 24 24"><path d="M13 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8z"/><path d="M13 3v5h5"/><path d="M9 13h6M9 17h6"/></svg></div>
@@ -129,21 +129,21 @@
   <section class="section house-sec" id="maison">
     <div class="house-grid">
       <div class="house-text">
-        <div class="eyebrow">Plan de maison</div>
-        <h2>De la maison au tableau électrique</h2>
-        <p class="house-lead">Tracez les murs, placez le mobilier puis l’appareillage : ÉlectriCAD reconnaît les pièces, calcule leur surface et contrôle l’installation selon la NF&nbsp;C&nbsp;15-100, en direct.</p>
+        <div class="eyebrow">Maison &amp; installation</div>
+        <h2>De la maison au courant qui circule</h2>
+        <p class="house-lead">Choisissez un type — du studio à la maison T5 avec garage : plan, mobilier, appareillage NF&nbsp;C&nbsp;15-100, goulottes et tableau sont générés. Puis faites vivre l’installation : allumez, surchargez, provoquez un court-circuit.</p>
         <ul class="house-list">
-          <li><b>Pièces et surfaces automatiques</b>, cotations des murs en mètres</li>
-          <li><b>Contrôle NF C 15-100</b> : prises exigées selon la surface, éclairage, GTL et tableau</li>
-          <li><b>Goulottes, GTL, tableau</b> et appareillage normalisé, métré exportable</li>
-          <li><b>Visite en 3D</b> : murs, parquet, mobilier et goulottes en volume</li>
+          <li><b>5 types de maison</b> meublés, implantés et câblés automatiquement — ou votre propre plan</li>
+          <li><b>Tableau calculé</b> : circuits, différentiels 30 mA, abonnement, sections, chutes de tension</li>
+          <li><b>Physique réelle</b> : disjoncteurs thermiques et magnétiques, différentiels, dépassement de puissance</li>
+          <li><b>Visite 3D</b> : ombres, jour et nuit, lampes allumées, rayons X sur les câbles</li>
         </ul>
         <div class="hero-actions">
-          <a class="btn-hero" href="app.html?ex=maison">
+          <a class="btn-hero" href="app.html?houses=1">
             <svg viewBox="0 0 24 24"><path d="M7.5 4.5l12 7.5-12 7.5z"/></svg>
-            Ouvrir le plan d’exemple
+            Créer une maison
           </a>
-          <a class="btn-ghost" href="app.html?ex=maison&amp;3d=1">Visiter en 3D</a>
+          <a class="btn-ghost" href="app.html?ex=maison-t5&amp;3d=1">Visiter la maison T5</a>
         </div>
       </div>
       <div class="house-visual">
@@ -165,7 +165,7 @@
   <section class="section" id="trois-d">
     <div class="eyebrow">Moteur 3D intégré</div>
     <h2>Vos composants, en trois dimensions</h2>
-    <p class="section-sub">Un moteur 3D maison, sans aucune dépendance. Glissez pour manipuler.</p>
+    <p class="section-sub">Un moteur WebGL maison, sans aucune dépendance. Glissez pour manipuler.</p>
     <div class="showcase">
       <div class="show-card"><canvas data-comp="resistor"></canvas><span>Résistance</span></div>
       <div class="show-card"><canvas data-comp="led"></canvas><span>LED</span></div>
@@ -196,10 +196,12 @@
         <h4>Application</h4>
         <a href="app.html">Ouvrir l’éditeur</a>
         <a href="app.html?modal=examples">Bibliothèque d’exemples</a>
+        <a href="app.html?houses=1">Nouvelle maison</a>
         <a href="app.html?ex=led&amp;3d=1">Vue 3D (démo)</a>
       </div>
       <div class="foot-col">
         <h4>Démos en un clic</h4>
+        <a href="app.html?ex=maison-t3&amp;tab=install">Tableau simulé d’un T3</a>
         <a href="app.html?ex=tableau&amp;sim=dc">Tableau NF C 15-100</a>
         <a href="app.html?ex=lowpass&amp;sim=bode">Filtre RC (Bode)</a>
         <a href="app.html?ex=counter&amp;sim=logic">Compteur 2 bits</a>
@@ -214,7 +216,10 @@
   <script src="js/netlist.js"></script>
   <script src="js/plan.js"></script>
   <script src="js/examples.js"></script>
+  <script src="js/houses.js"></script>
+  <script src="js/install.js"></script>
   <script src="js/viz3d.js"></script>
+  <script src="js/gl3d.js"></script>
   <script src="js/landing.js"></script>
   <script>
     if ('serviceWorker' in navigator) {

@@ -32,6 +32,7 @@ const ICONS = {
   wall: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 9.7h18M3 14.3h18M9 5v4.7M15 5v4.7M6 9.7v4.6M12 9.7v4.6M18 9.7v4.6M9 14.3V19M15 14.3V19"/></svg>',
   conduit: '<svg viewBox="0 0 24 24"><path d="M3 17v-7h8V5h10"/><path d="M6.5 20v-6.5H14V8.5h7"/></svg>',
   moon: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z"/></svg>',
+  house: '<svg viewBox="0 0 24 24"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.5V20h13V9.5"/><path d="M10 20v-5.5h4V20"/></svg>',
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -224,6 +225,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const switchWrap = document.getElementById('prop-switch-wrap');
   const closedChk = document.getElementById('prop-closed');
+  const onWrap = document.getElementById('prop-on-wrap');
+  const onChk = document.getElementById('prop-on');
+  const propCircuit = document.getElementById('prop-circuit');
+  onChk.addEventListener('change', () => {
+    for (const id of editor.selection) {
+      const c = editor.components.find((x) => x.id === id);
+      if (c) c.on = onChk.checked;
+    }
+    editor.autosave(); editor.render();
+  });
   function applyProps() {
     editor.updateSelectedProps(labelInput.value, valueInput.value);
   }
@@ -247,6 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
     panels.forEach((p) => (p.style.display = p.dataset.panel === activeTab ? '' : 'none'));
     if (activeTab === 'bom') renderBOM();
     if (activeTab === 'norm') renderNorm(true);
+    if (activeTab === 'install' && houseUI) houseUI.refresh();
   }));
 
   // --- Contrôle NF C 15-100 (plan de maison) ------------------------------
@@ -592,6 +604,7 @@ document.addEventListener('DOMContentLoaded', () => {
     panels.forEach((p) => (p.style.display = p.dataset.panel === name ? '' : 'none'));
     if (name === 'bom') renderBOM();
     if (name === 'norm') renderNorm(true);
+    if (name === 'install' && houseUI) houseUI.refresh();
   }
 
   // --- Toast ---------------------------------------------------------------
@@ -684,8 +697,9 @@ document.addEventListener('DOMContentLoaded', () => {
     closeModal();
     let btnId;
     if (ex.sim === 'plan') {
-      showTab('norm'); // surfaces et conformité pièce par pièce
-      showToast(`<b>${ex.name}</b> chargé — conformité NF à droite, clique <b>3D</b> pour visiter la maison !`);
+      // surfaces et conformité pièce par pièce, ou tableau simulé pour les maisons équipées
+      showTab(ex.id.startsWith('maison-') ? 'install' : 'norm');
+      showToast(`<b>${ex.name}</b> chargé — clique <b>3D</b> pour visiter la maison !`);
       btnId = 'btn-3d';
     } else {
       showTab('sim');
@@ -711,38 +725,11 @@ document.addEventListener('DOMContentLoaded', () => {
   modal.querySelector('.modal-backdrop').addEventListener('click', closeModal);
   window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !modal.hidden) closeModal(); }, true);
 
-  // --- Vue 3D ----------------------------------------------------------------
-  const view3d = document.getElementById('view3d');
-  let viz3d = null;
-  function open3D() {
-    view3d.hidden = false;
-    if (!viz3d) viz3d = new Viz3D(document.getElementById('canvas3d'), { bg: null });
-    const radius = buildBoard(viz3d, editor.components, editor.wires, SYMBOLS);
-    viz3d.fit(radius);
-    viz3d.autoRotate = true;
-    viz3d.start();
-    const house = editor.wires.some((w) => w.kind === 'wall');
-    document.getElementById('view3d-title').textContent = house ? 'Vue 3D de la maison' : 'Vue 3D de la carte';
-    if (!editor.components.length && !editor.wires.length) {
-      showToast('Carte vide — pose des composants puis reviens en 3D !', 3200);
-    }
-  }
-  function close3D() {
-    view3d.hidden = true;
-    if (viz3d) viz3d.stop();
-  }
-  if (document.getElementById('btn-3d')) {
-    document.getElementById('btn-3d').addEventListener('click', open3D);
-    document.getElementById('btn-3d-close').addEventListener('click', close3D);
-    document.getElementById('btn-3d-photo').addEventListener('click', () => {
-      const a = document.createElement('a');
-      a.href = document.getElementById('canvas3d').toDataURL('image/png');
-      a.download = (editor.meta.title || 'carte') + '-3d.png';
-      a.click();
-    });
-    window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !view3d.hidden) close3D(); }, true);
-    window.addEventListener('resize', () => { if (!view3d.hidden && viz3d) viz3d.resize(); });
-  }
+  // --- Maison, tableau simulé, vue 3D (house-ui.js) -------------------------
+  const houseUI = initHouseUI({
+    editor, showTab, showToast, download, esc: _escHtml,
+    activeTab: () => activeTab, renderThumb: renderExThumb,
+  });
 
   const statTool = document.getElementById('stat-tool');
   const TOOL_NAMES = { select: 'Sélection', wire: 'Fil', wall: 'Mur', conduit: 'Goulotte', pan: 'Panoramique', place: 'Placement' };
@@ -767,11 +754,23 @@ document.addEventListener('DOMContentLoaded', () => {
       const bare = sym.plan && !sym.prefix && !isRoom;
       labelWrap.style.display = sym.plan && !sym.prefix ? 'none' : '';
       valueInput.parentElement.style.display = bare ? 'none' : '';
-      valueLbl.textContent = isRoom ? 'Nom de la pièce' : sym.plan ? 'Circuit / remarque' : 'Valeur';
-      valueInput.placeholder = isRoom ? 'Chambre, Séjour, Cuisine…' : sym.plan ? 'ex. C3 – 16 A' : '1 kΩ';
+      const load = typeof LOADS !== 'undefined' && LOADS[sel[0].type];
+      valueLbl.textContent = isRoom ? 'Nom de la pièce' : load && load.cls === 'socket' ? 'Charge branchée' : load ? 'Puissance' : sym.plan ? 'Remarque' : 'Valeur';
+      valueInput.placeholder = isRoom ? 'Chambre, Séjour, Cuisine…' : load && load.cls === 'socket' ? 'ex. 2000 W (radiateur d’appoint)'
+        : load ? fmtW(loadPower(sel[0])) : sym.plan ? '' : '1 kΩ';
       const isSwitch = SWITCHABLE.has(sel[0].type);
       switchWrap.style.display = isSwitch ? '' : 'none';
       closedChk.checked = !!sel[0].closed;
+      const canRun = load && load.cls !== 'light' && !load.always;
+      onWrap.style.display = canRun ? '' : 'none';
+      onChk.checked = !!sel[0].on;
+      const d = houseUI && houseUI.design();
+      const bd = d && d.ok && d.byDevice[sel[0].id];
+      if (bd) {
+        const ct = d.circuits.find((x) => x.id === bd.circuit);
+        propCircuit.innerHTML = `<b>${ct.id} · ${_escHtml(ct.name)}</b><span>${ct.In} A · ${String(ct.S).replace('.', ',')} mm² · ${ct.rcd} · câble ${bd.len.toFixed(1).replace('.', ',')} m</span>`;
+        propCircuit.hidden = false;
+      } else propCircuit.hidden = true;
     } else {
       propBox.style.display = 'none';
       propEmpty.style.display = 'block';
@@ -815,8 +814,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (ex) {
       editor.load(getExampleData(ex.id));
       if (ex.sim === 'plan') {
-        showTab('norm');
-        showToast(`<b>${ex.name}</b> chargé — conformité NF à droite, clique <b>3D</b> pour visiter la maison !`);
+        showTab(ex.id.startsWith('maison-') ? 'install' : 'norm');
+        showToast(`<b>${ex.name}</b> chargé — clique <b>3D</b> pour visiter la maison !`);
       } else {
         showTab('sim');
         showToast(`<b>${ex.name}</b> chargé — lance l'analyse « ${ex.simLabel} ».`);
@@ -825,7 +824,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   if (params.get('tab') && document.querySelector(`.tab[data-tab="${params.get('tab')}"]`)) showTab(params.get('tab'));
   if (params.get('modal') === 'examples') openModal();
-  if (params.get('3d') === '1' && document.getElementById('btn-3d')) open3D();
+  if (params.get('houses') === '1') houseUI.openHouses();
+  if (params.get('3d') === '1') houseUI.open3D();
   // ?sim=dc|logic|trans|bode : lance l'analyse au chargement
   const simParam = params.get('sim');
   if (simParam) {

@@ -6,7 +6,9 @@
 const GRID = 20; // pas de grille (unités monde)
 
 // Composants basculables au double-clic (ouvert / fermé)
-const SWITCHABLE = new Set(['switch', 'push_button', 'breaker', 'rcd', 'sw_vv']);
+const SWITCHABLE = new Set(['switch', 'push_button', 'breaker', 'rcd', 'sw_vv', 'switch_sa', 'switch_vv_wall']);
+// Appareils du plan de maison qu'on met en marche au double-clic
+const APPLIANCES = new Set(['oven', 'cooktop', 'washer', 'dishwasher', 'dryer', 'water_heater', 'radiator', 'ev_charger', 'tv_unit', 'desk']);
 
 // Palettes de rendu du plan (synchronisées avec le thème de l'interface)
 const CANVAS_THEMES = {
@@ -71,6 +73,8 @@ class Editor {
     this.simResult = null;
 
     this.onChange = null; // callback UI
+    this.planState = null;  // { lit: Set, on: Set } fourni par la simulation de l'installation
+    this.highlight = null;  // Set d'ids mis en évidence (circuit survolé)
 
     this._bindEvents();
     this.resize();
@@ -450,6 +454,9 @@ class Editor {
     } else if (c && c.type === 'logic_in') {
       c.high = !c.high;
       this.pushHistory(); this.render(); this._emit();
+    } else if (c && APPLIANCES.has(c.type)) {
+      c.on = !c.on; // état de fonctionnement : pas une modification du plan
+      this.autosave(); this.render(); this._emit();
     }
   }
 
@@ -790,10 +797,30 @@ class Editor {
 
     const hovered = this.hoverId === c.id && !selected;
     const col = selected ? this.colors.sel : hovered ? this.colors.hover : this.colors.comp;
+    // Installation simulée : halo des lampes allumées, circuit survolé
+    const st = this.planState;
+    if (st && st.lit.has(c.id)) {
+      const g = ctx.createRadialGradient(0, 0, 4, 0, 0, 90);
+      g.addColorStop(0, 'rgba(255, 214, 110, 0.55)');
+      g.addColorStop(1, 'rgba(255, 214, 110, 0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(0, 0, 90, 0, Math.PI * 2); ctx.fill();
+    }
+    if (this.highlight && this.highlight.has(c.id)) {
+      ctx.fillStyle = this.colors.selFill;
+      ctx.strokeStyle = this.colors.sel;
+      ctx.lineWidth = 2 / this.view.scale;
+      ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    }
     ctx.strokeStyle = col;
     ctx.fillStyle = col;
     ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     sym.draw(ctx, c);
+    if (st && st.on.has(c.id) && !st.lit.has(c.id)) {
+      const b = sym.bbox;
+      ctx.fillStyle = '#34c471';
+      ctx.beginPath(); ctx.arc(b.x + b.w - 3, b.y + 3, 4.5, 0, Math.PI * 2); ctx.fill();
+    }
 
     // terminaux
     ctx.fillStyle = this.colors.term;

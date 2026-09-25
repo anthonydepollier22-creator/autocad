@@ -13,7 +13,7 @@ const vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const sb = { Math, JSON, console };
 vm.createContext(sb);
-for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'svg', 'viz3d']) {
+for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'svg', 'viz3d']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f + '.js'), 'utf8'), sb, { filename: f + '.js' });
 }
 const run = (code) => vm.runInContext(code, sb);
@@ -131,6 +131,99 @@ r = ex('maison', 'return [computeJunctions(d.components, d.wires, SYMBOLS).lengt
 check('Murs et goulottes hors électrique : 0 jonction, 0 erreur ERC', r[0] === 0 && r[1] === 0, r.join(' / '));
 
 // ---------------------------------------------------------------------------
+group('Types de maison — génération, mobilier, implantation');
+const houseKeys = run('HOUSE_TYPES.map(function(h){ return h.key; })');
+for (const k of houseKeys) {
+  r = run(`(function(){
+    var d = buildHouse(${JSON.stringify(k)}), T = HOUSE_TYPES.find(function(h){ return h.key === ${JSON.stringify(k)}; });
+    var info = computeRooms(d.components, d.wires), rep = checkNFC15100(d.components, d.wires);
+    var area = info.rooms.reduce(function(s, x){ return s + (x.area || 0); }, 0);
+    var closed = info.rooms.every(function(x){ return !x.leaked && x.sharedWith === null; });
+    var furn = d.components.filter(function(c){ return FURN[c.type] && c.type !== 'gtl' && c.type !== 'panel_house'; });
+    var overlaps = [];
+    for (var i = 0; i < furn.length; i++) for (var j = i + 1; j < furn.length; j++)
+      if (_overlap(_footprint(furn[i], -1), _footprint(furn[j], -1))) overlaps.push(furn[i].type + '/' + furn[j].type);
+    var des = designInstallation(d.components, d.wires);
+    var off = Object.keys(des.route).filter(function(id){ return des.route[id].off; }).length;
+    return { name: T.name, rooms: info.rooms.length, area: area, closed: closed, err: rep.errors, warn: rep.warnings,
+      overlaps: overlaps, off: off, circuits: des.circuits.length, conduits: d.wires.filter(function(w){ return w.kind === 'conduit'; }).length };
+  })()`);
+  check(`${r.name} : ${r.rooms} pièces fermées, ${r.area.toFixed(1).replace('.', ',')} m², 0 non-conformité`, r.closed && r.err === 0 && r.warn === 0, `${r.err} err. / ${r.warn} avert.`);
+  check(`${r.name} : mobilier sans chevauchement, ${r.circuits} circuits, chaque appareil desservi par une goulotte`, !r.overlaps.length && r.off === 0 && r.conduits > 0, r.overlaps.join(', ') || `${r.conduits} goulottes`);
+}
+r = run('JSON.stringify(buildHouse("t3")) === JSON.stringify(buildHouse("t3"))');
+check('Génération déterministe (même type → même plan)', r === true);
+r = run(`(function(){
+  var d = getExampleData('maison');
+  d.components = d.components.filter(function(c){ return ['room','door','window_a','panel_house','gtl'].indexOf(c.type) >= 0; });
+  d.wires = d.wires.filter(function(w){ return w.kind === 'wall'; });
+  var a = autoImplant(d), k = autoConduits(d), rep = checkNFC15100(d.components, d.wires);
+  return [a.added, k.conduits, rep.errors, rep.warnings];
+})()`);
+check('Plan dessiné à la main : implantation automatique puis goulottes → conforme', r[0] > 10 && r[1] > 5 && r[2] === 0 && r[3] === 0, `${r[0]} appareils, ${r[1]} goulottes, ${r[2]} err., ${r[3]} avert.`);
+
+// ---------------------------------------------------------------------------
+group('Installation — conception du tableau');
+const des = (k) => run(`(function(){ var d = buildHouse(${JSON.stringify(k)}), x = designInstallation(d.components, d.wires);
+  return { rcds: x.rcds.map(function(r){ return r.In + r.type; }).join(' '), kva: x.agcp.kva,
+    lightMax: Math.max.apply(null, x.circuits.filter(function(c){ return c.kind === 'light'; }).map(function(c){ return c.points; })),
+    kitchenMax: Math.max.apply(null, x.circuits.filter(function(c){ return c.name.indexOf('cuisine') >= 0; }).map(function(c){ return c.points; })),
+    cook: x.circuits.filter(function(c){ return c.appliance === 'cooktop'; }).map(function(c){ return c.In + 'A/' + c.S + '/' + x.rcds.find(function(r){ return r.id === c.rcd; }).type; }).join(),
+    dUok: x.circuits.every(function(c){ return c.ok; }), n: x.circuits.length }; })()`);
+r = des('studio');
+check('Studio (28,7 m² ≤ 35 m²) : 1 différentiel 25 A type AC + 1 type A', r.rcds === '25AC 40A', r.rcds);
+r = des('t3');
+check('T3 (78,9 m²) : 2 différentiels 40 A type AC + 1 type A', r.rcds === '40AC 40AC 40A', r.rcds);
+check('T3 : ≤ 8 points par circuit d’éclairage, ≤ 6 prises sur le circuit cuisine', r.lightMax <= 8 && r.kitchenMax <= 6, `${r.lightMax} / ${r.kitchenMax}`);
+check('T3 : plaque de cuisson en 32 A / 6 mm² sous différentiel type A', r.cook === '32A/6/A', r.cook);
+check('T3 : chutes de tension ≤ 3 % (éclairage) et ≤ 5 % (autres)', r.dUok);
+r = des('t5');
+check('T5 + garage (157 m² > 100 m²) : 3 × AC + type A + type F dédié à la borne', r.rcds === '40AC 40AC 40AC 40A 40F', r.rcds);
+check('T5 : abonnement 18 kVA (chauffage, cuisson, borne de recharge)', r.kva === 18, r.kva + ' kVA');
+
+// ---------------------------------------------------------------------------
+group('Physique de l’installation (valeurs calculées à la main)');
+// Tableau + 10 m de goulotte + une prise : ΔU = 2·ρ·L·I/S
+run(`function mini(power) {
+  var d = { components: [
+      { id: 'TB', type: 'panel_house', x: 0, y: 0, rot: 0, label: 'TB1', value: '' },
+      { id: 'P', type: 'socket_wall', x: 1000, y: 0, rot: 0, label: 'PC1', value: power + ' W', on: true } ],
+    wires: [{ id: 'g', kind: 'conduit', points: [{ x: 0, y: 0 }, { x: 1000, y: 0 }] }] };
+  var des = designInstallation(d.components, d.wires), sim = new InstallSim();
+  des.agcp.setting = 90; // on isole le disjoncteur divisionnaire
+  sim.setDesign(des);
+  return { d: d, des: des, sim: sim };
+}`);
+r = run(`(function(){ var m = mini(2300), s = m.sim.step(0.1, m.d.components, m.d.wires); return [m.des.route.P.len, s.devices.P.U]; })()`);
+const L = r[0], dU = (2 * 0.0225 * L * 10) / 2.5;
+check(`Chute de tension : 2 × 0,0225 × ${L.toFixed(1).replace('.', ',')} m × 10 A / 2,5 mm² = ${dU.toFixed(2).replace('.', ',')} V`, near(r[1], 230 - dU, 0.01), r[1].toFixed(3) + ' V');
+r = run(`(function(){ var m = mini(7500), t = 0, I = 0;
+  for (var k = 0; k < 3000; k++) { var s = m.sim.step(0.1, m.d.components, m.d.wires); if (k === 0) I = s.circuits[0].I; t += 0.1; if (m.sim.breakers.C1.tripped) break; }
+  var th = Math.pow(I / 20, 2); return [t, 120 * Math.log(th / (th - 1.13 * 1.13)), I]; })()`);
+check(`Surcharge ${r[2].toFixed(1).replace('.', ',')} A sur 20 A : déclenchement thermique à τ·ln(θ∞/(θ∞ − 1,13²)) = ${r[1].toFixed(1).replace('.', ',')} s`, near(r[0], r[1], 0.3), r[0].toFixed(1) + ' s');
+r = run(`(function(){ var m = mini(4800); for (var k = 0; k < 6000; k++) m.sim.step(0.1, m.d.components, m.d.wires); return m.sim.breakers.C1.tripped; })()`);
+check('20,6 A sur 20 A (< 1,13 In) : aucun déclenchement en 10 min', r === false);
+r = run(`(function(){ var m = mini(0); m.sim.setFault('P', 'short'); m.sim.step(0.1, m.d.components, m.d.wires);
+  return [m.sim.breakers.C1.tripped, 230 / (0.35 + 2 * 0.0225 * m.des.route.P.len / 2.5)]; })()`);
+check(`Court-circuit : Icc = U / Zboucle ≈ ${Math.round(r[1])} A ≥ 10 In → déclenchement magnétique instantané`, r[0] === true);
+r = run(`(function(){ var m = mini(0); m.sim.setFault('P', 'leak'); m.sim.step(0.1, m.d.components, m.d.wires);
+  return m.sim.rcds[m.des.circuits[0].rcd].tripped && !m.sim.breakers.C1.tripped; })()`);
+check('Défaut d’isolement (≈ 230 mA ≥ 30 mA) : le différentiel déclenche, pas le disjoncteur', r === true);
+r = run(`(function(){ var m = mini(6000); m.des.agcp.setting = 15; m.sim.setDesign(m.des);
+  for (var k = 0; k < 600; k++) { m.sim.step(0.1, m.d.components, m.d.wires); if (m.sim.agcp.tripped) break; }
+  return [m.sim.agcp.tripped, m.sim.breakers.C1.tripped]; })()`);
+check('Dépassement de la puissance souscrite : le disjoncteur de branchement coupe avant le divisionnaire', r[0] === true && r[1] === false, r.join(' / '));
+r = run(`(function(){ var m = mini(2300); m.sim.speed = 60; var s;
+  for (var k = 0; k < 600; k++) s = m.sim.step(0.1, m.d.components, m.d.wires); return [m.sim.energy, s.P]; })()`);
+check(`Énergie : ${Math.round(r[1])} W pendant 1 h simulée = ${(r[1] / 1000).toFixed(2).replace('.', ',')} kWh`, near(r[0], r[1], 1), (r[0] / 1000).toFixed(3) + ' kWh');
+r = run(`(function(){ var d = getExampleData('maison'), des = designInstallation(d.components, d.wires), sim = new InstallSim(); sim.setDesign(des);
+  var s1 = d.components.find(function(c){ return c.id === 'SW1'; }), s2 = d.components.find(function(c){ return c.id === 'SW2'; }), out = [];
+  [[false, false], [true, false], [false, true], [true, true]].forEach(function(p){ s1.closed = p[0]; s2.closed = p[1];
+    out.push(sim.step(0.1, d.components, d.wires).lit.has('DCL1') ? 1 : 0); });
+  return out.join(''); })()`);
+check('Va-et-vient : la chambre s’éclaire quand un seul des deux interrupteurs est basculé (OU exclusif)', r === '0110', r);
+
+// ---------------------------------------------------------------------------
 group('3D et exports');
 sb.__cv = { width: 600, height: 400, style: {}, getContext: () => sb.__ctx, getBoundingClientRect: () => ({ width: 600, height: 400 }), addEventListener: noop };
 r = run(`(function(){
@@ -139,6 +232,25 @@ r = run(`(function(){
   return out;
 })()`);
 check(`Les ${r.length} exemples se construisent en 3D`, r.every((n) => n > 50), r.join(' '));
+r = run('SYMBOLS.__order.filter(function(k){ return !BUILDERS3D[k]; })');
+check('Chacun des symboles a sa représentation 3D', r.length === 0, r.join(', ') || undefined);
+r = run(`(function(){
+  var d = buildHouse('t3'), des = designInstallation(d.components, d.wires), sim = new InstallSim(); sim.setDesign(des);
+  d.components.forEach(function(c){ if (c.type === 'switch_sa') c.closed = true; if (c.type === 'cooktop') c.on = true; });
+  var snap = sim.step(0.1, d.components, d.wires), viz = new Viz3D(__cv, { interactive: false });
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { xray: true, sim: { snap: snap, design: des, sim: sim } });
+  var cables = viz.faces.filter(function(f){ return f.obj && String(f.obj).indexOf('cable:') === 0; }).length;
+  var inside = viz.lights.every(function(l){ return l.room >= 0; });
+  return [snap.lit.size, viz.lights.length, inside, cables, viz.flows.length];
+})()`);
+check('Lampes allumées → sources de lumière rattachées à leur pièce', r[0] > 0 && r[1] === r[0] && r[2], `${r[0]} lampes, ${r[1]} lumières`);
+check('Rayons X : câbles de chaque circuit et courant animé vers les appareils en marche', r[3] > 100 && r[4] > 0, `${r[3]} faces de câble, ${r[4]} flux`);
+r = run(`(function(){
+  var scene = { colliders: { segs: [{ a: { x: 0, y: -500 }, b: { x: 0, y: 500 }, r: 5 }], polys: [] } };
+  var p = collideCircle(scene, 8, 0, 22);
+  return p.x;
+})()`);
+check('Visite : le visiteur ne traverse pas les murs (cercle repoussé à R + e/2)', near(r, 27, 1e-6), r);
 r = run(`(function(){
   var viz = new Viz3D(__cv, { interactive: false }), empty = [];
   Object.keys(BUILDERS3D).forEach(function(k){
