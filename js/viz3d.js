@@ -948,6 +948,7 @@ function buildBoard(viz, components, wires, symbols, opts) {
   const W = maxX - minX, D = maxZ - minZ;
   if (!opts.keepCamera) viz.target = [cx, 0, cz];
   viz.bounds = { minX, minZ, maxX, maxZ };
+  viz.outerBounds = null;
 
   if (!houseMode) {
     viz.scene = null;
@@ -1223,6 +1224,7 @@ function _buildRoof(viz, ex) {
 function _buildGarden(viz, components, info, ex) {
   const M = 520; // marge du terrain autour de la maison
   const lot = { minX: ex.minX - M, minZ: ex.minZ - M, maxX: ex.maxX + M, maxZ: ex.maxZ + M };
+  viz.outerBounds = lot;
   const GY = -9.8;
   // Côté de la maison le plus proche d'un point : 'N' (z min), 'S', 'W' (x min), 'E'
   const sideOf = (x, z) => {

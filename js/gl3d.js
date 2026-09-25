@@ -86,11 +86,16 @@ void main() {
     float sh = 1.0;
     if (uShadowOn > 0.5) {
       vec3 p = vSun.xyz / vSun.w * 0.5 + 0.5;
-      if (p.x > 0.0 && p.x < 1.0 && p.y > 0.0 && p.y < 1.0 && p.z < 1.0) {
+      if (p.x > 0.0 && p.x < 1.0 && p.y > 0.0 && p.y < 1.0) {
+        // au-delà du plan lointain (ombres très longues au coucher) : on compare au plus loin
+        float pz = min(p.z, 0.9995);
+        // biais proportionnel à la pente : soleil rasant sans « acné » sur la pelouse
+        float nc = max(ndl, 0.02);
+        float bias = clamp(0.0008 + 0.00035 * sqrt(1.0 - nc * nc) / nc, 0.0008, 0.012);
         vec2 ts = 1.0 / vec2(textureSize(uShadow, 0));
         sh = 0.0;
         for (int i = -1; i <= 1; i++) for (int j = -1; j <= 1; j++)
-          sh += texture(uShadow, vec3(p.xy + vec2(float(i), float(j)) * ts * 1.5, p.z - 0.0008));
+          sh += texture(uShadow, vec3(p.xy + vec2(float(i), float(j)) * ts * 1.5, pz - bias));
         sh /= 9.0;
       }
     }
@@ -361,7 +366,7 @@ class GL3D extends Viz3D {
 
   // Emprise utile (la maison, pas le terrain) : cadre la carte d'ombre et la brume
   _focusBox() {
-    const b = this.bounds, s = this.sceneBox;
+    const b = this.outerBounds || this.bounds, s = this.sceneBox; // terrain compris (ombres de la haie, des arbres)
     if (!b || !s) return s;
     return { min: [b.minX - 60, s.min[1], b.minZ - 60], max: [b.maxX + 60, s.max[1], b.maxZ + 60] };
   }

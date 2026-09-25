@@ -506,15 +506,13 @@ code { font-family: var(--f-mono); font-size: 0.88em; padding: 1px 5px; border-r
 .bench-note { margin: 14px 0 0; font-size: 12px; color: var(--faint); text-wrap: pretty; }
 
 /* C4 — captures 3D */
-.shots { display: grid; grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); grid-template-rows: auto auto; gap: 20px; }
+.shots { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 20px; }
 .shot { margin: 0; }
-.shot-big { grid-row: span 2; }
 .shot img {
   width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 12px;
   background: var(--console); border: 1px solid var(--line-strong);
   outline: 1px solid rgba(0, 0, 0, 0.06); outline-offset: -1px;
 }
-.shot-big img { aspect-ratio: auto; height: calc(100% - 36px); min-height: 320px; }
 .shot figcaption { margin-top: 10px; font-size: 14px; color: var(--muted); text-wrap: pretty; }
 .shot figcaption b { color: var(--ink); }
 
@@ -699,9 +697,6 @@ code { font-family: var(--f-mono); font-size: 0.88em; padding: 1px 5px; border-r
   .plan-grid, .norm-wrap, .bench-grid, .lab-grid { grid-template-columns: 1fr; }
   .plan-fig { order: -1; }
   .lab-preview { position: static; }
-  .shots { grid-template-columns: 1fr 1fr; }
-  .shot-big { grid-column: 1 / -1; grid-row: auto; }
-  .shot-big img { height: auto; min-height: 0; aspect-ratio: 16 / 10; }
   .dl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .foot-grid, .in-app .foot-grid { grid-template-columns: 1fr 1fr; }
   .foot-brand { grid-column: 1 / -1; }
