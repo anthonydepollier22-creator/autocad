@@ -289,6 +289,17 @@ code { font-family: var(--f-mono); font-size: 0.88em; padding: 1px 5px; border-r
   background: rgba(10, 14, 20, 0.72); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
+.demo-play {
+  width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 50%; cursor: pointer;
+  border: 0; background: #ffcf33; color: #111;
+  transition: transform 0.15s ease-out, background-color 0.15s ease-out;
+}
+.demo-play:hover { background: #ffd95c; }
+.demo-play:active { transform: scale(0.92); }
+.demo-play svg { width: 14px; height: 14px; fill: currentColor; }
+.demo-play .i-pause { display: none; }
+.demo-play[aria-pressed='true'] .i-play { display: none; }
+.demo-play[aria-pressed='true'] .i-pause { display: inline; }
 .demo-time label { font-family: var(--f-mono); font-size: 12.5px; color: #fff; min-width: 64px; font-variant-numeric: tabular-nums; }
 .demo-time input { width: 140px; accent-color: #ffcf33; }
 .demo-foot { padding: 12px; border-top: 1px solid var(--console-line); background: var(--console-2); display: grid; gap: 12px; }

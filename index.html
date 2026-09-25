@@ -86,6 +86,9 @@
           <canvas id="demo-plan" hidden aria-label="Plan de la maison"></canvas>
           <div class="demo-panel" id="demo-panel" hidden></div>
           <div class="demo-time" id="demo-time">
+            <button type="button" class="demo-play" id="demo-play" aria-pressed="false" aria-label="Faire défiler la journée" title="Faire défiler la journée">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path class="i-play" d="M8 5.5v13l10.5-6.5z"/><path class="i-pause" d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></svg>
+            </button>
             <label for="demo-hour"><span id="demo-hour-ico" aria-hidden="true">☀</span> <span id="demo-hour-lbl">17:45</span></label>
             <input type="range" id="demo-hour" min="6" max="23.5" step="0.25" value="17.75" aria-label="Heure de la journée" />
           </div>

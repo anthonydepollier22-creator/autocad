@@ -343,8 +343,24 @@ function initDemo() {
       if (demo.tab === 'plan') drawDemoPlan();
     }
   };
-  hour.addEventListener('input', onHour);
+  hour.addEventListener('input', (e) => { if (e.isTrusted) stopPlay(); onHour(); });
   $('demo-hour-lbl').textContent = fmtHour(demo.hour);
+
+  // Lecture de la journée : 6 h → 23 h 30 en une vingtaine de secondes, en boucle
+  const play = $('demo-play');
+  let playing = 0;
+  const stopPlay = () => { clearInterval(playing); playing = 0; play.setAttribute('aria-pressed', 'false'); };
+  play.addEventListener('click', () => {
+    if (playing) { stopPlay(); return; }
+    play.setAttribute('aria-pressed', 'true');
+    if (demo.tab === 'panel') showTab('3d');
+    playing = setInterval(() => {
+      let h = +hour.value + 0.25;
+      if (h > 23.5) h = 6;
+      hour.value = h;
+      onHour();
+    }, 260);
+  });
 
   // Vue 3D
   const cv = $('demo3d');
