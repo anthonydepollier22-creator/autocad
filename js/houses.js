@@ -754,6 +754,42 @@ function _ceilingSpot(ctx, room, x, y) {
   return _nearestInRoom(ctx.info, room, x, y);
 }
 
+// Compléter l'éclairage : appliques dans les pièces sous l'éclairement conseillé
+// (étude lightingStudy d'install.js). En cuisine, d'abord au-dessus du plan de
+// travail ; ailleurs, loin des points lumineux existants. Trois au plus par pièce.
+function autoLighting(doc) {
+  const study = lightingStudy(doc.components, doc.wires);
+  if (!study) return { added: 0, rooms: [] };
+  const ctx = _planContext(doc);
+  let added = 0;
+  const rooms = [];
+  for (const R of study.rooms) {
+    if (R.status === 'ok' || !_roomOk(ctx.info, R.i)) continue;
+    const lights = doc.components.filter((c) => LIGHT_TYPES.has(c.type) && roomAt(ctx.info, c.x, c.y) === R.i).map((c) => ({ x: c.x, y: c.y }));
+    const spots = _wallSpots(ctx, R.i);
+    const pools = [];
+    if (R.key === 'cuisine') {
+      const tops = ctx.obstacles.filter((o) => o.kind === 'block' && o.type === 'counter');
+      pools.push(spots.filter((p) => tops.some((o) => _inPoly(o.poly, p.x, p.y)) && _spotOk(ctx, R.i, p, 'worktop')));
+    }
+    pools.push(spots.filter((p) => _spotOk(ctx, R.i, p, 'outlet')));
+    // une applique à la fois, jusqu'à l'objectif (l'étude est refaite à chaque pose)
+    let n = 0;
+    for (; n < 3; n++) {
+      let p = null;
+      for (const pool of pools) if (!p) [p] = _spread(pool, 1, lights, 90);
+      if (!p) break;
+      _addDevice(ctx, 'wall_light', p.x, p.y, _rotDevice(p.nx, p.ny));
+      lights.push(p);
+      const now = lightingStudy(doc.components, doc.wires).rooms.find((x) => x.id === R.id);
+      if (!now || now.status === 'ok') { n++; break; }
+    }
+    if (n) { added += n; rooms.push(R.name); }
+  }
+  _clean(doc);
+  return { added, rooms };
+}
+
 function autoImplant(doc, opts) {
   opts = Object.assign({ heating: true }, opts || {});
   const ctx = _planContext(doc);

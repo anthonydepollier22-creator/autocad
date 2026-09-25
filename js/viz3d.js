@@ -1141,6 +1141,41 @@ function _traceSeg(viz, a, b) {
   viz.box((a.x + b.x) / 2, 0, (a.y + b.y) / 2, len + 4, 1.4, 5, C3D.copper, (Math.atan2(dz, dx) * 180) / Math.PI);
 }
 
+// Éclairement : rampe séquentielle sombre → jaune clair (plus c'est clair, plus il y a de lumière)
+const LUX_RAMP = [[0, '#1d1b22'], [50, '#4a3a2a'], [100, '#7d5a2c'], [150, '#b07b2a'], [200, '#d99a2b'], [300, '#f2c14e'], [500, '#fff1b8']];
+function luxColor(E) {
+  const R = LUX_RAMP;
+  if (E <= R[0][0]) return R[0][1];
+  for (let k = 1; k < R.length; k++) {
+    if (E > R[k][0]) continue;
+    const t = (E - R[k - 1][0]) / (R[k][0] - R[k - 1][0]);
+    const a = parseInt(R[k - 1][1].slice(1), 16), b = parseInt(R[k][1].slice(1), 16);
+    const ch = (sh) => Math.round(((a >> sh) & 255) * (1 - t) + ((b >> sh) & 255) * t);
+    return '#' + ((1 << 24) | (ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).slice(1);
+  }
+  return R[R.length - 1][1];
+}
+// Sol d'une pièce en carte d'éclairement : bandes de même teinte (paliers de 10 à 50 lx)
+function _luxFloor(viz, L, i, holes) {
+  const S = L.step, e0 = viz.em;
+  viz.em = 0.45; // lisible de nuit comme de jour
+  for (let gy = 0; gy < L.ny; gy++) {
+    let start = -1, col = null;
+    for (let gx = 0; gx <= L.nx; gx++) {
+      const k = gy * L.nx + gx, inside = gx < L.nx && L.own[k] === i;
+      const E = inside ? L.lux[k] : 0, q = E < 150 ? 10 : E < 300 ? 20 : 50; // paliers plus larges là où l'œil distingue moins
+      const c = inside ? luxColor(Math.round(E / q) * q) : null;
+      if (start >= 0 && c !== col) {
+        const r0 = { x: L.x0 + start * S - S / 2, y: L.y0 + gy * S - S / 2, w: (gx - start) * S, h: S };
+        for (const r of _cutRects([r0], holes)) viz.poly([[r.x, 0.3, r.y], [r.x + r.w, 0.3, r.y], [r.x + r.w, 0.3, r.y + r.h], [r.x, 0.3, r.y + r.h]], col);
+        start = -1;
+      }
+      if (inside && start < 0) { start = gx; col = c; }
+    }
+  }
+  viz.em = e0;
+}
+
 function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
   const levelOf = b.levelOf || (() => 0), lv = b.levels;
   const offOf = (x) => { const L = lv && lv[levelOf(x)]; return L && (L.dx || L.dy) ? { dx: L.dx || 0, dy: L.dy || 0 } : null; };
@@ -1227,6 +1262,7 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
     info.rooms.forEach((room, i) => {
       if (!floored[i] || !shown(labX(room))) return;
       at(labX(room));
+      if (opts.lux) { _luxFloor(viz, opts.lux, i, holes); return; }
       const col = opts.energy ? opts.energy.color(i) : _floorColor(room);
       for (const r of _cutRects(roomRuns(info, i), holes)) {
         viz.poly([[r.x, 0.3, r.y], [r.x + r.w, 0.3, r.y], [r.x + r.w, 0.3, r.y + r.h], [r.x, 0.3, r.y + r.h]], col);
@@ -1234,7 +1270,7 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
     });
     viz.setLayer(0.6);
     info.rooms.forEach((room, i) => {
-      if (!floored[i] || opts.energy || !shown(labX(room))) return;
+      if (!floored[i] || opts.energy || opts.lux || !shown(labX(room))) return;
       at(labX(room));
       const k = room.type && room.type.floor;
       if (k === 'concrete') return;

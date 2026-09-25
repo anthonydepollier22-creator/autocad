@@ -318,6 +318,17 @@ function initHouseUI(app) {
       editor.wires = doc.wires;
       editor.pushHistory(); editor.render();
       showToast(k.conduits ? `<b>${k.conduits} goulottes</b> tracées depuis le tableau (${k.length.toFixed(0)} m).` : 'Place d’abord un tableau électrique.');
+    } else if (act === 'lighting') {
+      const before = lightingStudy(editor.components, editor.wires);
+      const r = autoLighting(doc);
+      if (r.added && editor.wires.some((w) => w.kind === 'conduit')) { autoConduits(doc); editor.wires = doc.wires; }
+      editor.pushHistory(); editor.render();
+      const after = lightingStudy(editor.components, editor.wires);
+      const gain = r.rooms.map((name) => {
+        const a = before.rooms.find((R) => R.name === name), b = after.rooms.find((R) => R.name === name);
+        return a && b ? `${esc(name)} ${Math.round(a.avg)} → ${Math.round(b.avg)} lx` : esc(name);
+      });
+      showToast(r.added ? `<b>${r.added} applique${r.added > 1 ? 's' : ''}</b> posée${r.added > 1 ? 's' : ''} : ${gain.join(', ')}. Annulable dans le plan (Ctrl+Z).` : 'Pas de place libre sur les murs des pièces sous-éclairées.', 6500);
     } else if (act === 'furnish') {
       const r = furnishPlan(doc);
       editor.pushHistory(); editor.render();
@@ -325,6 +336,7 @@ function initHouseUI(app) {
     }
     ensureDesign(true);
     tick(0, true);
+    if (viz && !view3d.hidden) build3D(false); // action lancée depuis la 3D (appliques)
   }
 
   // ---- Nouvelle maison -----------------------------------------------------
@@ -745,6 +757,56 @@ function initHouseUI(app) {
     viz.onFrame = place;
     place();
   }
+  // Vue Lumière : éclairement moyen de chaque pièce (tout allumé) et objectif
+  const LUX_STATUS = { ok: ['✓', 'atteint'], juste: ['△', 'un peu juste'], faible: ['✗', 'insuffisant'] };
+  const fmtLm = (lm) => (lm >= 1000 ? (lm / 1000).toFixed(1).replace('.', ',') + ' klm' : lm + ' lm');
+  function luxLabels(L) {
+    labelsBox.replaceChildren();
+    labelsBox.hidden = false;
+    labelsBox.__update = null;
+    const items = [];
+    for (const R of L.rooms) {
+      const lab = byId(R.id);
+      if (!lab) continue;
+      const Lv = levelAt(lab.x);
+      if (v3.level !== 'all' && Lv.i !== v3.level) continue;
+      const [icon, word] = LUX_STATUS[R.status];
+      const el = document.createElement('div');
+      el.className = 'v3-lab lux ' + R.status;
+      el.title = `${R.name} : ${Math.round(R.avg)} lx en moyenne (min ${Math.round(R.min)}, max ${Math.round(R.max)}) — conseillé ${R.target} lx, ${word}.` +
+        (R.lamps ? ` ${R.lamps} point${R.lamps > 1 ? 's' : ''} lumineux, ${fmtLm(R.lm)}.` : ' Aucun point lumineux.') + (R.need ? ` Il manque ≈ ${fmtLm(R.need)}.` : '');
+      const name = document.createElement('span'); name.textContent = R.name;
+      const val = document.createElement('b'); val.className = 'num'; val.textContent = Math.round(R.avg) + ' lx';
+      const st = document.createElement('small'); st.textContent = `${icon} ${R.status === 'ok' ? '≥ ' + R.target : 'conseillé ' + R.target}`;
+      el.append(name, val, st);
+      labelsBox.appendChild(el);
+      items.push({ el, p: [lab.x + Lv.dx, 150 + Lv.dy, lab.y] });
+    }
+    const legend = document.createElement('div');
+    legend.className = 'v3-energy-legend';
+    legend.innerHTML = '<span>0</span><i class="lux"></i><span>300+ lx</span><em>plan de travail · tout allumé · LED 60 lm/W</em>';
+    labelsBox.appendChild(legend);
+    const place = () => {
+      for (const it of items) {
+        const q = viz.project && (viz.cutX === null || it.p[viz.cutAxis === 'z' ? 2 : 0] <= viz.cutX) && viz.project(it.p);
+        it.el.style.display = q ? '' : 'none';
+        if (q) it.el.style.transform = `translate(${Math.round(q.x)}px, ${Math.round(q.y)}px) translate(-50%, -50%)`;
+      }
+    };
+    labelsBox.__place = place;
+    viz.onFrame = place;
+    place();
+  }
+  function luxToast() {
+    const L = lightingStudy(editor.components, editor.wires);
+    if (!L || !L.rooms.length) { showToast('Vue Lumière : il faut des pièces fermées et nommées.'); return; }
+    if (!L.rooms.some((R) => R.lamps)) { showToast('Vue Lumière : aucun point lumineux — onglet Tableau → <b>Implanter</b>.'); return; }
+    const low = L.rooms.filter((R) => R.status !== 'ok');
+    showToast(low.length
+      ? `<b>Lumière</b> (tout allumé) : ${low.length} pièce${low.length > 1 ? 's' : ''} sous l’éclairement conseillé — ` +
+        low.map((R) => `${esc(R.name)} ${Math.round(R.avg)} lx / ${R.target}`).join(', ') + '. Une applique ou un éclairage de plan de travail y suffit souvent.'
+      : `<b>Lumière</b> (tout allumé) : les ${L.rooms.length} pièces atteignent l’éclairement conseillé.`, 7500);
+  }
   // À chaque pas de simulation : valeurs des étiquettes, et teintes si la puissance a bougé
   function energyTick() {
     if (!v3.energy || !viz || view3d.hidden || !labelsBox.__update) return;
@@ -834,7 +896,7 @@ function initHouseUI(app) {
   // ---- Vue 3D ---------------------------------------------------------------
   const view3d = $('view3d'), cv3 = $('canvas3d'), tip = $('v3-tip'), map = $('v3-map'), hud = $('v3-hud');
   let viz = null;
-  const v3 = { walls: 'full', xray: false, time: 15, energy: false, level: 'all', cut: null, cutAxis: 'x', circuit: null, fault: false, faultKind: 'short', sunpath: null };
+  const v3 = { walls: 'full', xray: false, time: 15, energy: false, lux: false, level: 'all', cut: null, cutAxis: 'x', circuit: null, fault: false, faultKind: 'short', sunpath: null };
   // Course du soleil (vue Extérieur) : arc des positions du soleil sur la journée de la saison choisie
   const hhmmSun = (h) => { const m = Math.round(h * 60); return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; };
   function sunpathUi() {
@@ -965,10 +1027,12 @@ function initHouseUI(app) {
     const house = hasPlan();
     const walking = viz.mode === 'walk';
     const energy = v3.energy && house ? roomPowers() : null;
+    const lux = v3.lux && house ? lightingStudy(editor.components, editor.wires) : null;
     const r = buildBoard(viz, editor.components, editor.wires, SYMBOLS, {
       walls: walking ? 'full' : v3.walls, xray: v3.xray, ceiling: walking, ground: house, keepCamera: !first,
       sim: d && d.ok ? { snap: sim.snap, design: d, sim } : null,
       energy: energy ? { color: (i) => energyColor(energy.P[i] || 0) } : null,
+      lux,
       pv: pvKwc(),
       circuit: v3.xray ? v3.circuit : null,
       levels: levels(), level: walking ? 'all' : v3.level, // en visite : on peut monter à l'étage
@@ -978,7 +1042,8 @@ function initHouseUI(app) {
       pvWarned = pvs.want;
       showToast(`Le toit n’accueille que ${pvs.placed} panneaux (${(pvs.placed * 0.4).toFixed(1).replace('.', ',')} kWc) sur les ${pvs.want} demandés.`);
     }
-    energyLabels(energy);
+    if (lux) luxLabels(lux); else energyLabels(energy);
+    $('v3-lux-fix').hidden = !(lux && lux.rooms.some((R) => R.status !== 'ok'));
     if (first) viz.fit(r * (house ? 0.82 : 1));
   }
   function open3D() {
@@ -1104,10 +1169,19 @@ function initHouseUI(app) {
     if (v3.sunpath) sunpathToast();
   });
   $('v3-tour').addEventListener('click', () => (tour.on ? tourStop() : tourStart()));
+  const setChip = (id, on) => { $(id).classList.toggle('on', on); $(id).setAttribute('aria-pressed', on ? 'true' : 'false'); };
+  $('v3-lux').addEventListener('click', () => {
+    v3.lux = !v3.lux;
+    if (v3.lux && v3.energy) { v3.energy = false; setChip('v3-energy', false); } // une seule teinte de sol à la fois
+    setChip('v3-lux', v3.lux);
+    build3D(false);
+    if (v3.lux) luxToast();
+  });
+  $('v3-lux-fix').addEventListener('click', () => action('lighting'));
   $('v3-energy').addEventListener('click', () => {
     v3.energy = !v3.energy;
-    $('v3-energy').classList.toggle('on', v3.energy);
-    $('v3-energy').setAttribute('aria-pressed', v3.energy ? 'true' : 'false');
+    if (v3.energy && v3.lux) { v3.lux = false; setChip('v3-lux', false); }
+    setChip('v3-energy', v3.energy);
     energySig = '';
     build3D(false);
     if (v3.energy && !(design && design.ok)) showToast('Vue Énergie : il faut un tableau (onglet Tableau → Implanter) pour mesurer la puissance.');
@@ -1341,7 +1415,7 @@ function initHouseUI(app) {
     const vis = (el) => el && !el.hidden && el.offsetParent !== null;
     const press = (sel) => { const el = document.querySelector(sel); if (!vis(el)) return false; el.click(); return true; };
     const k = key.toLowerCase();
-    const map = { x: '#v3-xray', c: '#v3-cut-btn', e: '#v3-energy', j: '#v3-day', f: '#v3-fault', g: '#v3-tour', v: '#btn-3d-video', p: '#btn-3d-photo', o: '#v3-sunpath', 1: '#v3-view [data-v="orbit"]', 2: '#v3-view [data-v="top"]', 3: '#v3-view [data-v="walk"]' };
+    const map = { x: '#v3-xray', c: '#v3-cut-btn', e: '#v3-energy', l: '#v3-lux', j: '#v3-day', f: '#v3-fault', g: '#v3-tour', v: '#btn-3d-video', p: '#btn-3d-photo', o: '#v3-sunpath', 1: '#v3-view [data-v="orbit"]', 2: '#v3-view [data-v="top"]', 3: '#v3-view [data-v="walk"]' };
     if (map[k]) return press(map[k]);
     if (k === 'm') { // murs : pleins → coupés → plan → extérieur
       const bs = [...document.querySelectorAll('#v3-walls button')];

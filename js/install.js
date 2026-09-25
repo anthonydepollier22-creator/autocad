@@ -190,6 +190,66 @@ function _shortest(net, src) {
 // ---------------------------------------------------------------------------
 // Conception
 // ---------------------------------------------------------------------------
+// Étude d'éclairement : lux sur le plan utile (0,85 m), tous les points
+// lumineux allumés. Luminaire LED avec diffuseur : Φ = P × 60 lm/W.
+// Plafonnier : émission lambertienne vers le bas, E = Φ·h² / (π·d⁴).
+// Applique : demi-espace isotrope, E = Φ·h / (2π·d³). La lumière reste dans
+// sa pièce (portes fermées) ; les parois (ρ = 0,5) renvoient Φ / S_parois.
+// ---------------------------------------------------------------------------
+const LUX_EFFICACY = 60;  // lm/W
+const LUX_PLANE = 85;     // cm — hauteur du plan utile
+const LUX_TARGET = { sejour: 150, cuisine: 200, chambre: 100, sdb: 150, wc: 100, circ: 100, bureau: 300, garage: 100, annexe: 100, dressing: 100 };
+const LUX_LAMPS = new Set(['dcl', 'wall_light']);
+
+function lightingStudy(components, wires) {
+  const info = computeRooms(components, wires);
+  if (!info.owner) return null;
+  const K = 1, S = info.step * K; // un point tous les 10 cm
+  const nx = Math.ceil(info.nx / K), ny = Math.ceil(info.ny / K);
+  const lux = new Float32Array(nx * ny).fill(-1), own = new Int16Array(nx * ny).fill(-1);
+  const rooms = info.rooms.map((r, i) => ({
+    i, id: r.id, name: r.name, key: r.type ? r.type.key : null, area: r.area, lamps: 0, lm: 0,
+    sum: 0, n: 0, min: Infinity, max: 0, skip: r.leaked || r.sharedWith !== null || !r.area,
+  }));
+  const byRoom = rooms.map(() => []);
+  for (const c of components) {
+    if (!LUX_LAMPS.has(c.type)) continue;
+    const i = roomAt(info, c.x, c.y);
+    if (i < 0) continue;
+    const L = { x: c.x / 100, y: c.y / 100, wall: c.type === 'wall_light', h: (MOUNT_H[c.type] * 100 - LUX_PLANE) / 100, lm: loadPower(c) * LUX_EFFICACY };
+    byRoom[i].push(L);
+    rooms[i].lamps++; rooms[i].lm += L.lm;
+  }
+  // Part réfléchie : flux de la pièce sur sol + plafond + murs (2,5 m, périmètre ≈ 4,4 √A)
+  const indirect = rooms.map((r) => (r.area ? r.lm / (2 * r.area + 4.4 * Math.sqrt(r.area) * 2.5) : 0));
+  for (let gy = 0; gy < ny; gy++) {
+    for (let gx = 0; gx < nx; gx++) {
+      const o = info.owner[gy * K * info.nx + gx * K];
+      if (o < 0 || rooms[o].skip) continue;
+      const x = (info.x0 + gx * S) / 100, y = (info.y0 + gy * S) / 100;
+      let E = indirect[o];
+      for (const L of byRoom[o]) {
+        const d2 = (x - L.x) ** 2 + (y - L.y) ** 2 + L.h * L.h;
+        E += L.wall ? (L.lm * L.h) / (2 * Math.PI * d2 * Math.sqrt(d2)) : (L.lm * L.h * L.h) / (Math.PI * d2 * d2);
+      }
+      lux[gy * nx + gx] = E; own[gy * nx + gx] = o;
+      const R = rooms[o];
+      R.sum += E; R.n++; R.min = Math.min(R.min, E); R.max = Math.max(R.max, E);
+    }
+  }
+  const out = [];
+  for (const R of rooms) {
+    if (R.skip || !R.n) continue;
+    const avg = R.sum / R.n, target = LUX_TARGET[R.key] || 100;
+    const status = avg >= target ? 'ok' : avg >= 0.7 * target ? 'juste' : 'faible';
+    // flux à ajouter pour atteindre l'objectif (≈ 55 % du flux arrive sur le plan utile)
+    const need = status === 'ok' ? 0 : Math.ceil(((target - avg) * R.area) / 0.55 / 100) * 100;
+    out.push({ i: R.i, id: R.id, name: R.name, key: R.key, area: R.area, lamps: R.lamps, lm: Math.round(R.lm), avg, min: R.min, max: R.max, uniformity: avg ? R.min / avg : 0, target, status, need });
+  }
+  return { step: S, x0: info.x0, y0: info.y0, nx, ny, lux, own, rooms: out };
+}
+
+// ---------------------------------------------------------------------------
 function designInstallation(components, wires) {
   const design = {
     ok: false, circuits: [], rcds: [], agcp: null, issues: [], area: 0, byDevice: {}, plugs: {},

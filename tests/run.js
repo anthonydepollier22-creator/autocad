@@ -756,6 +756,38 @@ check('Lecture : accents Windows-1252, DXF binaire et fichier non DXF refusés a
 check('Lecture : arc de polyligne (bulge) en segments sur le cercle, bloc inséré tourné et mis à l’échelle, calque 0 hérité', r.arc[0] >= 6 && r.arc[1] && r.arc[2] && near(r.arc[3], -1, 1e-9) && r.blk.join() === 'MURS,50,50,50,250', JSON.stringify(r.arc) + ' ' + r.blk.join(','));
 
 // ---------------------------------------------------------------------------
+group('Éclairement (lux)');
+r = run(`(function(){
+  var W = function(a, b){ return { id: 'w' + a.x + a.y + b.x + b.y, kind: 'wall', points: [a, b] }; };
+  var P = function(x, y){ return { x: x, y: y }; };
+  // deux pièces de 4 × 4 m côte à côte ; plafonnier 40 W au centre de la première, applique 25 W dans la seconde
+  var wires = [W(P(0,0), P(800,0)), W(P(800,0), P(800,400)), W(P(800,400), P(0,400)), W(P(0,400), P(0,0)), W(P(400,0), P(400,400))];
+  var comps = [
+    { id: 'r1', type: 'room', x: 200, y: 200, value: 'Chambre' }, { id: 'r2', type: 'room', x: 600, y: 200, value: 'Bureau' },
+    { id: 'L1', type: 'dcl', x: 200, y: 200 },
+  ];
+  var A = lightingStudy(comps, wires);
+  var at = function(L, x, y){ var gx = Math.round((x - L.x0) / L.step), gy = Math.round((y - L.y0) / L.step); return L.lux[gy * L.nx + gx]; };
+  var ch = A.rooms.find(function(R){ return R.name === 'Chambre'; }), bu = A.rooms.find(function(R){ return R.name === 'Bureau'; });
+  var h = 1.65, lm = 40 * LUX_EFFICACY, area = ch.area;
+  var expect = lm / (Math.PI * h * h) + lm / (2 * area + 4.4 * Math.sqrt(area) * 2.5);
+  comps.push({ id: 'L2', type: 'wall_light', x: 790, y: 200 });
+  var B = lightingStudy(comps, wires), bu2 = B.rooms.find(function(R){ return R.name === 'Bureau'; });
+  var d = buildHouse('t3'), before = lightingStudy(d.components, d.wires).rooms.filter(function(R){ return R.status !== 'ok'; }).map(function(R){ return R.name; });
+  var fixes = HOUSE_TYPES.map(function(T){
+    var doc = buildHouse(T.key), f = autoLighting(doc), L = lightingStudy(doc.components, doc.wires);
+    var left = L.rooms.filter(function(R){ return R.status !== 'ok'; }).length;
+    return { k: T.key, added: f.added, left: left, nf: checkNFC15100(doc.components, doc.wires).errors, ok: designInstallation(doc.components, doc.wires).ok };
+  });
+  return { under: at(A, 200, 200), expect: expect, corner: at(A, 30, 30), dark: bu.avg, lit: bu2.avg, wallUnder: at(B, 770, 200), ch: ch, before: before, fixes: fixes };
+})()`);
+check('Plafonnier 40 W (2 400 lm) à 2,5 m : sous la lampe E = Φ·h²/(π·d⁴) + réflexions', near(r.under, r.expect, r.expect * 0.02), `${r.under.toFixed(0)} lx attendus ${r.expect.toFixed(0)}`);
+check('Éclairement qui décroît vers les angles ; la lumière reste dans sa pièce (portes fermées)', r.corner < r.under / 3 && r.dark === 0 && r.lit > 50, `angle ${r.corner.toFixed(0)} lx · pièce voisine ${r.dark} → ${r.lit.toFixed(0)} lx avec une applique`);
+check('Chambre de 16 m² avec un plafonnier : objectif 100 lx atteint', r.ch.status === 'ok' && r.ch.target === 100 && r.ch.lamps === 1, `${r.ch.avg.toFixed(0)} lx`);
+check('T3 généré : séjour et cuisine sous l’objectif (un seul point lumineux)', r.before.join() === 'Séjour,Cuisine', r.before.join(', '));
+check('Compléter l’éclairage : plus aucune pièce sous l’objectif, installation toujours conforme', r.fixes.every(function(f){ return f.left === 0 && f.nf === 0 && f.ok; }), r.fixes.map(function(f){ return f.k + ' +' + f.added; }).join(' · '));
+
+// ---------------------------------------------------------------------------
 group('Éditeur 2D : tracés et calque');
 {
   // contexte séparé : l'éditeur a besoin d'un faux navigateur (fenêtre, canevas, stockage)

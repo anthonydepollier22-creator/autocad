@@ -275,10 +275,20 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   maison de poupée, et la maison à étage montre ses deux niveaux l'un sur l'autre ;
 - **Énergie** : le sol de chaque pièce se teinte selon la puissance qu'elle consomme
   (échelle 0 → 4 kW), avec une étiquette en watts au-dessus de chaque pièce ;
+- **Lumière** (`L`) : carte d'**éclairement** au sol, en lux sur le plan de travail
+  (0,85 m), tous les points lumineux allumés. Luminaires LED à 60 lm/W ; plafonnier
+  lambertien (E = Φ·h²/π·d⁴), applique en demi-espace (E = Φ·h/2π·d³), la lumière
+  reste dans sa pièce et les parois en renvoient une part (ρ = 0,5). Chaque pièce
+  affiche son éclairement moyen face à l'objectif (100 lx en chambre, 150 au séjour et
+  en salle d'eau, 200 en cuisine, 300 au bureau) : ✓ atteint, △ un peu juste,
+  ✗ insuffisant. **＋ Appliques** pose ce qui manque, une à une jusqu'à l'objectif —
+  au-dessus du plan de travail en cuisine — et l'installation reste conforme ;
 - **Vidéo 360°** : un tour complet de caméra (10 s, départ et arrivée en douceur)
   enregistré depuis la vue 3D et téléchargé en `.webm`, prêt à partager ;
 - **Export du modèle 3D** en glTF binaire (`.glb`, validé par l'outil officiel Khronos) :
   s'ouvre dans Blender, la visionneuse 3D de Windows, Aperçu, SketchUp ou un moteur de jeu.
+
+![Vue Lumière : éclairement au sol et objectif par pièce](docs/screenshot-lumiere.png)
 
 ![Extérieur : toiture, terrasse, jardin](docs/screenshot-exterieur.png)
 
@@ -511,7 +521,7 @@ python3 -m http.server 8000
 | `Z` `Q` `S` `D` / flèches (vue 3D, Visite) | Marcher dans la maison (`Maj` : courir) ; le nom de la pièce s'affiche en y entrant |
 | `1` `2` `3` (vue 3D) | Ensemble / Dessus / Visite |
 | `M` (vue 3D) | Murs : pleins → coupés → plan → extérieur |
-| `X` `C` `E` `J` `F` (vue 3D) | Rayons X, Coupe, Énergie, Journée, Défaut |
+| `X` `C` `E` `L` `J` `F` (vue 3D) | Rayons X, Coupe, Énergie, Lumière, Journée, Défaut |
 | `G` `O` `P` `V` (vue 3D) | Visite guidée, course du Soleil, Photo, Vidéo 360° |
 | `Entrée` / `Double-clic` (outils Fil, Mur, Goulotte) | Terminer le tracé en cours |
 | `L` | Règle : glisser d'un point à l'autre, longueur et écarts en x / y (`Maj` : sans aimantation) |
@@ -568,7 +578,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-131 vérifications sans dépendance : valeurs numériques de chaque simulation
+136 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
@@ -581,7 +591,8 @@ magnétique, différentiel, disjoncteur de branchement, énergie, va-et-vient), 
 montée et descente de l'escalier en visite, visite guidée jusqu'à l'étage), la vue en
 coupe, la course du soleil selon la saison, les interactions de l'éditeur 2D (fin d'un
 mur au double-clic, à `Entrée` ou en fermant le contour, mise à l'échelle du calque),
-les exports SVG et DXF et **l'import DXF** (aller-retour des 6 maisons, plans
+**l'éclairement** (formule du plafonnier, lumière confinée à sa pièce, appliques
+jusqu'à l'objectif), les exports SVG et DXF et **l'import DXF** (aller-retour des 6 maisons, plans
 d'architecte produits par ezdxf, croquis en mètres, accents, arcs, blocs tournés). Le déploiement GitHub Pages **exécute ces tests d'abord** : une
 régression bloque la mise en ligne.
 
