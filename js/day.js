@@ -68,6 +68,24 @@ const DAY_HEAT = {
   circ: [],
 };
 
+// Production photovoltaïque (W) d'une installation de kwc kWc à l'heure h :
+// cloche entre lever et coucher du soleil, ~1,5 kWh/kWc un jour d'hiver dégagé,
+// ~6,5 kWh/kWc en été (France, orientation sud, pertes comprises)
+const PV_SUN = { hiver: [8.4, 17.1, 0.31], ete: [6.2, 21.8, 0.75] };
+// Pilotage solaire : les appareils programmables tournent quand le soleil produit
+const DAY_SOLAR_SHIFT = {
+  water_heater: [[11.5, 14]],
+  washer: [[12, 13.5]],
+  dishwasher: [[13.5, 15]],
+  dryer: [[14, 15.25]],
+};
+function pvPower(kwc, h, season) {
+  if (!kwc) return 0;
+  const [rise, set, peak] = PV_SUN[season] || PV_SUN.hiver;
+  if (h <= rise || h >= set) return 0;
+  return kwc * 1000 * peak * Math.pow(Math.sin((Math.PI * (h - rise)) / (set - rise)), 1.5);
+}
+
 function dayCategory(type) {
   if (type === 'radiator') return 'heat';
   if (type === 'water_heater') return 'water';
@@ -94,7 +112,7 @@ function dayContext(components, wires) {
 }
 
 // Applique l'emploi du temps de l'heure h (0 → 24) aux composants
-function dayApply(components, ctx, h, season) {
+function dayApply(components, ctx, h, season, solarShift) {
   const S = DAY_SEASONS[season] || DAY_SEASONS.hiver;
   const dark = h < S.night[0] || h >= S.night[1];
   // Éclairage : une commande fermée par pièce occupée (va-et-vient : parité)
@@ -107,7 +125,8 @@ function dayApply(components, ctx, h, season) {
     else (ctx.lights[i] || []).forEach((c) => { c.on = want; });
   }
   for (const c of components) {
-    if (DAY_APPLIANCES[c.type]) c.on = inAny(h, DAY_APPLIANCES[c.type]);
+    if (solarShift && DAY_SOLAR_SHIFT[c.type]) c.on = inAny(h, DAY_SOLAR_SHIFT[c.type]);
+    else if (DAY_APPLIANCES[c.type]) c.on = inAny(h, DAY_APPLIANCES[c.type]);
     else if (c.type === 'radiator') {
       const key = ctx.typeOf(roomAt(ctx.info, c.x, c.y));
       c.on = S.heating && !!key && inAny(h, DAY_HEAT[key] || [[6, 8], [17.5, 22]]);
@@ -126,11 +145,11 @@ function dayRestoreStates(saved) {
 // Accumulateur : énergie par heure et par catégorie, pointe, heures creuses
 function dayAccumulator() {
   return {
-    bins: Array.from({ length: 24 }, () => ({ heat: 0, appl: 0, water: 0, light: 0, other: 0, ev: 0 })),
-    total: 0, hc: 0, peak: { P: 0, h: 0 }, trips: 0,
+    bins: Array.from({ length: 24 }, () => ({ heat: 0, appl: 0, water: 0, light: 0, other: 0, ev: 0, pv: 0 })),
+    total: 0, hc: 0, peak: { P: 0, h: 0 }, trips: 0, pv: 0, self: 0,
   };
 }
-function dayAccumulate(acc, snap, components, h, dh) {
+function dayAccumulate(acc, snap, components, h, dh, kwc, season) {
   const cat = {};
   for (const c of components) {
     const dv = snap.devices[c.id];
@@ -144,16 +163,25 @@ function dayAccumulate(acc, snap, components, h, dh) {
   acc.total += (P * dh) / 1000;
   if (isHC(h)) acc.hc += (P * dh) / 1000;
   if (P > acc.peak.P) acc.peak = { P, h };
+  // Solaire : production, et part consommée sur place (autoconsommation)
+  const Ppv = pvPower(kwc, h, season);
+  if (Ppv > 0) {
+    bin.pv += (Ppv * dh) / 1000;
+    acc.pv += (Ppv * dh) / 1000;
+    acc.self += (Math.min(P, Ppv) * dh) / 1000;
+  }
 }
 function dayCost(acc) {
   return {
     base: acc.total * TARIF_KWH,
     hphc: acc.hc * TARIF_HC + (acc.total - acc.hc) * TARIF_HP,
+    // l'énergie solaire consommée sur place n'est pas achetée (heures pleines)
+    saving: (acc.self || 0) * TARIF_HP,
   };
 }
 
 // Journée complète, d'un coup (pas de 2 min) — composants restaurés à la fin
-function simulateDay(components, wires, design, season, stepMin) {
+function simulateDay(components, wires, design, season, stepMin, kwc, solarShift) {
   const step = (stepMin || 2) / 60;
   const saved = daySnapshotStates(components);
   const ctx = dayContext(components, wires);
@@ -161,9 +189,9 @@ function simulateDay(components, wires, design, season, stepMin) {
   sim.setDesign(design);
   const acc = dayAccumulator();
   for (let h = 0; h < 24 - 1e-9; h += step) {
-    dayApply(components, ctx, h, season);
+    dayApply(components, ctx, h, season, solarShift && kwc > 0);
     const snap = sim.step(step * 3600, components, wires);
-    dayAccumulate(acc, snap, components, h, step);
+    dayAccumulate(acc, snap, components, h, step, kwc || 0, season);
   }
   acc.trips = sim.events.filter((e) => e.level !== 'info').length;
   acc.events = sim.events.slice();

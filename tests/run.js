@@ -296,6 +296,15 @@ check('T3 : 20 à 120 kWh un jour d’hiver, moins l’été (pas de chauffage)'
 check('Énergie par heure et par usage = total ; une part en heures creuses', r[5] < 1e-6 && r[4] > 0.1 && r[4] < 0.9, `${(r[4] * 100).toFixed(0)} % HC`);
 check('Pointe sous la puissance souscrite, coût au tarif base, maison remise dans son état', r[7] < r[8] && near(r[9], 0.2516, 1e-9) && r[6], `pointe ${Math.round(r[7])} W / ${r[8]} W`);
 
+r = run(`(function(){
+  var e = function(s){ var t = 0; for (var h = 0; h < 24; h += 0.05) t += pvPower(1, h, s) * 0.05 / 1000; return t; };
+  var d = buildHouse('t3'), des = designInstallation(d.components, d.wires);
+  var a = simulateDay(d.components, d.wires, des, 'ete', 5, 6, false), b = simulateDay(d.components, d.wires, des, 'ete', 5, 6, true);
+  return [e('hiver'), e('ete'), pvPower(6, 3, 'ete'), a.pv, a.self / a.pv, b.self / b.pv, b.self <= b.pv + 1e-9 && b.self <= b.total + 1e-9, dayCost(b).saving > dayCost(a).saving];
+})()`);
+check('Solaire : ~1,5 kWh/kWc un jour d’hiver, ~6,5 en été, rien la nuit', near(r[0], 1.5, 0.15) && near(r[1], 6.5, 0.4) && r[2] === 0, r[0].toFixed(2) + ' / ' + r[1].toFixed(2));
+check('Pilotage solaire : l’autoconsommation augmente (lessive, vaisselle, chauffe-eau à midi)', r[5] > r[4] * 2 && r[6] && r[7], Math.round(r[4] * 100) + ' % → ' + Math.round(r[5] * 100) + ' %');
+
 // ---------------------------------------------------------------------------
 group('Extérieur et export 3D');
 r = run(`(function(){
@@ -310,6 +319,13 @@ r = run(`(function(){
   return [roof.length, garden.length, topRoof, noRoof];
 })()`);
 check('Toiture à deux pans au-dessus des murs, jardin autour ; rien en mode « Murs » sans terrain', r[0] > 20 && r[1] > 50 && r[2] > 400 && r[2] < 600 && r[3] === 0, `${r[0]} faces de toit, faîtage ${Math.round(r[2])} cm, ${r[1]} faces de jardin`);
+r = run(`(function(){
+  var d = getExampleData('maison-t3'), viz = new Viz3D(__cv, { interactive: false });
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { walls: 'roof', ground: true, pv: 6 });
+  var faces = viz.faces.filter(function(f){ return f.obj === 'pv'; }).length;
+  return [viz.scene.pv.want, viz.scene.pv.placed, faces];
+})()`);
+check('Panneaux solaires sur le pan sud : 6 kWc = 15 modules de 400 Wc', r[0] === 15 && r[1] === 15 && r[2] === 45, `${r[1]} posés, ${r[2]} faces`);
 r = run(`(function(){
   var d = getExampleData('maison-t3'), viz = new Viz3D(__cv, { interactive: false });
   buildBoard(viz, d.components, d.wires, SYMBOLS, { walls: 'roof', ground: true });

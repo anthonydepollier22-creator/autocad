@@ -69,7 +69,7 @@ function initHouseUI(app) {
       return;
     }
     if (day.running && d !== day.design) dayFinish(false); // plan modifié : on arrête
-    if (day.running) dayApply(editor.components, day.ctx, day.h, day.season);
+    if (day.running) dayApply(editor.components, day.ctx, day.h, day.season, pvShift());
     const snap = sim.step(dt, editor.components, editor.wires);
     if (day.running && dt > 0) dayAdvance(snap, dt);
     const on = new Set();
@@ -376,6 +376,8 @@ function initHouseUI(app) {
     return String(H % 24).padStart(2, '0') + ':' + String(M).padStart(2, '0');
   };
   const fmtKWh1 = (k) => (k < 10 ? k.toFixed(1) : Math.round(k).toString()).replace('.', ',') + ' kWh';
+  const pvKwc = () => +(editor.meta.pv || 0);
+  const pvShift = () => !!editor.meta.pvShift && pvKwc() > 0;
 
   function dayHTML() {
     return '<details class="inst-sec day-sec" open><summary>Journée type <span>24 h simulées</span></summary>' +
@@ -387,6 +389,9 @@ function initHouseUI(app) {
       '<div class="seg day-season" role="group" aria-label="Saison">' +
       Object.entries(DAY_SEASONS).map(([k, v]) => `<button data-season="${k}" class="${day.season === k ? 'on' : ''}">${v.label}</button>`).join('') +
       '</div></div>' +
+      '<div class="day-pv"><span>Solaire</span><div class="seg" role="group" aria-label="Panneaux solaires">' +
+      [0, 3, 6, 9].map((k) => `<button data-pv="${k}" class="${pvKwc() === k ? 'on' : ''}">${k ? k + ' kWc' : 'Aucun'}</button>`).join('') +
+      `</div><label class="day-shift" ${pvKwc() ? '' : 'hidden'}><input type="checkbox" data-pv-shift ${pvShift() ? 'checked' : ''}> Lessive, vaisselle et chauffe-eau quand le soleil produit</label></div>` +
       '<div class="day-chart-wrap" data-day-wrap><canvas class="day-chart" data-day-chart aria-label="Énergie consommée heure par heure"></canvas>' +
       '</div>' +
       '<p class="day-head" data-day-head></p><ul class="day-legend" data-day-legend></ul>' +
@@ -425,7 +430,7 @@ function initHouseUI(app) {
   }
   function dayAdvance(snap, dt) {
     const dh = dt * day.rate;
-    dayAccumulate(day.acc, snap, editor.components, day.h, dh);
+    dayAccumulate(day.acc, snap, editor.components, day.h, dh, pvKwc(), day.season);
     day.h = Math.min(24, day.h + dh);
     if (viz && !$('view3d').hidden) daySetTime3D(day.h);
     if (day.h >= 24) dayFinish(true);
@@ -448,7 +453,7 @@ function initHouseUI(app) {
     const d = ensureDesign();
     if (!d || !d.ok) return;
     if (day.saved) dayFinish(false);
-    day.acc = simulateDay(editor.components, editor.wires, d, day.season, 2);
+    day.acc = simulateDay(editor.components, editor.wires, d, day.season, 2, pvKwc(), pvShift());
     day.h = 24;
     day.instant = true;
     renderDay();
@@ -480,6 +485,19 @@ function initHouseUI(app) {
       if (day.saved) dayFinish(false);
       if (day.instant) dayInstant();
     }));
+    panel.querySelectorAll('[data-pv]').forEach((b) => b.addEventListener('click', () => {
+      editor.meta.pv = +b.dataset.pv;
+      panel.querySelectorAll('[data-pv]').forEach((x) => x.classList.toggle('on', x === b));
+      q('.day-shift').hidden = !editor.meta.pv;
+      editor.autosave();
+      if (viz && !view3d.hidden) build3D(false);
+      if (day.instant) dayInstant(); else renderDay();
+    }));
+    q('[data-pv-shift]').addEventListener('change', (e) => {
+      editor.meta.pvShift = e.target.checked;
+      editor.autosave();
+      if (day.instant) dayInstant();
+    });
     const cv = q('[data-day-chart]');
     const hourAt = (e) => {
       const r = cv.getBoundingClientRect(), g = dayGeom(r.width);
@@ -509,7 +527,7 @@ function initHouseUI(app) {
     const g = dayGeom(W), plotH = H - g.top - g.bottom, base = H - g.bottom;
     const bins = day.acc ? day.acc.bins : null;
     const tot = (b) => DAY_CATS.reduce((s, c) => s + b[c.key], 0);
-    const max = bins ? Math.max(...bins.map(tot)) : 0;
+    const max = bins ? Math.max(...bins.map((b) => Math.max(tot(b), b.pv || 0))) : 0;
     const nice = [1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50].find((v) => v >= max * 1.05) || Math.ceil(max);
     const y = (v) => base - (v / nice) * plotH;
     // Heures creuses (22 h → 6 h) : bande discrète
@@ -556,6 +574,17 @@ function initHouseUI(app) {
         });
       });
       ctx.globalAlpha = 1;
+      // Production solaire : ligne en marches (même échelle en kWh par heure)
+      if (day.acc.pv > 0) {
+        ctx.strokeStyle = col('--dc7'); ctx.lineWidth = 2; ctx.lineJoin = 'round';
+        ctx.beginPath();
+        bins.forEach((b, k) => {
+          const yy = y(Math.min(nice, b.pv)), x0 = g.left + k * g.slot, x1 = x0 + g.slot;
+          if (k === 0) ctx.moveTo(x0, yy); else ctx.lineTo(x0, yy);
+          ctx.lineTo(x1, yy);
+        });
+        ctx.stroke();
+      }
       // Heure courante
       if (day.h > 0 && day.h < 24) {
         const xx = g.left + day.h * g.slot;
@@ -569,12 +598,14 @@ function initHouseUI(app) {
     const vals = DAY_CATS.map((c) => (focus ? focus[c.key] : bins ? bins.reduce((s, b) => s + b[c.key], 0) : 0));
     const head = panel.querySelector('[data-day-head]');
     head.textContent = focus ? `${day.hover} h – ${day.hover + 1} h : ${fmtKWh1(tot(focus))}` : bins ? 'Sur la journée (survole une barre pour le détail d’une heure)' : 'Lance ou calcule la journée';
-    legend.innerHTML = DAY_CATS.map((c, i) => `<li><i style="background:var(--dc${i + 1})"></i><span>${esc(c.name)}</span><b class="num">${bins ? fmtKWh1(vals[i]) : '—'}</b></li>`).join('');
+    legend.innerHTML = DAY_CATS.map((c, i) => `<li><i style="background:var(--dc${i + 1})"></i><span>${esc(c.name)}</span><b class="num">${bins ? fmtKWh1(vals[i]) : '—'}</b></li>`).join('') +
+      (pvKwc() ? `<li class="pv"><i></i><span>Production solaire (${pvKwc()} kWc)</span><b class="num">${bins ? fmtKWh1(focus ? focus.pv : day.acc.pv) : '—'}</b></li>` : '');
     const sum = panel.querySelector('[data-day-sum]');
     if (day.acc && day.acc.total > 0) {
       const c = dayCost(day.acc), a = day.acc;
       sum.innerHTML = `<b class="num">${fmtKWh1(a.total)}</b> ${day.h < 24 ? 'depuis minuit' : 'dans la journée'} · <b class="num">${fmtEur(c.base)}</b> en tarif base, <b class="num">${fmtEur(c.hphc)}</b> en heures creuses (${Math.round((a.hc / a.total) * 100)} % consommés la nuit) · pointe <b class="num">${fmtW(a.peak.P)}</b> à ${hhmm(a.peak.h)}` +
-        (a.peak.P > (day.design || design || {}).agcp?.kva * 1000 ? ' — au-delà de l’abonnement !' : '');
+        (a.peak.P > (day.design || design || {}).agcp?.kva * 1000 ? ' — au-delà de l’abonnement !' : '') +
+        (a.pv > 0 ? `<br>Solaire : <b class="num">${fmtKWh1(a.pv)}</b> produits, <b class="num">${fmtKWh1(a.self)}</b> consommés sur place (${Math.round((a.self / a.pv) * 100)} % d’autoconsommation, ${Math.round((a.self / Math.max(0.001, a.total)) * 100)} % des besoins) · <b class="num">${fmtEur(c.saving)}</b> économisés` : '');
     }
   }
 
@@ -601,7 +632,7 @@ function initHouseUI(app) {
     }
     return { info, P };
   }
-  let energySig = '';
+  let energySig = '', pvWarned = 0;
   const labelsBox = $('v3-labels');
   function energyLabels(en) {
     labelsBox.replaceChildren();
@@ -734,7 +765,13 @@ function initHouseUI(app) {
       walls: walking ? 'full' : v3.walls, xray: v3.xray, ceiling: walking, ground: house, keepCamera: !first,
       sim: d && d.ok ? { snap: sim.snap, design: d, sim } : null,
       energy: energy ? { color: (i) => energyColor(energy.P[i] || 0) } : null,
+      pv: pvKwc(),
     });
+    const pvs = viz.scene && viz.scene.pv;
+    if (pvs && pvs.placed < pvs.want && v3.walls === 'roof' && !walking && pvWarned !== pvs.want) {
+      pvWarned = pvs.want;
+      showToast(`Le toit n’accueille que ${pvs.placed} panneaux (${(pvs.placed * 0.4).toFixed(1).replace('.', ',')} kWc) sur les ${pvs.want} demandés.`);
+    }
     energyLabels(energy);
     if (first) viz.fit(r * (house ? 0.82 : 1));
   }

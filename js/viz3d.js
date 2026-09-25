@@ -1153,7 +1153,7 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
       ex.minZ = Math.min(ex.minZ, p.y); ex.maxZ = Math.max(ex.maxZ, p.y);
     }
     if (opts.ground) _buildGarden(viz, components, info, ex);
-    if (mode === 'roof') _buildRoof(viz, ex);
+    if (mode === 'roof') _buildRoof(viz, ex, opts.pv || 0);
   }
 
   // Lumières : pièce de chaque lampe (le moteur WebGL ne l'éclaire que là)
@@ -1167,7 +1167,7 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
 // Toiture : deux pans de tuiles (pente 33°), faîtage le long du grand côté,
 // débords, rives, pignons, cheminée
 // ---------------------------------------------------------------------------
-function _buildRoof(viz, ex) {
+function _buildRoof(viz, ex, pvKwc) {
   const o = 38, t = Math.tan((33 * Math.PI) / 180), yWall = HOUSE3D.H + 6;
   const alongX = ex.maxX - ex.minX >= ex.maxZ - ex.minZ;
   // repère local : u le long du faîtage, v en travers
@@ -1213,8 +1213,31 @@ function _buildRoof(viz, ex) {
   for (const u of [eu0 - HOUSE3D.T_EXT / 2, eu1 + HOUSE3D.T_EXT / 2]) {
     viz.poly([P(u, ev0, HOUSE3D.H - 1), P(u, ev1, HOUSE3D.H - 1), P(u, ev1, yWall), P(u, vc, ridgeY - 1), P(u, ev0, yWall)], WALL_COL);
   }
-  // Cheminée
-  const cu = eu0 + (eu1 - eu0) * 0.72, cv = vc + (vB - vc) * 0.32, base = yAt(cv) - 18;
+  // Panneaux photovoltaïques (400 Wc, portrait 1,13 × 1,72 m) sur le pan exposé au sud
+  if (pvKwc > 0) {
+    const cosA = Math.cos((33 * Math.PI) / 180);
+    const pw = 113, ph = 172 * cosA, gap = 3; // largeur le long du faîtage, emprise horizontale en pente
+    const hd0 = o + 30, hdMax = half + o - 45; // du débord au faîtage (distances horizontales depuis l'égout)
+    const nu = Math.max(0, Math.floor((u1 - u0 - 100 + gap) / (pw + gap)));
+    const nr = Math.max(0, Math.floor((hdMax - hd0 + gap) / (ph + gap)));
+    const want = Math.ceil((pvKwc * 1000) / 400);
+    const n = Math.min(want, nu * nr);
+    viz.scene.pv = { want, placed: n, capacity: nu * nr };
+    const vAt = (hd) => vB - hd, yOn = (hd) => eaveY + hd * t; // pan sud : de vB vers le faîtage
+    viz.obj = 'pv';
+    for (let k = 0; k < n; k++) {
+      const row = Math.floor(k / nu), inRow = Math.min(nu, n - row * nu), col = k % nu;
+      const rowW = inRow * (pw + gap) - gap, ua = (u0 + u1) / 2 - rowW / 2 + col * (pw + gap), ub = ua + pw;
+      const h0 = hd0 + row * (ph + gap), h1 = h0 + ph;
+      const q = (a, b, c0, c1, lift, col) => viz.poly([P(a, vAt(c0), yOn(c0) + lift), P(b, vAt(c0), yOn(c0) + lift), P(b, vAt(c1), yOn(c1) + lift), P(a, vAt(c1), yOn(c1) + lift)], col);
+      q(ua, ub, h0, h1, 4, '#c3c9d1');                     // cadre aluminium
+      q(ua + 3, ub - 3, h0 + 2.5, h1 - 2.5, 5, '#1b2a47'); // cellules
+      q((ua + ub) / 2 - 0.8, (ua + ub) / 2 + 0.8, h0 + 2.5, h1 - 2.5, 5.4, '#33466b');
+    }
+    viz.obj = 'roof';
+  }
+  // Cheminée (sur le pan nord quand il y a des panneaux)
+  const cu = eu0 + (eu1 - eu0) * 0.72, cv = vc + ((pvKwc > 0 ? vA : vB) - vc) * 0.32, base = yAt(cv) - 18;
   const cp = P(cu, cv, base);
   viz.box(cp[0], base, cp[2], 52, ridgeY + 52 - base, 52, '#b8a998', 0, '#6d6258');
   viz.obj = null;

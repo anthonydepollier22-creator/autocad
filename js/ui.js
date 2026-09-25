@@ -876,11 +876,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (params.get('3d') === '1') houseUI.open3D();
   // Nouveautés : une fois par version (pas quand on arrive par un lien de démo)
   try {
-    const NEWS = '1.1';
+    const NEWS = '1.2';
     if (localStorage.getItem('electricad-news') !== NEWS) {
       localStorage.setItem('electricad-news', NEWS);
       if (!location.search) {
-        setTimeout(() => showToast('<b>Nouveau</b> : journée type (onglet Tableau), vues 3D <b>Énergie</b> et <b>Extérieur</b>, export du modèle <b>.glb</b>, <b>matériel et budget</b> (onglet Métré).', 9000), 1200);
+        setTimeout(() => showToast('<b>Nouveau</b> : journée type et <b>panneaux solaires</b> (onglet Tableau), vues 3D <b>Énergie</b>, <b>Extérieur</b> et <b>visite guidée</b>, export <b>.glb</b>, <b>matériel et budget</b> (onglet Métré).', 9000), 1200);
       }
     }
   } catch (_) { /* stockage indisponible */ }

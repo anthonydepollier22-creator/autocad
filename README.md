@@ -133,6 +133,18 @@ L'installation est **conçue** puis **simulée en temps réel** :
 
 ![Tableau simulé](docs/screenshot-installation.png)
 
+### Panneaux solaires et autoconsommation
+
+Dans la journée type, **Solaire** ajoute 3, 6 ou 9 kWc de panneaux (modules de 400 Wc) :
+ils apparaissent **sur le pan sud du toit** en vue 3D Extérieur (le toit limite le nombre
+de modules), et la **production heure par heure** se superpose au graphique (≈ 1,5 kWh/kWc
+un jour d'hiver dégagé, ≈ 6,5 kWh/kWc en été). Bilan : énergie produite, **autoconsommation**
+(part consommée sur place), part des besoins couverte et économie. L'option **« lessive,
+vaisselle et chauffe-eau quand le soleil produit »** montre l'intérêt du pilotage : sur un
+T3 en été, l'autoconsommation passe d'environ 5 % à 35 %.
+
+![Solaire : production et panneaux sur le toit](docs/screenshot-solaire.png)
+
 ### Matériel et budget — onglet Métré
 
 Dès qu'un tableau est conçu, l'onglet **Métré** chiffre l'installation : coffret (nombre
@@ -412,7 +424,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-78 vérifications sans dépendance : valeurs numériques de chaque simulation
+81 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 5 types de maison** (pièces fermées, conformes, mobilier
