@@ -900,3 +900,6 @@ body.light .day-sec { --dc7: #4a3aa7; }
 }
 .norm-unlabeled span { color: var(--muted); }
 .norm-unlabeled button { justify-self: start; margin-top: 4px; }
+#btn-underlay.pulse { animation: ul-pulse 1s ease-in-out 5; border-color: var(--accent); color: var(--accent); }
+@keyframes ul-pulse { 50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 35%, transparent); } }
+@media (prefers-reduced-motion: reduce) { #btn-underlay.pulse { animation: none; } }

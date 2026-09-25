@@ -988,6 +988,11 @@ document.addEventListener('DOMContentLoaded', () => {
   if (params.get('modal') === 'examples') openModal();
   if (params.get('houses') === '1') houseUI.openHouses();
   if (params.get('3d') === '1') houseUI.open3D();
+  if (params.get('calque') === '1') { // arrivée depuis « Décalquer mon plan »
+    ulBtn.classList.add('pulse');
+    setTimeout(() => ulBtn.classList.remove('pulse'), 6000);
+    setTimeout(() => showToast('Clique l’icône <b>Calque</b> (feuilles superposées, en haut) pour importer le plan de ta maison, puis mets-le à l’échelle sur une cote connue.', 7000), 600);
+  }
   // Nouveautés : une fois par version (pas quand on arrive par un lien de démo)
   try {
     const NEWS = '1.6';
