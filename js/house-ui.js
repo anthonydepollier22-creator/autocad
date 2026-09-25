@@ -122,7 +122,8 @@ function initHouseUI(app) {
       '<button data-act="implant" title="Ajoute l’appareillage NF C 15-100 manquant puis retrace les goulottes">Implanter</button>' +
       '<button data-act="conduits" title="Retrace toutes les goulottes depuis le tableau">Goulottes</button>' +
       '<button data-act="furnish" title="Meuble les pièces vides">Meubler</button>' +
-      '<button data-act="unifilar" title="Télécharger le schéma unifilaire (SVG)">Unifilaire</button></div>';
+      '<button data-act="unifilar" title="Télécharger le schéma unifilaire (SVG)">Unifilaire</button>' +
+      '<button data-act="dossier" title="Dossier du projet à imprimer ou enregistrer en PDF : plan, norme, tableau, matériel, 3D, journée type">Dossier</button></div>';
     // Puissance et énergie
     h += '<div class="inst-live">' +
       '<div class="il-top"><div><b data-l="P" class="num">0 W</b><span data-l="Psub"></span></div></div>' +
@@ -297,6 +298,7 @@ function initHouseUI(app) {
   // Actions de conception (avec historique : annulables)
   function action(act) {
     if (act === 'houses') { openHouses(); return; }
+    if (act === 'dossier') { openDossier(); return; }
     if (act === 'unifilar') {
       const d = ensureDesign(true);
       if (!d || !d.ok) return;
@@ -547,8 +549,10 @@ function initHouseUI(app) {
       ctx.fillText(String(v).replace('.', ','), g.left - 5, yy + 3);
     }
     ctx.save(); ctx.translate(9, g.top + plotH / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.fillText('kWh', 0, 0); ctx.restore();
-    ctx.textAlign = 'center';
-    for (const hh of [0, 6, 12, 18, 24]) ctx.fillText(hh + ' h', g.left + hh * g.slot, H - 6);
+    for (const hh of [0, 6, 12, 18, 24]) {
+      ctx.textAlign = hh === 24 ? 'right' : hh === 0 ? 'left' : 'center';
+      ctx.fillText(hh + ' h', g.left + hh * g.slot, H - 6);
+    }
     // Barres empilées par usage (2 px d'écart), coins arrondis en haut
     if (bins) {
       const bw = Math.max(2, g.slot - 2);
@@ -1018,6 +1022,49 @@ function initHouseUI(app) {
   window.addEventListener('keyup', (e) => { if (viz) viz.keyUp(e); }, true);
   window.addEventListener('blur', () => { if (viz) viz.keys = {}; });
   window.addEventListener('resize', () => { if (!view3d.hidden && viz) viz.resize(); });
+
+  // ---- Dossier du projet (impression / PDF) --------------------------------------
+  function dossierImages(d) {
+    const shots = [];
+    if (typeof GL3D === 'undefined' || !GL3D.supported()) return shots;
+    const cv = document.createElement('canvas');
+    cv.width = 1200; cv.height = 760; // hors page : taille fixée à la main
+    let v;
+    try { v = new GL3D(cv, { sky: true, time: 11, interactive: false, autoRotate: false }); } catch (e) { return shots; }
+    const views = [['roof', 11, 'Extérieur', 0.42, -0.62, 0.95], ['cut', 15, 'Intérieur (murs coupés à 1,15 m)', 0.95, -0.5, 0.8]];
+    for (const [walls, t, label, pitch, yaw, k] of views) {
+      const r = buildBoard(v, editor.components, editor.wires, SYMBOLS, { walls, ground: true, pv: pvKwc(), sim: d && d.ok ? { snap: sim.snap, design: d, sim } : null });
+      v.setTime(t); v.pitch = pitch; v.yaw = yaw;
+      v.fit(r * k);
+      v.render();
+      shots.push({ src: cv.toDataURL('image/jpeg', 0.86), label });
+    }
+    const lose = v.gl.getExtension('WEBGL_lose_context');
+    if (lose) lose.loseContext();
+    return shots;
+  }
+  function openDossier() {
+    const d = ensureDesign();
+    const win = window.open('', '_blank');
+    if (!win) { showToast('Autorise les fenêtres surgissantes pour ouvrir le dossier.'); return; }
+    win.document.write('<!DOCTYPE html><title>Préparation du dossier…</title><p style="font:14px system-ui;padding:20px">Préparation du dossier…</p>');
+    setTimeout(() => {
+      const report = checkNFC15100(editor.components, editor.wires);
+      const dayData = day.acc && day.acc.total > 0 ? { acc: day.acc, season: day.season }
+        : d && d.ok ? { acc: simulateDay(editor.components, editor.wires, d, day.season, 5, pvKwc(), pvShift()), season: day.season } : null;
+      const html = buildDossier({
+        meta: editor.meta, design: d, report,
+        planSVG: buildSVG(editor.components, editor.wires, SYMBOLS, { ...editor.meta, date: new Date().toISOString().slice(0, 10) }),
+        unifilarSVG: d && d.ok ? unifilarSVG(d, editor.meta) : '',
+        materials: d && d.ok ? materialList(editor.components, editor.wires, d) : null,
+        images: hasPlan() ? dossierImages(d) : [],
+        day: dayData,
+      }).replace('</body>', '<script>window.onload = function () { setTimeout(function () { window.print(); }, 350); };<\/script></body>');
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+    }, 30);
+  }
 
   // ---- Matériel et budget (onglet Métré) -------------------------------------
   function materialsHTML() {

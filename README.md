@@ -133,6 +133,16 @@ L'installation est **conçue** puis **simulée en temps réel** :
 
 ![Tableau simulé](docs/screenshot-installation.png)
 
+### Dossier du projet — imprimable ou PDF
+
+Le bouton **Dossier** (onglet Tableau) assemble un document A4 prêt à imprimer ou à
+enregistrer en PDF : page de garde et chiffres clés, **deux vues 3D** calculées à la volée
+(extérieur, intérieur coupé), **plan coté**, **contrôle NF C 15-100** pièce par pièce,
+**schéma unifilaire** et tableau des circuits (protection, section, longueur, ΔU,
+différentiel), **matériel et budget**, **journée type** (graphique, bilan, solaire).
+
+![Dossier du projet](docs/screenshot-dossier.png)
+
 ### Panneaux solaires et autoconsommation
 
 Dans la journée type, **Solaire** ajoute 3, 6 ou 9 kWc de panneaux (modules de 400 Wc) :
@@ -402,6 +412,7 @@ python3 -m http.server 8000
 │   ├── install.js     # Conception du tableau, câbles, chutes de tension, simulation physique
 │   ├── day.js         # Journée type : emploi du temps, énergie par heure et par usage
 │   ├── materials.js   # Matériel et budget de l'installation, export CSV
+│   ├── dossier.js     # Dossier du projet (A4, impression / PDF)
 │   ├── simulate.js    # Simulation analogique : DC non-linéaire, transitoire, Bode, ERC
 │   ├── digital.js     # Simulation logique (portes, bascules) + chronogramme
 │   ├── examples.js    # Bibliothèque d'exemples
@@ -424,7 +435,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-81 vérifications sans dépendance : valeurs numériques de chaque simulation
+82 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 5 types de maison** (pièces fermées, conformes, mobilier

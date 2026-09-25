@@ -13,7 +13,7 @@ const vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const sb = { Math, JSON, console, TextEncoder, TextDecoder };
 vm.createContext(sb);
-for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'day', 'materials', 'svg', 'viz3d', 'export3d']) {
+for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'day', 'materials', 'svg', 'viz3d', 'export3d', 'dossier']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f + '.js'), 'utf8'), sb, { filename: f + '.js' });
 }
 const run = (code) => vm.runInContext(code, sb);
@@ -389,6 +389,21 @@ r = run(`(function(){
 check('Tableau : un interrupteur différentiel et un disjoncteur par élément conçu', r[0] === r[1] && r[2] === r[3], `${r[0]} ID, ${r[2]} disjoncteurs`);
 check('Câble : longueurs des circuits + 10 % de chutes ; toutes les prises comptées', r[4] >= r[5] * 1.1 - 1 && r[4] <= r[5] * 1.1 + 6 && r[6], `${r[4]} m pour ${Math.round(r[5])} m mesurés`);
 check('Budget matériel d’un T3 plausible (400 à 3 000 €), CSV complet', r[7] > 400 && r[7] < 3000 && r[8] && r[9] > 0, `${r[7].toFixed(0)} € + ${r[9].toFixed(0)} € d’équipements`);
+
+// ---------------------------------------------------------------------------
+group('Dossier du projet');
+r = run(`(function(){
+  var d = getExampleData('maison-t3'), des = designInstallation(d.components, d.wires);
+  var html = buildDossier({
+    meta: { title: 'T3 <test>' }, design: des, report: checkNFC15100(d.components, d.wires),
+    planSVG: buildSVG(d.components, d.wires, SYMBOLS, { title: 'T3' }), unifilarSVG: unifilarSVG(des, { title: 'T3' }),
+    materials: materialList(d.components, d.wires, des), images: [],
+    day: { acc: simulateDay(d.components, d.wires, des, 'hiver', 10, 3), season: 'hiver' },
+  });
+  var h2 = (html.match(/<h2>/g) || []).length, svgs = (html.match(/<svg/g) || []).length;
+  return [html.indexOf('<!DOCTYPE html>') === 0, h2, svgs, html.indexOf('T3 &lt;test&gt;') > 0, html.indexOf('C1') > 0, html.indexOf('Production solaire') > 0];
+})()`);
+check('Dossier : plan, norme, tableau, matériel, journée ; titre échappé', r[0] && r[1] === 5 && r[2] === 3 && r[3] && r[4] && r[5], `${r[1]} sections, ${r[2]} SVG`);
 
 console.log(`\n${passed} réussis, ${failed} échoué${failed > 1 ? 's' : ''}`);
 process.exit(failed ? 1 : 0);
