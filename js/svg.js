@@ -47,6 +47,15 @@ class SVGContext {
       if (i === 0 && !this._has) this.moveTo(x, y); else this.lineTo(x, y);
     }
   }
+  ellipse(cx, cy, rx, ry, rot, a0, a1) {
+    const steps = 32, c = Math.cos(rot || 0), s = Math.sin(rot || 0);
+    for (let i = 0; i <= steps; i++) {
+      const a = a0 + ((a1 - a0) * i) / steps;
+      const ex = rx * Math.cos(a), ey = ry * Math.sin(a);
+      const x = cx + ex * c - ey * s, y = cy + ex * s + ey * c;
+      if (i === 0 && !this._has) this.moveTo(x, y); else this.lineTo(x, y);
+    }
+  }
   quadraticCurveTo(cpx, cpy, x, y) {
     const x0 = this._lx, y0 = this._ly, steps = 16;
     for (let i = 1; i <= steps; i++) {

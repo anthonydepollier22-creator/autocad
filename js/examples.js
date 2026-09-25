@@ -329,7 +329,7 @@ const EXAMPLES = [
     data: {
       version: 1,
       meta: { title: 'Maison T2 — implantation électrique', author: 'Exemples ÉlectriCAD' },
-      counters: { TB: 1, GTL: 1, PC: 9, SW: 3, DCL: 2, BD: 2 },
+      counters: { TB: 1, GTL: 1, PC: 9, SW: 3, DCL: 2, BD: 2, RJ: 2, DF: 1 },
       components: [
         // Pièces (nom -> règles NF C 15-100, surface calculée automatiquement)
         { id: 'r1', type: 'room', x: 190, y: 380, rot: 0, label: '', value: 'Chambre' },
@@ -365,6 +365,9 @@ const EXAMPLES = [
         { id: 'DCL2', type: 'dcl', x: 570, y: 240, rot: 0, label: 'DCL2', value: '' },
         { id: 'BD1', type: 'jbox', x: 170, y: 40, rot: 0, label: 'BD1', value: '' },
         { id: 'BD2', type: 'jbox', x: 570, y: 40, rot: 0, label: 'BD2', value: '' },
+        { id: 'RJ1', type: 'rj45', x: 250, y: 20, rot: 180, label: 'RJ1', value: '' },
+        { id: 'RJ2', type: 'rj45', x: 410, y: 20, rot: 180, label: 'RJ2', value: '' },
+        { id: 'DF1', type: 'smoke_detector', x: 660, y: 200, rot: 0, label: 'DF1', value: '' },
       ],
       wires: [
         // Murs

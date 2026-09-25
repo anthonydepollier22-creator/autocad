@@ -36,6 +36,13 @@ const ROOM_TYPES = [
     key: 'circ', re: /entr[ée]e|couloir|d[ée]gagement|hall/i, label: 'Circulation', color: '#9aa4b2', floor: 'wood',
     sockets: (a) => (a > 4 ? 1 : 0),
   },
+  { key: 'bureau', re: /bureau/i, label: 'Bureau', color: '#5b8def', floor: 'wood', sockets: () => 3 },
+  { key: 'garage', re: /garage/i, label: 'Garage', color: '#8f9aa8', floor: 'concrete', sockets: () => 1 },
+  {
+    key: 'annexe', re: /cellier|buanderie|cave|local technique/i, label: 'Annexe', color: '#a3927c', floor: 'tile',
+    sockets: () => 1,
+  },
+  { key: 'dressing', re: /dressing|placard/i, label: 'Dressing', color: '#c19a6b', floor: 'wood', sockets: () => 0 },
 ];
 
 function roomType(name) {
@@ -56,6 +63,9 @@ function _pointSegDist(px, py, a, b) {
   return Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy));
 }
 
+// Demi-largeur des ouvertures (seuil de porte, fenêtre, porte de garage)
+const OPENING_HALF = { door: 40, window_a: 40, garage_door: 120 };
+
 // Segments qui ferment les pièces : murs, seuils de portes, fenêtres
 function planBarriers(components, wires) {
   const segs = [];
@@ -64,9 +74,10 @@ function planBarriers(components, wires) {
     for (let i = 0; i < w.points.length - 1; i++) segs.push([w.points[i], w.points[i + 1]]);
   }
   for (const c of components) {
-    if (c.type !== 'door' && c.type !== 'window_a') continue;
+    const half = OPENING_HALF[c.type];
+    if (!half) continue;
     const a = ((c.rot || 0) * Math.PI) / 180, cos = Math.cos(a), sin = Math.sin(a);
-    segs.push([{ x: c.x - 40 * cos, y: c.y - 40 * sin }, { x: c.x + 40 * cos, y: c.y + 40 * sin }]);
+    segs.push([{ x: c.x - half * cos, y: c.y - half * sin }, { x: c.x + half * cos, y: c.y + half * sin }]);
   }
   return segs;
 }
@@ -230,7 +241,9 @@ function checkNFC15100(components, wires) {
   let orphan = 0;
   for (const c of components) {
     if (!NF_EQUIP.has(c.type)) continue;
-    const r = roomAt(info, c.x, c.y);
+    // une commande posée hors de la pièce (salle d'eau) désigne sa pièce par ctrl
+    const ctrl = c.ctrl && info.rooms.findIndex((r) => r.id === c.ctrl);
+    const r = ctrl >= 0 && NF_SWITCHES.has(c.type) ? ctrl : roomAt(info, c.x, c.y);
     if (r < 0) { orphan++; continue; }
     if (NF_SOCKETS.has(c.type)) tally[r].sockets++;
     if (NF_LIGHTS.has(c.type)) tally[r].lights++;
@@ -256,7 +269,7 @@ function checkNFC15100(components, wires) {
         row.note = room.type.note || null;
       } else {
         row.status = 'warn';
-        row.msgs.push('type non reconnu : nomme-la Chambre, Séjour, Cuisine, Salle d’eau, WC ou Entrée');
+        row.msgs.push('type non reconnu : nomme-la Chambre, Séjour, Cuisine, Salle d’eau, WC, Entrée, Bureau, Garage, Cellier…');
       }
       if (row.socketsReq !== null && t.sockets < row.socketsReq) {
         row.status = 'err';
@@ -277,6 +290,31 @@ function checkNFC15100(components, wires) {
   });
 
   // Contrôles globaux
+  if (info.rooms.length) {
+    // Sécurité : un détecteur de fumée au moins (obligatoire depuis 2015)
+    const daaf = components.filter((c) => c.type === 'smoke_detector');
+    if (!daaf.length) push('err', 'Aucun détecteur de fumée (DAAF) : il est obligatoire dans tout logement.');
+    else push('ok', `${daaf.length} détecteur${daaf.length > 1 ? 's' : ''} de fumée (DAAF).`, daaf[0].id);
+    // Communication : une prise RJ45 par pièce principale
+    const noRj = info.rooms.filter((room, i) => room.type && ['sejour', 'chambre', 'bureau'].includes(room.type.key) &&
+      !room.leaked && !components.some((c) => c.type === 'rj45' && roomAt(info, c.x, c.y) === i));
+    if (noRj.length) push('warn', `Prise RJ45 manquante : ${noRj.map((r) => r.name).join(', ')}.`);
+    // Salle d'eau : pas de prise ni d'interrupteur à moins de 60 cm d'une douche ou baignoire
+    const wet = components.filter((c) => c.type === 'shower' || c.type === 'bathtub');
+    for (const c of components) {
+      if (c.type !== 'socket_wall' && !NF_SWITCHES.has(c.type)) continue;
+      const r = roomAt(info, c.x, c.y);
+      const w = wet.find((b) => roomAt(info, b.x, b.y) === r && _distToFootprint(c.x, c.y, b) < 60);
+      if (w) push('err', `${c.label || 'Appareillage'} dans le volume 2 (à moins de 60 cm de la ${w.type === 'shower' ? 'douche' : 'baignoire'}).`, c.id);
+    }
+    // Cuisine : sortie de câble 32 A pour la plaque de cuisson
+    info.rooms.forEach((room, i) => {
+      if (!room.type || room.type.key !== 'cuisine' || room.leaked) return;
+      if (!components.some((c) => c.type === 'cooktop' && roomAt(info, c.x, c.y) === i)) {
+        push('warn', `${room.name} : prévoir le circuit spécialisé 32 A de la plaque de cuisson.`, room.id);
+      }
+    });
+  }
   if (!info.rooms.length) {
     push('warn', 'Place une étiquette « Pièce » (catégorie Architecture) dans chaque pièce pour la contrôler.');
   }
@@ -291,6 +329,15 @@ function checkNFC15100(components, wires) {
 
   report.ok = report.errors === 0 && info.rooms.length > 0;
   return report;
+}
+
+// Distance d'un point au rectangle (pivoté) d'un symbole ; 0 à l'intérieur
+function _distToFootprint(x, y, c) {
+  const b = SYMBOLS[c.type].bbox, a = (-(c.rot || 0) * Math.PI) / 180;
+  const dx = x - c.x, dy = y - c.y;
+  const lx = dx * Math.cos(a) - dy * Math.sin(a), ly = dx * Math.sin(a) + dy * Math.cos(a);
+  const ex = Math.max(b.x - lx, 0, lx - (b.x + b.w)), ey = Math.max(b.y - ly, 0, ly - (b.y + b.h));
+  return Math.hypot(ex, ey);
 }
 
 // ---- Cotations des murs ----------------------------------------------------

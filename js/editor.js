@@ -801,8 +801,11 @@ class Editor {
 
     ctx.restore();
 
-    // étiquette (redressée, hors rotation) — sauf symboles qui dessinent la leur
-    if ((c.label || c.value) && !sym.ownLabel) {
+    // étiquette (redressée, hors rotation) — sauf symboles qui dessinent la leur.
+    // Sur un plan de maison, l'appareillage est dense : ses repères n'apparaissent
+    // qu'en zoomant, au survol ou à la sélection.
+    const quiet = sym.plan && !selected && this.hoverId !== c.id && this.view.scale < 1.6;
+    if ((c.label || c.value) && !sym.ownLabel && !quiet) {
       ctx.save();
       ctx.fillStyle = selected ? this.colors.labelSel : this.colors.label;
       ctx.font = `${11}px sans-serif`;

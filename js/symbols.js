@@ -661,6 +661,18 @@ Object.assign(SYMBOLS, {
       ctx.stroke();
     },
   },
+  garage_door: {
+    name: 'Porte de garage (sectionnelle)', category: 'Architecture', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -124, y: -10, w: 248, h: 20 },
+    draw(ctx) {
+      line(ctx, -120, -4, 120, -4);
+      line(ctx, -120, 4, 120, 4);
+      ctx.save();
+      ctx.setLineDash([8, 6]);
+      line(ctx, -120, 0, 120, 0);
+      ctx.restore();
+    },
+  },
   window_a: {
     name: 'Fenêtre', category: 'Architecture', prefix: '', plan: true, noBom: true,
     terminals: [], bbox: { x: -44, y: -8, w: 88, h: 16 },
@@ -797,6 +809,205 @@ Object.assign(SYMBOLS, {
     draw(ctx) {
       circle(ctx, 0, 0, 8);
       dot(ctx, 0, 0, 3);
+    },
+  },
+  smoke_detector: {
+    name: 'Détecteur de fumée (DAAF)', category: 'Implantation élec.', prefix: 'DF', plan: true,
+    terminals: [], bbox: { x: -13, y: -13, w: 26, h: 26 },
+    draw(ctx) {
+      circle(ctx, 0, 0, 11);
+      circle(ctx, 0, 0, 5);
+      dot(ctx, 0, 0, 1.6);
+    },
+  },
+  rj45: {
+    name: 'Prise RJ45 (communication)', category: 'Implantation élec.', prefix: 'RJ', plan: true,
+    terminals: [], bbox: { x: -12, y: -22, w: 24, h: 32 },
+    draw(ctx) {
+      ctx.strokeRect(-9, -7, 18, 14);
+      poly(ctx, [[-5, 3], [0, -3], [5, 3]], true);
+      line(ctx, 0, -7, 0, -18);
+    },
+  },
+});
+
+// ----- Plan de maison : sanitaire, mobilier complémentaire, électroménager --
+// Convention de pose : à rot = 0, le dos de l'objet est du côté local -y
+// (contre le mur du haut). Les appareils ont une borne : ils sont alimentés.
+Object.assign(SYMBOLS, {
+  desk: {
+    name: 'Bureau + chaise', category: 'Mobilier', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -60, y: -30, w: 120, h: 96 },
+    draw(ctx) {
+      ctx.strokeRect(-60, -30, 120, 60);
+      ctx.strokeRect(-20, 38, 40, 26);   // assise
+      line(ctx, -20, 62, 20, 62);        // dossier
+    },
+  },
+  tv_unit: {
+    name: 'Meuble TV', category: 'Mobilier', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -80, y: -22, w: 160, h: 44 },
+    draw(ctx) {
+      ctx.strokeRect(-80, -22, 160, 44);
+      ctx.strokeRect(-55, -16, 110, 6);  // écran
+    },
+  },
+  plant: {
+    name: 'Plante', category: 'Mobilier', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -24, y: -24, w: 48, h: 48 },
+    draw(ctx) {
+      circle(ctx, 0, 0, 22);
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2;
+        line(ctx, 0, 0, Math.cos(a) * 17, Math.sin(a) * 17);
+      }
+    },
+  },
+  car: {
+    name: 'Voiture', category: 'Mobilier', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -90, y: -210, w: 180, h: 420 },
+    draw(ctx) {
+      ctx.beginPath();
+      ctx.moveTo(-70, -190); ctx.quadraticCurveTo(0, -222, 70, -190);
+      ctx.lineTo(84, 170); ctx.quadraticCurveTo(0, 214, -84, 170);
+      ctx.closePath(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-62, -90); ctx.quadraticCurveTo(0, -112, 62, -90); ctx.stroke(); // pare-brise
+      ctx.beginPath(); ctx.moveTo(-64, 110); ctx.quadraticCurveTo(0, 124, 64, 110); ctx.stroke();  // lunette
+      line(ctx, -62, -90, -64, 110);
+      line(ctx, 62, -90, 64, 110);
+    },
+  },
+
+  shower: {
+    name: 'Douche', category: 'Sanitaire', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -45, y: -45, w: 90, h: 90 },
+    draw(ctx) {
+      ctx.strokeRect(-45, -45, 90, 90);
+      line(ctx, -45, -45, 45, 45);
+      line(ctx, -45, 45, 45, -45);
+      circle(ctx, 0, 0, 5);
+    },
+  },
+  bathtub: {
+    name: 'Baignoire', category: 'Sanitaire', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -85, y: -38, w: 170, h: 76 },
+    draw(ctx) {
+      ctx.strokeRect(-85, -38, 170, 76);
+      ctx.beginPath();
+      ctx.moveTo(-60, -28); ctx.lineTo(60, -28); ctx.quadraticCurveTo(76, 0, 60, 28);
+      ctx.lineTo(-60, 28); ctx.quadraticCurveTo(-76, 0, -60, -28); ctx.stroke();
+      circle(ctx, 60, 0, 4);
+    },
+  },
+  washbasin: {
+    name: 'Lavabo / vasque', category: 'Sanitaire', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -30, y: -22, w: 60, h: 44 },
+    draw(ctx) {
+      ctx.strokeRect(-30, -22, 60, 44);
+      ctx.beginPath(); ctx.ellipse(0, 4, 20, 13, 0, 0, Math.PI * 2); ctx.stroke();
+      line(ctx, 0, -18, 0, -10);          // robinet
+    },
+  },
+  toilet: {
+    name: 'WC', category: 'Sanitaire', prefix: '', plan: true, noBom: true,
+    terminals: [], bbox: { x: -20, y: -32, w: 40, h: 64 },
+    draw(ctx) {
+      ctx.strokeRect(-20, -32, 40, 16);   // réservoir
+      ctx.beginPath(); ctx.ellipse(0, 8, 17, 22, 0, 0, Math.PI * 2); ctx.stroke();
+    },
+  },
+
+  fridge: {
+    name: 'Réfrigérateur', category: 'Électroménager', prefix: 'RF', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -30, y: -32, w: 60, h: 64 },
+    draw(ctx) {
+      ctx.strokeRect(-30, -32, 60, 64);
+      line(ctx, -30, -22, 30, -22);
+      line(ctx, 18, 0, 18, 22);           // poignée
+    },
+  },
+  oven: {
+    name: 'Four (colonne)', category: 'Électroménager', prefix: 'FO', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -30, y: -30, w: 60, h: 60 },
+    draw(ctx) {
+      ctx.strokeRect(-30, -30, 60, 60);
+      ctx.strokeRect(-20, -8, 40, 30);
+      for (const x of [-14, 0, 14]) circle(ctx, x, -19, 3);
+    },
+  },
+  cooktop: {
+    name: 'Plaque de cuisson (32 A)', category: 'Électroménager', prefix: 'PL', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -30, y: -30, w: 60, h: 60 },
+    draw(ctx) {
+      ctx.strokeRect(-30, -30, 60, 60);
+      circle(ctx, -13, -12, 9); circle(ctx, 13, -12, 7);
+      circle(ctx, -13, 13, 7); circle(ctx, 13, 13, 9);
+    },
+  },
+  washer: {
+    name: 'Lave-linge', category: 'Électroménager', prefix: 'LL', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -30, y: -30, w: 60, h: 60 },
+    draw(ctx) {
+      ctx.strokeRect(-30, -30, 60, 60);
+      circle(ctx, 0, 4, 18);
+      circle(ctx, 0, 4, 11);
+    },
+  },
+  dishwasher: {
+    name: 'Lave-vaisselle', category: 'Électroménager', prefix: 'LV', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -30, y: -30, w: 60, h: 60 },
+    draw(ctx) {
+      ctx.strokeRect(-30, -30, 60, 60);
+      line(ctx, -22, -6, 22, -6);
+      line(ctx, -22, 10, 22, 10);
+      for (const x of [-12, 0, 12]) line(ctx, x, -6, x, 10);
+    },
+  },
+  dryer: {
+    name: 'Sèche-linge', category: 'Électroménager', prefix: 'SL', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -30, y: -30, w: 60, h: 60 },
+    draw(ctx) {
+      ctx.strokeRect(-30, -30, 60, 60);
+      circle(ctx, 0, 4, 18);
+      ctx.beginPath(); ctx.arc(0, 4, 9, 0, Math.PI * 1.5); ctx.stroke();
+    },
+  },
+  water_heater: {
+    name: 'Chauffe-eau électrique', category: 'Électroménager', prefix: 'CE', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -30, y: -30, w: 60, h: 60 },
+    draw(ctx) {
+      circle(ctx, 0, 0, 28);
+      circle(ctx, 0, 0, 20);
+      poly(ctx, [[-6, -10], [4, -1], [-4, 2], [6, 11]]);
+    },
+  },
+  radiator: {
+    name: 'Radiateur électrique', category: 'Électroménager', prefix: 'RAD', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -40, y: -8, w: 80, h: 16 },
+    draw(ctx) {
+      ctx.strokeRect(-40, -6, 80, 12);
+      for (let x = -30; x <= 30; x += 10) line(ctx, x, -6, x, 6);
+    },
+  },
+  ev_charger: {
+    name: 'Borne de recharge (IRVE)', category: 'Électroménager', prefix: 'IRVE', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -16, y: -12, w: 32, h: 24 },
+    draw(ctx) {
+      ctx.strokeRect(-16, -10, 32, 20);
+      poly(ctx, [[2, -7], [-5, 1], [1, 1], [-2, 8], [6, -1], [0, -1]], true);
+    },
+  },
+  vmc: {
+    name: 'VMC (extraction)', category: 'Électroménager', prefix: 'VMC', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -14, y: -14, w: 28, h: 28 },
+    draw(ctx) {
+      circle(ctx, 0, 0, 12);
+      for (let i = 0; i < 3; i++) {
+        const a = (i / 3) * Math.PI * 2;
+        ctx.beginPath();
+        ctx.arc(Math.cos(a) * 5, Math.sin(a) * 5, 5, a, a + Math.PI);
+        ctx.stroke();
+      }
     },
   },
 });
