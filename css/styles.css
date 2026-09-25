@@ -239,6 +239,7 @@ button, a, input, label { touch-action: manipulation; }
 }
 .props input[type="text"]:focus { outline: none; border-color: var(--accent); }
 .check-row { display: flex; align-items: center; gap: 7px; }
+.check-row[hidden] { display: none; }
 .check-row input { accent-color: var(--accent); }
 
 .proj { border-top: 1px solid var(--border); margin-top: 4px; }

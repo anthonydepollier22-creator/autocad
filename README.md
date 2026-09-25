@@ -419,14 +419,20 @@ Le bouton **Ouvrir** (ou un glisser-déposer) accepte aussi un **plan d'architec
 - **noms des pièces** lus dans les textes (`CHAMBRE 1` → « Chambre 1 », surfaces
   écrites ignorées), avec la mise en forme MTEXT et les accents Windows-1252 ;
 - **unités** lues dans l'en-tête (`$INSUNITS`), sinon devinées d'après la taille du
-  dessin ; blocs insérés développés, cotes, hachures et cartouche ignorés.
+  dessin ; blocs insérés développés, cotes, hachures et cartouche ignorés ;
+- **maison à étage** : quand la feuille porte plusieurs plans (« REZ-DE-CHAUSSÉE »,
+  « ÉTAGE », « R+1 »…, ou deux emprises semblables), ils deviennent des **niveaux**,
+  superposés à l'escalier (bloc ou calque `ESCALIER`, sinon au coin du plan) : la 3D
+  les empile, l'escalier se monte en visite et les câbles passent par la colonne
+  montante. Le [plan d'exemple R+1](samples/plan-exemple-r1.dxf) (étage dessiné sous
+  le rez-de-chaussée) redonne ses 12 pièces à ±0,2 m².
 
 Une fenêtre d'aperçu montre le résultat en direct : choix des calques des murs,
 unités, surfaces des pièces, avertissements (pièce non fermée, unités douteuses). Un
 clic ensuite pour **meubler**, **implanter l'électricité NF C 15-100** et **ouvrir la
 3D**. Le [plan d'exemple](samples/plan-exemple-t4.dxf) (un T4 d'architecte en double
 trait) redonne les **10 pièces à ±0,2 m²** du plan d'origine ; `app.html?dxf=exemple`
-l'ouvre directement. Le format DWG, fermé, se convertit d'abord en DXF.
+(ou `?dxf=etage`) l'ouvre directement. Le format DWG, fermé, se convertit d'abord en DXF.
 
 ![Import d'un plan d'architecte : calques, unités et aperçu](docs/screenshot-dxf-import.png)
 
@@ -567,10 +573,10 @@ python3 -m http.server 8000
 │   ├── ui.js          # Câblage de l'interface et opérations fichier
 │   ├── house-worker.js # Génération des maisons hors du fil principal (site)
 │   └── landing.js     # Site vitrine : démonstration, plan annoté, banc d'essai
-├── samples/           # Plan d'architecte d'exemple (DXF) pour essayer l'import
+├── samples/           # Plans d'architecte d'exemple (DXF : T4, maison à étage)
 └── tests/
     ├── run.js         # Suite de tests (node tests/run.js)
-    └── fixtures/      # Plans DXF de test (ezdxf : double et triple trait, croquis en mètres)
+    └── fixtures/      # Plans DXF de test (ezdxf : double et triple trait, étage, croquis en mètres)
 ```
 
 ## ✅ Tests
@@ -579,7 +585,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-136 vérifications sans dépendance : valeurs numériques de chaque simulation
+138 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
@@ -594,7 +600,8 @@ coupe, la course du soleil selon la saison, les interactions de l'éditeur 2D (f
 mur au double-clic, à `Entrée` ou en fermant le contour, mise à l'échelle du calque),
 **l'éclairement** (formule du plafonnier, lumière confinée à sa pièce, appliques
 jusqu'à l'objectif), les exports SVG et DXF et **l'import DXF** (aller-retour des 6 maisons, plans
-d'architecte produits par ezdxf, croquis en mètres, accents, arcs, blocs tournés). Le déploiement GitHub Pages **exécute ces tests d'abord** : une
+d'architecte produits par ezdxf, maison à étage, croquis en mètres, accents, arcs,
+blocs tournés). Le déploiement GitHub Pages **exécute ces tests d'abord** : une
 régression bloque la mise en ligne.
 
 ## 🧱 Format de fichier

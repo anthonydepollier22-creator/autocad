@@ -920,14 +920,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Import d'un plan DXF (AutoCAD, LibreCAD, ArchiCAD, Revit…) ------------
   const dxfModal = document.getElementById('dxf-modal');
-  const dxf = { P: null, name: '', walls: new Set(), im: null, err: null };
+  const dxf = { P: null, name: '', walls: new Set(), im: null, err: null, levels: true, levelsSeen: false };
   const $d = (id) => document.getElementById(id);
   const UNIT_NAMES = { 0.1: 'millimètres', 1: 'centimètres', 10: 'décimètres', 100: 'mètres', 2.54: 'pouces', 30.48: 'pieds' };
   function openDXF(P, name) {
     const g = dxfGuessLayers(P);
     if (!g.info.some((l) => l.segs)) throw new Error('aucun trait dans ce fichier.');
-    Object.assign(dxf, { P, name, walls: new Set(g.walls) });
+    Object.assign(dxf, { P, name, walls: new Set(g.walls), levels: true, levelsSeen: false });
     $d('dxf-units').value = 'auto';
+    $d('dxf-levels').checked = true;
     $d('dxf-layers').innerHTML = g.info.filter((l) => l.segs).slice(0, 80).map((l) =>
       `<label class="dxf-layer"><input type="checkbox" value="${_escHtml(l.name)}"${dxf.walls.has(l.name) ? ' checked' : ''} />` +
       `<span class="dxf-ln" title="${_escHtml(l.name)}">${_escHtml(l.name)}${l.guess === 'menuiseries' ? ' <em>menuiseries</em>' : ''}</span>` +
@@ -939,7 +940,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function closeDXF() { dxfModal.hidden = true; document.body.classList.remove('modal-open'); dxf.P = dxf.im = null; }
   function dxfUpdate() {
-    const u = $d('dxf-units').value, opts = { layers: [...dxf.walls] };
+    const u = $d('dxf-units').value, opts = { layers: [...dxf.walls], levels: dxf.levels };
     if (u !== 'auto') opts.scale = +u;
     const auto = dxfScale(dxf.P, opts.layers);
     $d('dxf-units').options[0].textContent = `Automatique : ${UNIT_NAMES[auto.scale] || auto.scale + ' cm'}${auto.guessed ? ' (deviné)' : ''}`;
@@ -954,6 +955,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const f1 = (v) => v.toFixed(1).replace('.', ',');
       html = `<b>${f1(s.size[0])} × ${f1(s.size[1])} m</b> · ${n(s.walls, 'mur', 'murs')} (${s.ext} extérieur${s.ext > 1 ? 's' : ''}) · ` +
         `${n(s.doors, 'porte', 'portes')} · ${n(s.windows, 'fenêtre', 'fenêtres')}${s.garages ? ' · ' + n(s.garages, 'porte de garage', 'portes de garage') : ''} · ${n(s.rooms, 'pièce nommée', 'pièces nommées')}`;
+      if (s.levels.length > 1) {
+        html += ` · <b>${s.levels.length} niveaux</b> : ${_escHtml(s.levels.join(', '))}${s.stairs ? ', escalier' : ''}`;
+        if (!s.stairs) warn.push('Aucun escalier reconnu : pose-le sur les deux plans (Architecture › Escalier droit) pour relier les niveaux.');
+      }
       if (Math.max(...s.size) > 60 || Math.max(...s.size) < 3) warn.push(`Plan de ${f1(Math.max(...s.size))} m : vérifie les unités.`);
       if (open.length) warn.push(`Pièce${open.length > 1 ? 's' : ''} non fermée${open.length > 1 ? 's' : ''} : ${_escHtml(open.join(', '))}. Un calque de murs manque peut-être.`);
       if (!s.rooms) warn.push('Aucun nom de pièce lu sur le plan : ajoute des étiquettes <b>Pièce</b> après l’import (surfaces, contrôle NF, implantation).');
@@ -961,6 +966,8 @@ document.addEventListener('DOMContentLoaded', () => {
       warn.push(dxf.err ? _escHtml(dxf.err) : 'Aucun mur reconnu : coche le ou les calques qui contiennent les murs.');
     }
     st.innerHTML = html + warn.map((w) => `<span class="dxf-warn">${w}</span>`).join('');
+    if (im && im.stats.levels.length > 1) dxf.levelsSeen = true;
+    $d('dxf-levels-row').hidden = !dxf.levelsSeen;
     $d('dxf-go').disabled = !(im && im.wires.length);
     drawDXFPreview();
   }
@@ -976,11 +983,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const css = getComputedStyle(document.body), col = (v) => css.getPropertyValue(v).trim();
     const sc = im ? im.stats.scale : dxfScale(P).scale, off = im ? im.offset : { x: 0, y: 0 };
     const X = (x) => x * sc + off.x, Y = (y) => -y * sc + off.y;
+    // avec des niveaux, chaque plan du dessin suit son déplacement
+    const seg = (g) => {
+      if (!im || !im.levels) return [X(g.ax), Y(g.ay), X(g.bx), Y(g.by)];
+      const d = im.shiftAt(((g.ax + g.bx) / 2) * sc, (-(g.ay + g.by) / 2) * sc);
+      return [g.ax * sc + d.x, -g.ay * sc + d.y, g.bx * sc + d.x, -g.by * sc + d.y];
+    };
     // Cadrage : les murs importés (sinon tout le dessin)
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     const acc = (x, y) => { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); };
     if (im && im.wires.length) for (const w of im.wires) for (const p of w.points) acc(p.x, p.y);
-    else for (const g of P.segs) { acc(X(g.ax), Y(g.ay)); acc(X(g.bx), Y(g.by)); }
+    else for (const g of P.segs) { const q = seg(g); acc(q[0], q[1]); acc(q[2], q[3]); }
+    if (im && im.levels) for (const c of im.components) if (c.type === 'level_title') acc(c.x, c.y - 40);
     if (!isFinite(x0)) return;
     const s = Math.min((W - 40) / Math.max(1, x1 - x0), (H - 40) / Math.max(1, y1 - y0));
     const tx = W / 2 - ((x0 + x1) / 2) * s, ty = H / 2 - ((y0 + y1) / 2) * s;
@@ -992,7 +1006,8 @@ document.addEventListener('DOMContentLoaded', () => {
       ctx.beginPath();
       for (const g of P.segs) {
         if (dxf.walls.has(g.layer) !== wall) continue;
-        ctx.moveTo(X(g.ax), Y(g.ay)); ctx.lineTo(X(g.bx), Y(g.by));
+        const q = seg(g);
+        ctx.moveTo(q[0], q[1]); ctx.lineTo(q[2], q[3]);
       }
       ctx.strokeStyle = wall ? col('--accent') : col('--faint');
       ctx.globalAlpha = wall ? 0.45 : 0.35; ctx.lineWidth = 1 / s; ctx.stroke();
@@ -1019,16 +1034,21 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       // Portes et fenêtres
       for (const c of im.components) {
-        if (c.type === 'room') continue;
+        if (c.type === 'room' || c.type === 'level_title') continue;
         ctx.save(); ctx.translate(c.x, c.y); ctx.rotate((c.rot * Math.PI) / 180);
-        ctx.strokeStyle = c.type === 'door' ? '#ffb454' : '#4fd1e8'; ctx.lineWidth = 3 / s;
+        ctx.strokeStyle = c.type === 'door' ? '#ffb454' : c.type === 'stairs' ? col('--muted') : '#4fd1e8'; ctx.lineWidth = (c.type === 'stairs' ? 1.5 : 3) / s;
         SYMBOLS[c.type].draw(ctx, c);
         ctx.restore();
       }
     }
     ctx.restore();
-    // Noms des pièces (à taille d'écran)
+    // Noms des pièces et des niveaux (à taille d'écran)
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = col('--text');
+    if (im) for (const c of im.components) {
+      if (c.type !== 'level_title') continue;
+      ctx.font = '700 12px system-ui, sans-serif';
+      ctx.fillText(c.value.toUpperCase(), tx + c.x * s, ty + c.y * s + 10);
+    }
     for (const l of labels) {
       // texte réduit pour tenir dans la pièce (petites pièces, petit écran)
       const px = tx + l.x * s, py = ty + l.y * s, room = l.w * s - 6;
@@ -1044,7 +1064,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!im || !im.wires.length) return;
     if ((editor.components.length || editor.wires.length) && !confirm('Remplacer le plan actuel par « ' + dxf.name + ' » ?')) return;
     const doc = {
-      version: 1, meta: { title: dxf.name, author: '' }, counters: {},
+      version: 1, meta: { title: dxf.name, author: '', ...(im.levels ? { levels: im.levels } : {}) }, counters: {},
       components: im.components.map((c) => ({ ...c })),
       wires: im.wires.map((w) => ({ ...w, points: w.points.map((p) => ({ ...p })) })),
     };
@@ -1059,17 +1079,18 @@ document.addEventListener('DOMContentLoaded', () => {
       (furn ? `, ${furn} meubles` : '') + (added ? `, ${added} appareils posés` : '') + (d && d.ok ? ` — ${d.circuits.length} circuits.` : '.'), 6500);
   }
   // Plan d'exemple (samples/) : pour essayer sans fichier sous la main
-  async function openSampleDXF() {
+  async function openSampleDXF(which) {
+    const r1 = which === 'etage';
     try {
-      const res = await fetch('samples/plan-exemple-t4.dxf');
+      const res = await fetch(r1 ? 'samples/plan-exemple-r1.dxf' : 'samples/plan-exemple-t4.dxf');
       if (!res.ok) throw new Error(String(res.status));
-      openDXF(parseDXF(decodeDXFBytes(await res.arrayBuffer())), 'Plan d’exemple T4');
+      openDXF(parseDXF(decodeDXFBytes(await res.arrayBuffer())), r1 ? 'Plan d’exemple R+1' : 'Plan d’exemple T4');
     } catch (_) {
       showToast('Plan d’exemple inaccessible ici : télécharge-le depuis l’aide (<b>?</b>), puis importe-le.', 6500);
     }
   }
   $d('es-dxf').addEventListener('click', () => fileInput.click());
-  $d('es-dxf-sample').addEventListener('click', openSampleDXF);
+  $d('es-dxf-sample').addEventListener('click', () => openSampleDXF());
   $d('dxf-layers').addEventListener('change', (e) => {
     const cb = e.target;
     if (cb.type !== 'checkbox') return;
@@ -1077,6 +1098,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dxfUpdate();
   });
   $d('dxf-units').addEventListener('change', dxfUpdate);
+  $d('dxf-levels').addEventListener('change', () => { dxf.levels = $d('dxf-levels').checked; dxfUpdate(); });
   $d('dxf-go').addEventListener('click', dxfImport);
   $d('dxf-cancel').addEventListener('click', closeDXF);
   $d('dxf-close').addEventListener('click', closeDXF);
@@ -1179,7 +1201,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (params.get('modal') === 'examples') openModal();
   if (params.get('houses') === '1') houseUI.openHouses();
   if (params.get('3d') === '1') houseUI.open3D();
-  if (params.get('dxf') === 'exemple') openSampleDXF(); // ?dxf=exemple : import du plan d'exemple
+  if (params.get('dxf')) openSampleDXF(params.get('dxf')); // ?dxf=exemple | etage : import d'un plan d'exemple
   if (params.get('calque') === '1') { // arrivée depuis « Décalquer mon plan »
     ulBtn.classList.add('pulse');
     setTimeout(() => ulBtn.classList.remove('pulse'), 6000);

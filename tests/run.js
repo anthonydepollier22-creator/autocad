@@ -718,6 +718,28 @@ r = run(`(function(){
 check('Plan d’exemple T4 (double trait, blocs) : les 10 pièces retrouvées à ±0,2 m² du plan d’origine', r.bad.length === 0 && r.n === 10, r.bad.join(', ') || `${r.n} pièces`);
 check('Plan d’exemple T4 : 10 portes, 11 fenêtres, 4 murs de façade, cotes et cartouche ignorés', r.st.doors === 10 && r.st.windows === 11 && r.st.ext === 4 && near(r.st.size[0], 12.4, 0.05) && near(r.st.size[1], 8.4, 0.05), `${r.st.walls} murs · ${r.st.size.join(' × ')} m`);
 
+// Maison à étage : rez-de-chaussée et étage dessinés l'un sous l'autre, titres, escalier
+sb.__r1 = fs.readFileSync(path.join(__dirname, 'fixtures', 'maison-etage.dxf'));
+r = run(`(function(){
+  var im = importDXFPlan(parseDXF(decodeDXFBytes(__r1))), d = buildHouse('r1'), bad = [];
+  var area = function(doc){ var o = {}; computeRooms(doc.components, doc.wires).rooms.forEach(function(r){ o[r.name.toLowerCase()] = r.area; }); return o; };
+  var a0 = area(d), a1 = area(im);
+  Object.keys(a0).forEach(function(k){ if (!a1[k] || Math.abs(a0[k] - a1[k]) > 0.2) bad.push(k); });
+  var st = im.components.filter(function(c){ return c.type === 'stairs'; });
+  var L = im.levels, lvOf = function(x){ return x >= L[1].x0 && x < L[1].x1 ? 1 : 0; };
+  var wallsOk = im.wires.every(function(w){ return lvOf(w.points[0].x) === lvOf(w.points[1].x); });
+  var doc = { meta: { levels: L }, components: im.components, wires: im.wires, counters: {} };
+  furnishPlan(doc); autoImplant(doc); autoConduits(doc);
+  var des = designInstallation(doc.components, doc.wires);
+  return { names: im.stats.levels, L: L, bad: bad, n: Object.keys(a1).length, st: st.map(function(c){ return [c.x, c.y, c.value]; }), wallsOk: wallsOk,
+    risers: doc.wires.filter(function(w){ return w.riser; }).length, ok: des.ok, nf: checkNFC15100(doc.components, doc.wires).errors,
+    single: importDXFPlan(parseDXF(decodeDXFBytes(__r1)), { levels: false }).levels };
+})()`);
+check('Maison à étage (DXF) : deux plans reconnus à leurs titres, superposés par l’escalier (bas / haut)',
+  r.names.join() === 'Rez-de-chaussée,Étage' && r.L[1].dy === 280 && r.st.length === 2 && r.st[0][2] === 'bas' && r.st[1][2] === 'haut' && r.st[1][0] + r.L[1].dx === r.st[0][0] && r.st[1][1] === r.st[0][1] && r.wallsOk && r.single === null,
+  r.names.join(' + ') + ' · décalage ' + r.L[1].dx);
+check('Maison à étage (DXF) : les 12 pièces à ±0,2 m², colonne montante par l’escalier, installation conforme', r.bad.length === 0 && r.n === 12 && r.risers >= 1 && r.ok && r.nf === 0, r.bad.join(', ') || `${r.n} pièces · ${r.risers} montée`);
+
 // Croquis R12 en simple trait, en mètres, sans unités déclarées
 r = run(`(function(){
   var P = parseDXF(decodeDXFBytes(__sketch)), im = importDXFPlan(P);

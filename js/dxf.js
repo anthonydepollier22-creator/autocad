@@ -11,7 +11,7 @@
 
 const DXF_LAYERS = [
   ['MURS', 7], ['MENUISERIES', 30], ['MOBILIER', 8], ['ELECTRICITE', 1], ['GOULOTTES', 9],
-  ['FILS', 5], ['PIECES', 3], ['REPERES', 2], ['COTES', 4], ['CARTOUCHE', 7],
+  ['FILS', 5], ['PIECES', 3], ['REPERES', 2], ['COTES', 4], ['CARTOUCHE', 7], ['ESCALIER', 6],
 ];
 
 class DXFContext {
@@ -85,7 +85,8 @@ class DXFContext {
 // Couche d'un symbole selon sa nature
 function _dxfLayerOf(type, sym) {
   if (type === 'room') return 'PIECES';
-  if (type === 'door' || type === 'window_a' || type === 'stairs') return 'MENUISERIES';
+  if (type === 'stairs') return 'ESCALIER';
+  if (type === 'door' || type === 'window_a' || type === 'garage_door') return 'MENUISERIES';
   if (sym.category === 'Mobilier' || sym.category === 'Sanitaire' || sym.category === 'Architecture') return 'MOBILIER';
   return 'ELECTRICITE';
 }
@@ -201,6 +202,7 @@ const DXF_RE_WALL = /mur|wall|cloison|ma[cç]onn|voile|partition|porteur|doublag
 const DXF_RE_OPEN = /menuis|porte|fen[eê]|door|window|glaz|ouvert|baie|^a-?(door|glaz|wind)/i;
 const DXF_RE_SKIP = /cot|dim|text|hach|hatch|mobil|furn|axe|grid|trame|[ée]lec|sanit|plomb|annot|cartouche|title|viewport|defpoints/i;
 const DXF_RE_ROOM = /pi[eè]ce|room|local|espace|surface|d[ée]signation/i;
+const DXF_RE_STAIRS = /escal|stair|tr[ée]mie/i;
 
 // Octets → texte : UTF-8 (AutoCAD 2007 et suivants) sinon Windows-1252
 function decodeDXFBytes(buf) {
@@ -384,7 +386,7 @@ function _dxfPrims(ents, blocks, T, layerOver, out, depth) {
           a: T.a * I.a + T.c * I.b, b: T.b * I.a + T.d * I.b, c: T.a * I.c + T.c * I.d, d: T.b * I.c + T.d * I.d,
           e: T.a * I.e + T.c * I.f + T.e, f: T.b * I.e + T.d * I.f + T.f,
         };
-        const kind = _dxfOpeningKind(name) || (DXF_RE_OPEN.test(layer) ? _dxfOpeningKind(layer) : null);
+        const kind = DXF_RE_STAIRS.test(name) ? 'stairs' : _dxfOpeningKind(name) || (DXF_RE_OPEN.test(layer) ? _dxfOpeningKind(layer) : null);
         if (kind) {
           // Porte ou fenêtre en bloc : son emprise, sans la développer
           const sub = { segs: [], texts: [], inserts: [] };
@@ -395,7 +397,7 @@ function _dxfPrims(ents, blocks, T, layerOver, out, depth) {
             x0 = Math.min(x0, s.ax, s.bx); x1 = Math.max(x1, s.ax, s.bx);
             y0 = Math.min(y0, s.ay, s.by); y1 = Math.max(y1, s.ay, s.by);
           }
-          out.inserts.push({ kind, name, layer, x: (x0 + x1) / 2, y: (y0 + y1) / 2, w: Math.max(x1 - x0, y1 - y0) });
+          out.inserts.push({ kind, name, layer, x: (x0 + x1) / 2, y: (y0 + y1) / 2, w: Math.max(x1 - x0, y1 - y0), bw: x1 - x0, bh: y1 - y0 });
         } else {
           _dxfPrims(b.ents, blocks, M, layer === '0' ? layerOver : layer, out, depth + 1);
         }
@@ -431,12 +433,13 @@ function dxfGuessLayers(P) {
     .sort((a, b) => b.len - a.len);
   let walls = info.filter((l) => l.segs && DXF_RE_WALL.test(l.name) && !DXF_RE_SKIP.test(l.name)).map((l) => l.name);
   if (!walls.length) {
-    const best = info.find((l) => l.segs && !DXF_RE_SKIP.test(l.name) && !DXF_RE_OPEN.test(l.name));
+    const best = info.find((l) => l.segs && !DXF_RE_SKIP.test(l.name) && !DXF_RE_OPEN.test(l.name) && !DXF_RE_STAIRS.test(l.name));
     if (best) walls = [best.name];
   }
   const openings = info.filter((l) => l.segs && DXF_RE_OPEN.test(l.name) && !walls.includes(l.name)).map((l) => l.name);
-  for (const l of info) l.guess = walls.includes(l.name) ? 'murs' : openings.includes(l.name) ? 'menuiseries' : '';
-  return { walls, openings, info };
+  const stairs = info.filter((l) => l.segs && DXF_RE_STAIRS.test(l.name) && !walls.includes(l.name)).map((l) => l.name);
+  for (const l of info) l.guess = walls.includes(l.name) ? 'murs' : openings.includes(l.name) ? 'menuiseries' : stairs.includes(l.name) ? 'escalier' : '';
+  return { walls, openings, stairs, info };
 }
 
 // --- Géométrie des murs (centimètres, Y vers le bas) -----------------------
@@ -723,6 +726,7 @@ function importDXFPlan(P, opts = {}) {
   // Ouvertures : blocs nommés, dessins des calques de menuiseries, puis trous restants dans les murs
   const found = [];
   for (const ins of P.inserts) {
+    if (ins.kind === 'stairs') continue;
     const c = C(ins.x, ins.y);
     found.push({ kind: ins.kind, x: c.x, y: c.y, w: ins.w * scale });
   }
@@ -764,11 +768,59 @@ function importDXFPlan(P, opts = {}) {
     }
   }
 
-  // Emprise et recadrage : le plan commence près de l'origine
+  // Emprise du dessin des murs
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const s of segs) for (const p of [s.p, s.q]) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
-  if (!isFinite(x0)) return { wires: [], components: [], stats: { walls: 0, ext: 0, doors: 0, windows: 0, garages: 0, rooms: 0, scale, guessed, size: [0, 0] } };
-  const ox = Math.round((60 - x0) / 20) * 20, oy = Math.round((60 - y0) / 20) * 20;
+  if (!isFinite(x0)) return { wires: [], components: [], levels: null, stats: { walls: 0, ext: 0, doors: 0, windows: 0, garages: 0, rooms: 0, stairs: 0, levels: [], scale, guessed, size: [0, 0] } };
+
+  // Noms des pièces écrits sur le plan
+  const rooms = [];
+  if (opts.rooms !== false) {
+    for (const t of P.texts) {
+      const name = _dxfRoomName(t.text);
+      if (!name || !(roomType(name) || DXF_RE_ROOM.test(t.layer))) continue;
+      const c = C(t.x, t.y);
+      if (c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
+      if (rooms.some((p) => p.name === name && Math.hypot(p.x - c.x, p.y - c.y) < 80)) continue;
+      rooms.push({ name, x: c.x, y: c.y });
+    }
+  }
+  // Escaliers : blocs nommés, dessins des calques d'escalier
+  const stairsFound = [];
+  for (const ins of P.inserts) {
+    if (ins.kind !== 'stairs') continue;
+    const c = C(ins.x, ins.y);
+    stairsFound.push({ x: c.x, y: c.y, w: ins.bw * scale, h: ins.bh * scale });
+  }
+  const stairLayers = new Set(opts.stairLayers || guess.stairs);
+  const sSegs = P.segs.filter((s) => stairLayers.has(s.layer)).map((s) => ({ a: C(s.ax, s.ay), b: C(s.bx, s.by) }));
+  for (const cl of _dxfClusters(sSegs, 100, 800)) stairsFound.push({ x: (cl.x0 + cl.x1) / 2, y: (cl.y0 + cl.y1) / 2, w: cl.x1 - cl.x0, h: cl.y1 - cl.y0 });
+
+  // Niveaux : plusieurs plans sur la feuille (rez-de-chaussée, étage…) → maison à étage
+  const texts = P.texts.map((t) => ({ ...C(t.x, t.y), text: t.text }));
+  const L = opts.levels === false ? null : _dxfLevels(segs, texts, stairsFound);
+  const shiftOf = (x, y) => (L ? L.shift[L.clusterAt(x, y)] : { x: 0, y: 0 });
+  const stairs = [];
+  if (L && L.levels.length > 1) {
+    // escalier du bas (rez-de-chaussée) et arrivée (étage), à la même place une fois les plans superposés
+    const onLevel = (k) => stairsFound.filter((st) => L.level[L.clusterAt(st.x, st.y)] === k).map((st) => ({ ...st, a: L.align(st.x, st.y) }));
+    const lo = onLevel(0)[0], hi = onLevel(1)[0];
+    const put = (st, k, value) => {
+      const P0 = L.place(st.a.x, st.a.y, k);
+      stairs.push({ type: 'stairs', x: P0.x, y: P0.y, rot: st.w > st.h ? 90 : 0, value });
+    };
+    if (lo || hi) { put(lo || hi, 0, 'bas'); put(hi || lo, 1, 'haut'); }
+  }
+  // tout est déplacé avec son plan (niveaux posés côte à côte, dans l'ordre)
+  const mv = (x, y, ref) => { const d = ref ? shiftOf(ref.x, ref.y) : shiftOf(x, y); return { x: x + d.x, y: y + d.y }; };
+  for (const sg of segs) { const m = { x: (sg.p.x + sg.q.x) / 2, y: (sg.p.y + sg.q.y) / 2 }; const d = shiftOf(m.x, m.y); sg.p = { x: sg.p.x + d.x, y: sg.p.y + d.y }; sg.q = { x: sg.q.x + d.x, y: sg.q.y + d.y }; sg.m = m; }
+  for (const o of openings) Object.assign(o, mv(o.x, o.y, o.s.m));
+  for (const r of rooms) Object.assign(r, mv(r.x, r.y));
+
+  // Recadrage : le plan commence près de l'origine
+  x0 = Infinity; y0 = Infinity; x1 = -Infinity; y1 = -Infinity;
+  for (const s of segs) for (const p of [s.p, s.q]) { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); }
+  const ox = Math.round((60 - x0) / 20) * 20, oy = Math.round((60 - y0) / 20) * 20 + (L ? 160 : 0); // place pour les titres de niveaux
   const R = (v) => Math.round(v);
   let n = 0;
   const wires = segs.map((s) => ({
@@ -776,36 +828,132 @@ function importDXFPlan(P, opts = {}) {
     points: [{ x: R(s.p.x + ox), y: R(s.p.y + oy) }, { x: R(s.q.x + ox), y: R(s.q.y + oy) }],
   }));
   const components = openings.map((o) => ({ id: 'x' + ++n, type: o.kind, x: R(o.x + ox), y: R(o.y + oy), rot: R(o.rot), label: '', value: '' }));
-
-  // Noms des pièces écrits sur le plan
-  let rooms = 0;
-  if (opts.rooms !== false) {
-    const seen = [];
-    for (const t of P.texts) {
-      const name = _dxfRoomName(t.text);
-      if (!name || !(roomType(name) || DXF_RE_ROOM.test(t.layer))) continue;
-      const c = C(t.x, t.y);
-      if (c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
-      if (seen.some((p) => p.name === name && Math.hypot(p.x - c.x, p.y - c.y) < 80)) continue;
-      seen.push({ name, x: c.x, y: c.y });
-      components.push({ id: 'x' + ++n, type: 'room', x: R(c.x + ox), y: R(c.y + oy), rot: 0, label: '', value: name });
-      rooms++;
-    }
+  for (const r of rooms) components.push({ id: 'x' + ++n, type: 'room', x: R(r.x + ox), y: R(r.y + oy), rot: 0, label: '', value: r.name });
+  for (const st of stairs) components.push({ id: 'x' + ++n, type: 'stairs', x: R(st.x + ox), y: R(st.y + oy), rot: st.rot, label: '', value: st.value });
+  let levels = null;
+  if (L) {
+    levels = L.levels.map((lv) => ({ name: lv.name, x0: R(lv.x0 + ox), x1: R(lv.x1 + ox), ...(lv.dx ? { dx: R(lv.dx) } : {}), ...(lv.dy ? { dy: lv.dy } : {}) }));
+    for (const lv of L.levels) components.push({ id: 'x' + ++n, type: 'level_title', x: R((lv.bx0 + lv.bx1) / 2 + ox), y: R(y0 + oy - 130), rot: 0, label: '', value: lv.name });
   }
   const cnt = (k) => openings.filter((o) => o.kind === k).length;
+  const one = L ? L.levels[0] : null;
   return {
-    wires, components,
+    wires, components, levels,
     stats: {
       walls: wires.length, ext: wires.filter((w) => w.ext).length,
-      doors: cnt('door'), windows: cnt('window_a'), garages: cnt('garage_door'), rooms,
-      scale, guessed, size: [(x1 - x0) / 100, (y1 - y0) / 100],
+      doors: cnt('door'), windows: cnt('window_a'), garages: cnt('garage_door'), rooms: rooms.length, stairs: stairs.length,
+      levels: L ? L.levels.map((lv) => lv.name) : [],
+      scale, guessed, size: one ? [(one.bx1 - one.bx0) / 100, (one.by1 - one.by0) / 100] : [(x1 - x0) / 100, (y1 - y0) / 100],
     },
     offset: { x: ox, y: oy }, // cm ajoutés après conversion (aperçu du dessin d'origine)
+    shiftAt: (x, y) => { const d = shiftOf(x, y); return { x: d.x + ox, y: d.y + oy }; }, // déplacement d'un point du dessin (cm)
+  };
+}
+
+// Plans de niveaux : groupes de murs séparés sur la feuille, reconnus par leur
+// titre (« REZ-DE-CHAUSSÉE », « ÉTAGE », « R+1 »…) ou par une emprise semblable.
+// Renvoie les niveaux dans l'ordre, et pour chaque groupe le déplacement qui
+// pose les plans côte à côte, superposables (même escalier, sinon même coin).
+function _dxfLevelName(t) {
+  const s = String(t).toLowerCase();
+  if (s.length > 48) return null;
+  if (/sous[- ]?sol|\br\s*-\s*1\b/.test(s)) return { order: -1, name: 'Sous-sol' };
+  if (/rez[- ]de[- ]chauss|\brdc\b|\br\s*\+\s*0\b/.test(s)) return { order: 0, name: 'Rez-de-chaussée' };
+  let m = /\br\s*\+\s*(\d)\b/.exec(s) || /(\d)\s*(?:er|e|ème|eme)?\s*[ée]tage/.exec(s);
+  if (m) return { order: +m[1], name: +m[1] === 1 ? 'Étage' : `Étage ${m[1]}` };
+  if (/combles?/.test(s)) return { order: 9, name: 'Combles' };
+  if (/[ée]tage/.test(s)) return { order: 1, name: 'Étage' };
+  return null;
+}
+function _dxfLevels(segs, texts, stairs) {
+  // 1. groupes de murs (proches de moins de 60 cm)
+  const n = segs.length, parent = segs.map((_, i) => i);
+  const find = (i) => { while (parent[i] !== i) i = parent[i] = parent[parent[i]]; return i; };
+  const bb = segs.map((s) => [Math.min(s.p.x, s.q.x), Math.min(s.p.y, s.q.y), Math.max(s.p.x, s.q.x), Math.max(s.p.y, s.q.y)]);
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (bb[j][0] > bb[i][2] + 60 || bb[j][2] < bb[i][0] - 60 || bb[j][1] > bb[i][3] + 60 || bb[j][3] < bb[i][1] - 60) continue;
+      parent[find(i)] = find(j);
+    }
+  }
+  const byRoot = new Map();
+  segs.forEach((s, i) => {
+    const r = find(i);
+    const g = byRoot.get(r) || { segs: [], len: 0, x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+    g.segs.push(i); g.len += Math.hypot(s.q.x - s.p.x, s.q.y - s.p.y);
+    g.x0 = Math.min(g.x0, bb[i][0]); g.y0 = Math.min(g.y0, bb[i][1]); g.x1 = Math.max(g.x1, bb[i][2]); g.y1 = Math.max(g.y1, bb[i][3]);
+    byRoot.set(r, g);
+  });
+  const groups = [...byRoot.values()];
+  const big = groups.filter((g) => g.len >= 1500 && (g.x1 - g.x0) * (g.y1 - g.y0) >= 200000);
+  if (big.length < 2) return null;
+  const dist = (g, x, y) => Math.hypot(Math.max(g.x0 - x, 0, x - g.x1), Math.max(g.y0 - y, 0, y - g.y1));
+  // 2. titres : le plus proche de chaque plan (à moins de 4 m)
+  for (const g of big) {
+    let best = null;
+    for (const t of texts) {
+      const lv = _dxfLevelName(t.text);
+      if (!lv) continue;
+      const d = dist(g, t.x, t.y);
+      if (d <= 400 && (!best || d < best.d)) best = { d, lv };
+    }
+    g.lv = best && best.lv;
+  }
+  let lv = big.filter((g) => g.lv);
+  const orders = new Set(lv.map((g) => g.lv.order));
+  if (lv.length >= 2 && orders.size === lv.length) {
+    lv.sort((a, b) => a.lv.order - b.lv.order);
+  } else {
+    // sans titres : deux plans d'emprise semblable (sinon, une annexe à côté de la maison)
+    const [a, b] = big.slice().sort((p, q) => q.len - p.len);
+    const wa = a.x1 - a.x0, ha = a.y1 - a.y0, wb = b.x1 - b.x0, hb = b.y1 - b.y0;
+    const similar = Math.abs(wa - wb) <= 0.25 * Math.max(wa, wb) && Math.abs(ha - hb) <= 0.25 * Math.max(ha, hb);
+    if (!similar) return null;
+    lv = [a, b].sort((p, q) => (Math.abs(p.x0 - q.x0) > Math.abs(p.y0 - q.y0) ? p.x0 - q.x0 : p.y0 - q.y0));
+    lv.forEach((g, k) => { g.lv = { order: k, name: k ? 'Étage' : 'Rez-de-chaussée' }; });
+  }
+  // 3. superposition : même escalier si chaque plan en a un, sinon même coin haut-gauche
+  const stairIn = (g) => stairs.find((st) => dist(g, st.x, st.y) < 50);
+  const ref = lv[0], sRef = stairIn(ref);
+  for (const g of lv) {
+    const sg = stairIn(g);
+    g.al = sRef && sg ? { x: sRef.x - sg.x, y: sRef.y - sg.y } : { x: ref.x0 - g.x0, y: ref.y0 - g.y0 };
+  }
+  // 4. mise en page : plans côte à côte, 8 m d'écart
+  const W = Math.max(...lv.map((g) => g.x1 - g.x0)), pitch = W + 800;
+  const shift = [], level = [], levels = [];
+  const idx = new Map(lv.map((g, k) => [g, k]));
+  lv.forEach((g, k) => {
+    const dx = g.al.x + k * pitch, dy = g.al.y;
+    levels.push({
+      name: g.lv.name, dx: -k * pitch, dy: 280 * k,
+      bx0: g.x0 + dx, bx1: g.x1 + dx, by0: g.y0 + dy, by1: g.y1 + dy,
+      x0: ref.x0 + k * pitch - 400, x1: ref.x0 + k * pitch + W + 400, // limites au milieu des 8 m d'écart
+    });
+  });
+  // groupes restants (annexes, bouts de murs) : avec le plan le plus proche
+  const all = groups.map((g) => {
+    if (idx.has(g)) return g;
+    let best = lv[0], bd = Infinity;
+    for (const h of lv) { const d = dist(h, (g.x0 + g.x1) / 2, (g.y0 + g.y1) / 2); if (d < bd) { bd = d; best = h; } }
+    return best;
+  });
+  const cl = groups.map((g, i) => { const h = all[i], k = idx.get(h); return { g, k, d: { x: h.al.x + k * pitch, y: h.al.y } }; });
+  cl.forEach((c, i) => { shift[i] = c.d; level[i] = c.k; });
+  const clusterAt = (x, y) => {
+    let best = 0, bd = Infinity;
+    cl.forEach((c, i) => { const d = dist(c.g, x, y); if (d < bd) { bd = d; best = i; } });
+    return best;
+  };
+  return {
+    levels, shift, level, clusterAt,
+    align: (x, y) => { const k = level[clusterAt(x, y)], g = lv[k]; return { x: x + g.al.x, y: y + g.al.y }; },
+    place: (x, y, k) => ({ x: x + k * pitch, y }),
   };
 }
 
 // Dessins de menuiseries : paquets de traits voisins
-function _dxfClusters(segs) {
+function _dxfClusters(segs, min = 40, max = 400) {
   const n = segs.length, parent = segs.map((_, i) => i);
   const find = (i) => { while (parent[i] !== i) i = parent[i] = parent[parent[i]]; return i; };
   const bb = segs.map((s) => [Math.min(s.a.x, s.b.x) - 6, Math.min(s.a.y, s.b.y) - 6, Math.max(s.a.x, s.b.x) + 6, Math.max(s.a.y, s.b.y) + 6]);
@@ -828,6 +976,6 @@ function _dxfClusters(segs) {
     c.y0 = Math.min(c.y0, s.a.y, s.b.y); c.y1 = Math.max(c.y1, s.a.y, s.b.y);
     map.set(r, c);
   });
-  // une menuiserie mesure de 40 cm à 4 m
-  return [...map.values()].filter((c) => { const w = Math.max(c.x1 - c.x0, c.y1 - c.y0); return w >= 40 && w <= 400; });
+  // une menuiserie mesure de 40 cm à 4 m (un escalier, de 1 à 8 m)
+  return [...map.values()].filter((c) => { const w = Math.max(c.x1 - c.x0, c.y1 - c.y0); return w >= min && w <= max; });
 }
