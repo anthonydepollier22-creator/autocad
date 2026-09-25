@@ -437,7 +437,8 @@ r = run(`(function(){
   var minY = function(f){ return Math.min.apply(null, f.pts.map(function(p){ return p[1]; })); };
   var maxY = function(f){ return Math.max.apply(null, f.pts.map(function(p){ return p[1]; })); };
   var f = all('all'), upper = f.filter(function(x){ return x.dx === dx; });
-  var elevated = upper.length > 500 && upper.every(function(x){ return minY(x) >= dy - 24 - 0.01; });
+  // rien de l'étage sous le haut des murs du rez-de-chaussée (la dalle repose dessus, sans jour)
+  var elevated = upper.length > 500 && upper.every(function(x){ return minY(x) >= HOUSE3D.H - 0.01; }) && upper.some(function(x){ return Math.abs(minY(x) - HOUSE3D.H) < 0.01; });
   var riser = f.some(function(x){ return String(x.obj).indexOf('cable:') === 0 && x.dx === 0 && minY(x) < 20 && maxY(x) > dy; });
   var flowsUp = viz.flows.some(function(fl){ return fl.pts.some(function(p){ return p[1] > dy; }); });
   // trémie : aucun sol de l'étage au-dessus de la volée
@@ -453,7 +454,7 @@ r = run(`(function(){
   var lamps = all('all').length && viz.lights.filter(function(l){ return l.y > dy; }).length;
   return [elevated, upper.length, riser, flowsUp, covered, only0, only1, lamps];
 })()`);
-check('3D : l’étage est posé sur le rez-de-chaussée (décalé de 2,80 m, dalle comprise)', r[0], `${r[1]} faces à l’étage`);
+check('3D : l’étage est posé sur le rez-de-chaussée (plancher à 2,80 m, dalle sur les murs, sans jour)', r[0], `${r[1]} faces à l’étage`);
 check('3D : trémie ouverte au-dessus de l’escalier', r[4] === false);
 check('3D rayons X : câbles et courant montent à l’étage par la colonne', r[2] && r[3]);
 check('3D : filtre par niveau (rez-de-chaussée seul, étage seul)', r[5] && r[6]);

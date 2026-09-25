@@ -1217,9 +1217,11 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
       const x0 = Math.min(...xs) - 10, x1 = Math.max(...xs) + 10, z0 = Math.min(...zs) - 10, z1 = Math.max(...zs) + 10;
       at(L.x0);
       viz.setLayer(0.4);
+      // la dalle comble la hauteur entre le haut des murs du dessous et le plancher (≥ 24 cm)
+      const e = Math.max(24, (L.dy || 0) - ((lv[k - 1] && lv[k - 1].dy) || 0) - HOUSE3D.H);
       for (const r of _cutRects([{ x: x0, y: z0, w: x1 - x0, h: z1 - z0 }], holes)) {
-        viz.box(r.x + r.w / 2, -24, r.y + r.h / 2, r.w, 24, r.h, '#d8d2c6');
-        scene.slabs.push({ x0: r.x, x1: r.x + r.w, z0: r.y, z1: r.y + r.h, y0: -24, y1: 0, lvl: k });
+        viz.box(r.x + r.w / 2, -e, r.y + r.h / 2, r.w, e, r.h, '#d8d2c6');
+        scene.slabs.push({ x0: r.x, x1: r.x + r.w, z0: r.y, z1: r.y + r.h, y0: -e, y1: 0, lvl: k });
       }
       viz.off = null;
     });
