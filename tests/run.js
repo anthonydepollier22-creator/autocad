@@ -162,6 +162,17 @@ r = run(`(function(){
 })()`);
 check('Plan dessiné à la main : implantation automatique puis goulottes → conforme', r[0] > 10 && r[1] > 5 && r[2] === 0 && r[3] === 0, `${r[0]} appareils, ${r[1]} goulottes, ${r[2]} err., ${r[3]} avert.`);
 r = run(`(function(){
+  var d = buildHouse('t3'), zones = wetZones(d.components, d.wires), info = computeRooms(d.components, d.wires);
+  var wet = d.components.filter(function(c){ return c.type === 'shower' || c.type === 'bathtub'; }).length;
+  var z = zones[0], S = info.step, area = z.v2.reduce(function(t, r){ return t + r.w * r.h; }, 0) / (PLAN_UNITS_PER_M * PLAN_UNITS_PER_M);
+  // chaque bande du volume 2 : dans la pièce de l'appareil, à moins de 60 cm (au pas de la grille près)
+  var ok = zones.every(function(z){ return z.v2.every(function(r){ var cx = r.x + S / 2, cy = r.y + r.h / 2; return roomAt(info, cx, cy) === z.room && _distToFootprint(cx, cy, z.c) < 60 + S; }); });
+  // aucune prise ni commande implantée dans le volume 2
+  var bad = d.components.filter(function(c){ return (c.type === 'socket_wall' || c.type === 'switch_sa' || c.type === 'switch_vv_wall') && zones.some(function(z){ return z.v2.some(function(r){ return c.x >= r.x && c.x < r.x + r.w && c.y >= r.y && c.y < r.y + r.h; }); }); }).length;
+  return [zones.length, wet, area, ok, bad, z.v1.length];
+})()`);
+check('Volumes de salle d’eau : volume 1 (emprise) et volume 2 (60 cm, arrêté aux murs), rien d’implanté dedans', r[0] === r[1] && r[0] > 0 && r[2] > 0.5 && r[3] && r[4] === 0 && r[5] === 4, `${r[0]} appareil(s), V2 ${r[2].toFixed(2)} m²`);
+r = run(`(function(){
   // 10 × 6 m, une cloison à 4 m : deux pièces ; seule la première est étiquetée
   var U = PLAN_UNITS_PER_M, wall = function(pts){ return { id: 'w' + pts[0][0] + pts[0][1] + pts.length, kind: 'wall', points: pts.map(function(p){ return { x: p[0] * U, y: p[1] * U }; }) }; };
   var wires = [wall([[0, 0], [10, 0], [10, 6], [0, 6], [0, 0]]), wall([[4, 0], [4, 6]])];

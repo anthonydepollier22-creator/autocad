@@ -400,6 +400,51 @@ function _distToFootprint(x, y, c) {
   return Math.hypot(ex, ey);
 }
 
+// ---- Volumes de salle d'eau (NF C 15-100, simplifiés) ----------------------
+// Volume 1 : l'emprise de la douche ou de la baignoire, jusqu'à 2,25 m ;
+// volume 2 : la bande de 60 cm autour, arrêtée par les murs (même pièce).
+// Aucune prise ni commande dans le volume 2 (contrôle : checkNFC15100).
+const WET_V2 = 60, WET_H = 225;
+let _wetCache = { info: null, key: '', value: [] };
+function wetZones(components, wires) {
+  const info = computeRooms(components, wires);
+  const wet = components.filter((c) => c.type === 'shower' || c.type === 'bathtub');
+  const key = JSON.stringify(wet.map((c) => [c.id, c.x, c.y, c.rot]));
+  if (_wetCache.info === info && _wetCache.key === key) return _wetCache.value;
+  const out = [];
+  if (info.owner) {
+    const { nx, ny, owner, x0, y0 } = info, S = info.step;
+    for (const c of wet) {
+      const room = roomAt(info, c.x, c.y);
+      const v1 = _wetFootprint(c);
+      const xs = v1.map((p) => p.x), ys = v1.map((p) => p.y);
+      const gx0 = Math.max(0, Math.floor((Math.min(...xs) - WET_V2 - x0) / S)), gx1 = Math.min(nx - 1, Math.ceil((Math.max(...xs) + WET_V2 - x0) / S));
+      const gy0 = Math.max(0, Math.floor((Math.min(...ys) - WET_V2 - y0) / S)), gy1 = Math.min(ny - 1, Math.ceil((Math.max(...ys) + WET_V2 - y0) / S));
+      const v2 = [];
+      for (let gy = gy0; gy <= gy1; gy++) {
+        let run = -1;
+        for (let gx = gx0; gx <= gx1 + 1; gx++) {
+          let inside = false;
+          if (gx <= gx1) {
+            const px = x0 + gx * S, py = y0 + gy * S, d = _distToFootprint(px, py, c);
+            inside = d > 0 && d < WET_V2 && room >= 0 && owner[gy * nx + gx] === room;
+          }
+          if (inside && run < 0) run = gx;
+          if (!inside && run >= 0) { v2.push({ x: x0 + run * S - S / 2, y: y0 + gy * S - S / 2, w: (gx - run) * S, h: S }); run = -1; }
+        }
+      }
+      out.push({ c, room, v1, v2 });
+    }
+  }
+  _wetCache = { info, key, value: out };
+  return out;
+}
+function _wetFootprint(c) {
+  const b = SYMBOLS[c.type].bbox, g = 0, a = ((c.rot || 0) * Math.PI) / 180, co = Math.cos(a), si = Math.sin(a);
+  return [[b.x - g, b.y - g], [b.x + b.w + g, b.y - g], [b.x + b.w + g, b.y + b.h + g], [b.x - g, b.y + b.h + g]]
+    .map(([x, y]) => ({ x: c.x + x * co - y * si, y: c.y + x * si + y * co }));
+}
+
 // ---- Cotations des murs ----------------------------------------------------
 // Texte au milieu de chaque segment, décalé sur sa gauche (à l'extérieur
 // d'une pièce tracée dans le sens horaire), orienté pour rester lisible.

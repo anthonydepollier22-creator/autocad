@@ -306,6 +306,10 @@ Dessine une **maison complète** et implante l'installation dedans :
   longueur, règle son opacité, déplace-le, puis **décalque les murs** : leurs cotes
   sont justes. Le calque reste sous le dessin (il n'est ni exporté ni imprimé) et
   est gardé dans le navigateur d'une séance à l'autre ;
+- **Volumes de salle d'eau** : autour de chaque douche et baignoire, le plan teinte le
+  volume 1 (l'emprise) et le volume 2 (60 cm autour, arrêté par les murs) — aucune prise
+  ni commande n'y est admise, le contrôle Norme le vérifie ; en 3D (Rayons X), le
+  volume 1 s'élève jusqu'à 2,25 m et le volume 2 est marqué au sol ;
 - **Règle** (L) : glisser d'un point à l'autre affiche la distance en mètres et ses
   écarts horizontal et vertical, aimantée à la grille et aux bornes ;
 - **Pièces oubliées** : l'onglet Norme repère les espaces fermés par des murs mais
@@ -518,7 +522,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-114 vérifications sans dépendance : valeurs numériques de chaque simulation
+115 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

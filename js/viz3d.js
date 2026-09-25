@@ -1368,6 +1368,24 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
     }
   }
 
+  // Rayons X : volumes de salle d'eau — volume 1 (colonne au-dessus du receveur ou de
+  // la baignoire, 2,25 m) et volume 2 (bande de 60 cm au sol, arrêtée par les murs)
+  if (opts.xray && typeof wetZones === 'function') {
+    const a0 = viz.alpha;
+    for (const z of wetZones(components, walls)) {
+      if (!shown(z.c.x)) continue;
+      at(z.c.x);
+      viz.setLayer(0.7);
+      viz.alpha = 0.42;
+      for (const r of z.v2) viz.poly([[r.x, 0.9, r.y], [r.x + r.w, 0.9, r.y], [r.x + r.w, 0.9, r.y + r.h], [r.x, 0.9, r.y + r.h]], '#4c9bea');
+      viz.setLayer(1);
+      viz.alpha = 0.14;
+      const b = SYMBOLS[z.c.type].bbox;
+      _lb(viz, z.c, b.x + b.w / 2, b.y + b.h / 2, b.w, b.h, 1, (typeof WET_H !== 'undefined' ? WET_H : 225) - 1, '#2f7fd6');
+    }
+    viz.alpha = a0; viz.off = null;
+  }
+
   // Rayons X : câbles de chaque circuit, échauffement et courant animé
   if (opts.xray && design && design.ok) _buildCables(viz, components, design, snap, sim, nearWall, { place: (x) => { at(x); return shown(x); }, offOf, shown, only: opts.circuit || null });
   viz.off = null;

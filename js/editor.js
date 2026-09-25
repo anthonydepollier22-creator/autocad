@@ -681,6 +681,7 @@ class Editor {
     // Plan de maison : sol de chaque pièce teinté selon son type
     const plan = this._planInfo();
     if (plan) this._drawRoomFills(plan);
+    if (plan) this._drawWetZones();
 
     // Fils
     for (const w of this.wires) this._drawWire(w, this.selection.has(w.id), lw);
@@ -935,6 +936,32 @@ class Editor {
       ctx.fill();
     });
     ctx.globalAlpha = 1;
+  }
+
+  // Volumes 1 et 2 des douches et baignoires : aucune prise ni commande en volume 2
+  _drawWetZones() {
+    const zones = typeof wetZones === 'function' ? wetZones(this.components, this.wires) : [];
+    if (!zones.length) return;
+    const ctx = this.ctx, k = 1 / this.view.scale;
+    ctx.save();
+    for (const z of zones) {
+      ctx.fillStyle = '#3b8fd9'; ctx.globalAlpha = 0.16;
+      ctx.beginPath();
+      for (const r of z.v2) ctx.rect(r.x, r.y, r.w, r.h);
+      ctx.fill();
+      ctx.globalAlpha = 0.22; ctx.fillStyle = '#1f6fd1';
+      ctx.beginPath(); z.v1.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.closePath(); ctx.fill();
+      if (this.view.scale > 0.45 && z.v2.length) {
+        ctx.globalAlpha = 0.9; ctx.fillStyle = '#6fb1ff';
+        ctx.font = `600 ${11 * k}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        // « V2 » au milieu de la plus longue bande, « V1 » dans un coin de l'emprise
+        const big = z.v2.reduce((a, r) => (r.w > a.w ? r : a), z.v2[0]);
+        ctx.fillText('V2', big.x + big.w / 2, big.y + big.h / 2);
+        const cx = z.v1.reduce((t, p) => t + p.x, 0) / 4, cy = z.v1.reduce((t, p) => t + p.y, 0) / 4;
+        ctx.fillText('V1', (z.v1[0].x * 3 + cx) / 4, (z.v1[0].y * 3 + cy) / 4);
+      }
+    }
+    ctx.restore();
   }
 
   _drawDims() {
