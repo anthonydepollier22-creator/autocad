@@ -16,7 +16,8 @@ const css = (name) => getComputedStyle(document.documentElement).getPropertyValu
 const HouseStore = (() => {
   const cache = new Map();
   const pending = new Map();
-  let worker = null, seq = 0;
+  // Pas de worker depuis un fichier local (application de bureau) : génération directe
+  let worker = location.protocol === 'file:' ? false : null, seq = 0;
   const direct = (key) => new Promise((resolve) => setTimeout(() => resolve(buildHouse(key)), 20));
   function viaWorker(key) {
     if (!worker) {

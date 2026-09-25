@@ -452,7 +452,7 @@
   <script src="js/gl3d.js"></script>
   <script src="js/landing.js"></script>
   <script>
-    if ('serviceWorker' in navigator) {
+    if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !window.Capacitor) {
       window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
     }
   </script>
