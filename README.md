@@ -208,7 +208,17 @@ Le graphique empile l'énergie **heure par heure et par usage** (chauffage, cuis
 lavage, eau chaude, éclairage, froid et multimédia, recharge), bande des heures creuses
 en fond ; survoler une heure en donne le détail. Bilan : kWh de la journée, coût en
 tarif base et en heures creuses, part consommée la nuit, **pointe de puissance** comparée
-à l'abonnement. « Calculer » donne le résultat immédiatement (pas de 2 min).
+à l'abonnement. « Calculer » donne le résultat immédiatement (pas de 2 min). La
+**puissance** appelée par un appareil est sa puissance nominale (pointe, disjoncteurs) ;
+l'**énergie** tient compte des thermostats et des cycles (radiateurs, four, plaque,
+lave-linge ≈ 1,3 kWh par lessive, lave-vaisselle ≈ 1,5 kWh).
+
+**Bilan annuel** : « Estimer l'année » simule une journée d'hiver (× 212 jours,
+octobre → avril) et une d'été (× 153 jours) : consommation par usage (barre empilée),
+**facture annuelle et mensuelle abonnement compris** en tarif base et en heures creuses
+(la moins chère est signalée), part consommée en heures creuses et, avec des panneaux,
+production, autoconsommation, économies et surplus injecté. Le bilan figure aussi dans
+le dossier du projet.
 
 ## 🧊 3D temps réel (WebGL2)
 
@@ -483,7 +493,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-104 vérifications sans dépendance : valeurs numériques de chaque simulation
+107 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

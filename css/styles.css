@@ -795,6 +795,23 @@ body.light .day-sec {
 .day-legend b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
 .day-sum { margin: 6px 0 2px; font-size: 12px; color: var(--muted); line-height: 1.5; text-wrap: pretty; }
 .day-sum b { color: var(--text); font-variant-numeric: tabular-nums; }
+.year-box { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.year-head { display: flex; align-items: baseline; gap: 8px; }
+.year-head span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+.year-head .day-btn { margin-left: auto; }
+.year-hint, .year-note, .year-stale { margin: 6px 0 0; font-size: 12px; color: var(--muted); line-height: 1.5; text-wrap: pretty; }
+.year-note b { color: var(--text); font-variant-numeric: tabular-nums; }
+.year-stale { color: #d9a441; }
+.year-total { margin: 8px 0 6px; font-size: 12px; color: var(--muted); }
+.year-total b { font-size: 16px; color: var(--text); }
+.year-bar { display: flex; gap: 2px; height: 12px; border-radius: 4px; overflow: hidden; background: var(--surface-2); }
+.year-bar i { min-width: 2px; }
+.year-legend { margin-top: 8px; }
+.year-bill { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+.year-bill td { padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.year-bill td + td { text-align: right; }
+.year-bill tr.best td { color: var(--text); font-weight: 600; }
+.year-bill small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
 .hud-day { color: #ffd479; font-weight: 600; }
 
 /* ---------- Matériel et budget (onglet Métré) ---------- */

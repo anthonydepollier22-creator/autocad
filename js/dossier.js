@@ -84,6 +84,18 @@ function buildDossier(o) {
       (a.pv > 0 ? ` · solaire : ${num(a.pv, 1)} kWh produits, ${Math.round((a.self / a.pv) * 100)} % autoconsommés, ${eur(c.saving)} économisés` : '') + '.</p></section>';
   }
 
+  // Bilan annuel (deux journées types étendues à l'année)
+  if (o.year && o.year.total > 0) {
+    const y = o.year, int = (v) => Math.round(v).toLocaleString('fr-FR');
+    h += '<section><h2>Bilan annuel (estimation)</h2><table class="half"><tbody>' +
+      DAY_CATS.map((k, i) => (y.cats[k.key] > 0.5 ? `<tr><td><i class="sw" style="background:${DAY_SVG_COLORS[i]}"></i>${esc(k.name)}</td><td class="n">${int(y.cats[k.key])} kWh</td><td class="n">${Math.round((y.cats[k.key] / y.total) * 100)} %</td></tr>` : '')).join('') +
+      `<tr class="tot"><td>Total</td><td class="n">${int(y.total)} kWh</td><td></td></tr></tbody></table>` +
+      `<table class="half"><tbody><tr><td>Tarif base, abonnement ${y.kva} kVA compris</td><td class="n">${int(y.cost.base)} €/an</td><td class="n">≈ ${int(y.cost.base / 12)} €/mois</td></tr>` +
+      `<tr><td>Heures creuses, abonnement compris</td><td class="n">${int(y.cost.hphc)} €/an</td><td class="n">≈ ${int(y.cost.hphc / 12)} €/mois</td></tr></tbody></table>` +
+      (y.pv > 0 ? `<p>Solaire : ${int(y.pv)} kWh produits par an, ${int(y.self)} kWh consommés sur place (${Math.round((y.self / y.pv) * 100)} %), ${int(y.cost.saving)} € économisés, ${int(y.surplus)} kWh injectés sur le réseau.</p>` : '') +
+      `<p class="small">Une journée d’hiver × ${y.days.hiver} jours (octobre → avril) et une d’été × ${y.days.ete} jours (mai → septembre), journées dégagées ; tarifs réglementés 2026 indicatifs.</p></section>`;
+  }
+
   h += '<footer>Document produit par ÉlectriCAD — calculs simplifiés à visée pédagogique : ce dossier ne remplace ni l’étude d’un électricien qualifié ni l’attestation de conformité du Consuel.</footer>';
 
   const css = `@page{size:A4;margin:14mm}*{box-sizing:border-box}body{margin:0;font:11pt/1.45 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;color:#17202c}

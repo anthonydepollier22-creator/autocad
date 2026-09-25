@@ -54,7 +54,7 @@ const DAY_APPLIANCES = {
   dryer: [[22.5, 23.75]],
   dishwasher: [[22, 23.5]],
   water_heater: [[22.5, 1]],        // heures creuses, le temps de réchauffer le ballon
-  ev_charger: [[0, 1.5]],           // ~40 km par jour, rechargés la nuit
+  ev_charger: [[0, 1]],             // 7,4 kWh ≈ 40 km par jour, rechargés la nuit
   tv_unit: [[20, 22.75]],
   desk: [[17.5, 19]],
 };
@@ -149,20 +149,28 @@ function dayAccumulator() {
     total: 0, hc: 0, peak: { P: 0, h: 0 }, trips: 0, pv: 0, self: 0,
   };
 }
+// Part du temps où la résistance chauffe vraiment pendant la plage de marche :
+// la puissance appelée (pointe, disjoncteurs) reste la puissance nominale,
+// l'énergie consommée tient compte des thermostats et des cycles
+// (lave-linge ≈ 1,3 kWh par cycle, lave-vaisselle ≈ 1,5 kWh, four ≈ 1 kWh…)
+const DAY_DUTY = { radiator: 0.65, washer: 0.4, dishwasher: 0.5, dryer: 0.7, oven: 0.55, cooktop: 0.5 };
+
 function dayAccumulate(acc, snap, components, h, dh, kwc, season) {
   const cat = {};
+  let Pnow = 0;
   for (const c of components) {
     const dv = snap.devices[c.id];
     if (!dv || !dv.P) continue;
     const k = dayCategory(c.type);
-    cat[k] = (cat[k] || 0) + dv.P;
+    cat[k] = (cat[k] || 0) + dv.P * (DAY_DUTY[c.type] || 1);
+    Pnow += dv.P;
   }
   const bin = acc.bins[Math.min(23, Math.floor(h))];
-  let P = 0;
+  let P = 0; // puissance moyenne (énergie)
   for (const k in cat) { bin[k] += (cat[k] * dh) / 1000; P += cat[k]; }
   acc.total += (P * dh) / 1000;
   if (isHC(h)) acc.hc += (P * dh) / 1000;
-  if (P > acc.peak.P) acc.peak = { P, h };
+  if (Pnow > acc.peak.P) acc.peak = { P: Pnow, h };
   // Solaire : production, et part consommée sur place (autoconsommation)
   const Ppv = pvPower(kwc, h, season);
   if (Ppv > 0) {
@@ -177,6 +185,33 @@ function dayCost(acc) {
     hphc: acc.hc * TARIF_HC + (acc.total - acc.hc) * TARIF_HP,
     // l'énergie solaire consommée sur place n'est pas achetée (heures pleines)
     saving: (acc.self || 0) * TARIF_HP,
+  };
+}
+
+// Bilan annuel indicatif à partir des deux journées types : 212 jours « hiver »
+// (octobre → avril, chauffage) et 153 jours « été » (mai → septembre)
+const YEAR_DAYS = { hiver: 212, ete: 153 };
+// Abonnement annuel TTC (tarif réglementé 2026, indicatif) selon la puissance souscrite
+const ABO_BASE = { 3: 118, 6: 158, 9: 198, 12: 238, 15: 274, 18: 313, 24: 390, 30: 462, 36: 530 };
+const ABO_HPHC = { 6: 164, 9: 212, 12: 253, 15: 292, 18: 331, 24: 424, 30: 499, 36: 569 };
+const aboOf = (table, kva) => {
+  const k = Object.keys(table).map(Number).sort((a, b) => a - b).find((v) => v >= kva);
+  return table[k === undefined ? 36 : k];
+};
+function simulateYear(components, wires, design, stepMin, kwc, solarShift) {
+  const w = simulateDay(components, wires, design, 'hiver', stepMin, kwc, solarShift);
+  const s = simulateDay(components, wires, design, 'ete', stepMin, kwc, solarShift);
+  const Y = YEAR_DAYS, sum = (k) => w[k] * Y.hiver + s[k] * Y.ete;
+  const acc = { total: sum('total'), hc: sum('hc'), pv: sum('pv'), self: sum('self') };
+  const cats = {};
+  for (const c of DAY_CATS) cats[c.key] = w.bins.reduce((t, b) => t + b[c.key], 0) * Y.hiver + s.bins.reduce((t, b) => t + b[c.key], 0) * Y.ete;
+  const kva = design && design.agcp ? design.agcp.kva : 9;
+  const e = dayCost(acc), aboB = aboOf(ABO_BASE, kva), aboH = aboOf(ABO_HPHC, Math.max(6, kva));
+  return {
+    ...acc, cats, days: Y, kva, winter: w, summer: s,
+    peak: Math.max(w.peak.P, s.peak.P),
+    cost: { base: e.base + aboB, hphc: e.hphc + aboH, aboBase: aboB, aboHphc: aboH, energyBase: e.base, energyHphc: e.hphc, saving: e.saving },
+    surplus: Math.max(0, acc.pv - acc.self),
   };
 }
 

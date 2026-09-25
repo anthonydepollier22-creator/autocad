@@ -372,7 +372,7 @@ function initHouseUI(app) {
   // ---- Journée type ---------------------------------------------------------
   // 24 heures simulées : emploi du temps (day.js) → simulation physique →
   // énergie par heure et par usage ; en 3D, le soleil et les lampes suivent.
-  const day = { season: 'hiver', rate: 0.5, running: false, h: 0, acc: null, saved: null, ctx: null, design: null, prevTime: null, hover: -1, instant: false };
+  const day = { season: 'hiver', rate: 0.5, running: false, h: 0, acc: null, saved: null, ctx: null, design: null, prevTime: null, hover: -1, instant: false, year: null, yearSig: '', yearDesign: null };
   const hhmm = (h) => {
     const H = Math.floor(h), M = Math.min(59, Math.floor((h - H) * 60));
     return String(H % 24).padStart(2, '0') + ':' + String(M).padStart(2, '0');
@@ -398,6 +398,9 @@ function initHouseUI(app) {
       '</div>' +
       '<p class="day-head" data-day-head></p><ul class="day-legend" data-day-legend></ul>' +
       '<p class="day-sum" data-day-sum>Réveil 6 h 30, départ 8 h 15, retour 17 h 15, coucher 23 h ; lessive, vaisselle, chauffe-eau et recharge en heures creuses.</p>' +
+      '<div class="year-box"><div class="year-head"><b>Bilan annuel</b><span>estimation</span>' +
+      '<button class="day-btn" data-year-go title="Simuler une journée d’hiver et une d’été, puis les étendre à l’année">Estimer l’année</button></div>' +
+      '<div data-year-out></div></div>' +
       '</details>';
   }
 
@@ -497,12 +500,22 @@ function initHouseUI(app) {
       editor.autosave();
       if (viz && !view3d.hidden) build3D(false);
       if (day.instant) dayInstant(); else renderDay();
+      renderYear();
     }));
     q('[data-pv-shift]').addEventListener('change', (e) => {
       editor.meta.pvShift = e.target.checked;
       editor.autosave();
       if (day.instant) dayInstant();
+      renderYear();
     });
+    q('[data-year-go]').addEventListener('click', () => {
+      const d = ensureDesign();
+      if (!d || !d.ok) { showToast('Le bilan annuel a besoin d’un tableau : crée une maison ou lance l’implantation.'); return; }
+      day.year = simulateYear(editor.components, editor.wires, d, 10, pvKwc(), pvShift());
+      day.yearSig = yearSig(); day.yearDesign = d;
+      renderYear();
+    });
+    renderYear();
     const cv = q('[data-day-chart]');
     const hourAt = (e) => {
       const r = cv.getBoundingClientRect(), g = dayGeom(r.width);
@@ -614,6 +627,35 @@ function initHouseUI(app) {
         (a.peak.P > (day.design || design || {}).agcp?.kva * 1000 ? ' — au-delà de l’abonnement !' : '') +
         (a.pv > 0 ? `<br>Solaire : <b class="num">${fmtKWh1(a.pv)}</b> produits, <b class="num">${fmtKWh1(a.self)}</b> consommés sur place (${Math.round((a.self / a.pv) * 100)} % d’autoconsommation, ${Math.round((a.self / Math.max(0.001, a.total)) * 100)} % des besoins) · <b class="num">${fmtEur(c.saving)}</b> économisés` : '');
     }
+  }
+
+  // ---- Bilan annuel : deux journées types étendues à l'année ------------------
+  const fmtInt = (v) => Math.round(v).toLocaleString('fr-FR');
+  const yearSig = () => [pvKwc(), pvShift()].join('|');
+  function renderYear() {
+    const out = panel.querySelector('[data-year-out]');
+    if (!out) return;
+    const y = day.year, stale = y && (day.yearSig !== yearSig() || day.yearDesign !== ensureDesign());
+    const go = panel.querySelector('[data-year-go]');
+    if (go) go.textContent = y ? 'Recalculer' : 'Estimer l’année';
+    if (!y) {
+      out.innerHTML = '<p class="year-hint">Une journée d’hiver (× 212 jours, octobre → avril) et une d’été (× 153, mai → septembre) : consommation par usage, facture abonnement compris, solaire.</p>';
+      return;
+    }
+    const cats = DAY_CATS.map((c, i) => ({ name: c.name, v: y.cats[c.key], i })).filter((c) => c.v > 0.5);
+    const pct = (v) => Math.round((v / Math.max(1, y.total)) * 100);
+    const best = y.cost.hphc < y.cost.base ? 'hphc' : 'base';
+    out.innerHTML = (stale ? '<p class="year-stale">Plan ou solaire modifié depuis : recalcule pour mettre à jour.</p>' : '') +
+      `<p class="year-total"><b class="num">${fmtInt(y.total)} kWh</b> par an · pointe ${fmtW(y.peak)}</p>` +
+      '<div class="year-bar" role="img" aria-label="Répartition de la consommation annuelle par usage">' +
+      cats.map((c) => `<i style="flex:${c.v.toFixed(1)};background:var(--dc${c.i + 1})" title="${esc(c.name)} : ${fmtInt(c.v)} kWh (${pct(c.v)} %)"></i>`).join('') + '</div>' +
+      '<ul class="day-legend year-legend">' + cats.map((c) => `<li><i style="background:var(--dc${c.i + 1})"></i><span>${esc(c.name)}</span><b class="num">${fmtInt(c.v)} kWh · ${pct(c.v)} %</b></li>`).join('') + '</ul>' +
+      '<table class="year-bill"><tbody>' +
+      [['base', 'Tarif base'], ['hphc', 'Heures creuses']].map(([k, label]) => `<tr class="${best === k ? 'best' : ''}"><td>${label}${best === k ? '<small>✓ le moins cher</small>' : ''}</td>` +
+        `<td class="num">${fmtInt(y.cost[k])} €/an<small>≈ ${fmtInt(y.cost[k] / 12)} €/mois</small></td></tr>`).join('') +
+      `</tbody></table><p class="year-note">Abonnement ${y.kva} kVA compris (${fmtInt(y.cost.aboBase)} € en base, ${fmtInt(y.cost.aboHphc)} € en heures creuses) · ${Math.round((y.hc / Math.max(1, y.total)) * 100)} % consommés en heures creuses` +
+      (y.pv > 0 ? `<br>Solaire ${pvKwc()} kWc : <b class="num">${fmtInt(y.pv)} kWh</b> produits, <b class="num">${fmtInt(y.self)} kWh</b> consommés sur place (${Math.round((y.self / y.pv) * 100)} %), <b class="num">${fmtInt(y.cost.saving)} €</b> économisés, ${fmtInt(y.surplus)} kWh injectés sur le réseau` : '') +
+      '<br>Journées dégagées, tarifs réglementés 2026 indicatifs.</p>';
   }
 
   // ---- Vue Énergie : sol des pièces teinté selon la puissance consommée --------
@@ -1277,8 +1319,9 @@ function initHouseUI(app) {
       const report = checkNFC15100(editor.components, editor.wires);
       const dayData = day.acc && day.acc.total > 0 ? { acc: day.acc, season: day.season }
         : d && d.ok ? { acc: simulateDay(editor.components, editor.wires, d, day.season, 5, pvKwc(), pvShift()), season: day.season } : null;
+      const year = d && d.ok ? (day.year && day.yearDesign === d && day.yearSig === yearSig() ? day.year : simulateYear(editor.components, editor.wires, d, 10, pvKwc(), pvShift())) : null;
       const html = buildDossier({
-        meta: editor.meta, design: d, report,
+        meta: editor.meta, design: d, report, year,
         planSVG: buildSVG(editor.components, editor.wires, SYMBOLS, { ...editor.meta, date: new Date().toISOString().slice(0, 10) }),
         unifilarSVG: d && d.ok ? unifilarSVG(d, editor.meta) : '',
         materials: d && d.ok ? materialList(editor.components, editor.wires, d) : null,

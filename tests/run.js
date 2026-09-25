@@ -344,6 +344,19 @@ r = run(`(function(){
 check('Solaire : ~1,5 kWh/kWc un jour d’hiver, ~6,5 en été, rien la nuit', near(r[0], 1.5, 0.15) && near(r[1], 6.5, 0.4) && r[2] === 0, r[0].toFixed(2) + ' / ' + r[1].toFixed(2));
 check('Pilotage solaire : l’autoconsommation augmente (lessive, vaisselle, chauffe-eau à midi)', r[5] > r[4] * 2 && r[6] && r[7], Math.round(r[4] * 100) + ' % → ' + Math.round(r[5] * 100) + ' %');
 
+r = run(`(function(){
+  var d = buildHouse('t3'), des = designInstallation(d.components, d.wires);
+  var y = simulateYear(d.components, d.wires, des, 10, 0, false), y6 = simulateYear(d.components, d.wires, des, 10, 6, true);
+  var byDays = y.winter.total * 212 + y.summer.total * 153;
+  var cats = DAY_CATS.reduce(function(t, c){ return t + y.cats[c.key]; }, 0);
+  // puissance appelée (pointe) ≠ énergie : un lave-linge de 2,2 kW sur 1 h 30 consomme ~1,3 kWh
+  var w = simulateDay(d.components, d.wires, des, 'ete', 5), appl = w.bins.reduce(function(t, b){ return t + b.appl; }, 0);
+  return [y.total, Math.abs(byDays - y.total), Math.abs(cats - y.total), y.cost.base - y.cost.energyBase, y.kva, y6.self <= y6.pv + 1e-6, y6.cost.saving > 0, Math.abs(y6.surplus - (y6.pv - y6.self)), appl, w.peak.P];
+})()`);
+check('Bilan annuel : 212 jours d’hiver + 153 d’été, 6 000 à 13 000 kWh pour un T3 tout électrique', r[0] > 6000 && r[0] < 13000 && r[1] < 1e-6 && r[2] < 1e-3, Math.round(r[0]) + ' kWh/an');
+check('Bilan annuel : abonnement ajouté selon la puissance souscrite, solaire autoconsommé ≤ produit', r[3] > 100 && r[5] && r[6] && r[7] < 1e-6, `abonnement ${Math.round(r[3])} € (${r[4]} kVA)`);
+check('Énergie des appareils selon leurs cycles (cuisson + lavage < 8 kWh/j), pointe à pleine puissance', r[8] > 3 && r[8] < 8 && r[9] > 3000, `${r[8].toFixed(1)} kWh/j, pointe ${Math.round(r[9])} W`);
+
 // ---------------------------------------------------------------------------
 group('Extérieur et export 3D');
 r = run(`(function(){
@@ -440,11 +453,12 @@ r = run(`(function(){
     planSVG: buildSVG(d.components, d.wires, SYMBOLS, { title: 'T3' }), unifilarSVG: unifilarSVG(des, { title: 'T3' }),
     materials: materialList(d.components, d.wires, des), images: [],
     day: { acc: simulateDay(d.components, d.wires, des, 'hiver', 10, 3), season: 'hiver' },
+    year: simulateYear(d.components, d.wires, des, 10, 3),
   });
   var h2 = (html.match(/<h2>/g) || []).length, svgs = (html.match(/<svg/g) || []).length;
-  return [html.indexOf('<!DOCTYPE html>') === 0, h2, svgs, html.indexOf('T3 &lt;test&gt;') > 0, html.indexOf('C1') > 0, html.indexOf('Production solaire') > 0];
+  return [html.indexOf('<!DOCTYPE html>') === 0, h2, svgs, html.indexOf('T3 &lt;test&gt;') > 0, html.indexOf('C1') > 0, html.indexOf('Production solaire') > 0, html.indexOf('Bilan annuel') > 0];
 })()`);
-check('Dossier : plan, norme, tableau, matériel, journée ; titre échappé', r[0] && r[1] === 5 && r[2] === 3 && r[3] && r[4] && r[5], `${r[1]} sections, ${r[2]} SVG`);
+check('Dossier : plan, norme, tableau, matériel, journée, bilan annuel ; titre échappé', r[0] && r[1] === 6 && r[2] === 3 && r[3] && r[4] && r[5] && r[6], `${r[1]} sections, ${r[2]} SVG`);
 
 // ---------------------------------------------------------------------------
 group('Maison à étage (R+1)');
