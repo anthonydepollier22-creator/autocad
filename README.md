@@ -248,6 +248,8 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   maison de poupée, et la maison à étage montre ses deux niveaux l'un sur l'autre ;
 - **Énergie** : le sol de chaque pièce se teinte selon la puissance qu'elle consomme
   (échelle 0 → 4 kW), avec une étiquette en watts au-dessus de chaque pièce ;
+- **Vidéo 360°** : un tour complet de caméra (10 s, départ et arrivée en douceur)
+  enregistré depuis la vue 3D et téléchargé en `.webm`, prêt à partager ;
 - **Export du modèle 3D** en glTF binaire (`.glb`, validé par l'outil officiel Khronos) :
   s'ouvre dans Blender, la visionneuse 3D de Windows, Aperçu, SketchUp ou un moteur de jeu.
 

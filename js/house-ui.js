@@ -866,6 +866,7 @@ function initHouseUI(app) {
     if (!editor.components.length && !editor.wires.length) showToast('Plan vide — crée une maison ou pose des composants, puis reviens en 3D !', 3200);
   }
   function close3D() {
+    if (rec360) rec360.stop(); // vidéo en cours : on garde ce qui est enregistré
     if (viz && viz.mode === 'walk') leaveWalk();
     view3d.hidden = true;
     tip.hidden = true;
@@ -1088,6 +1089,41 @@ function initHouseUI(app) {
     const glb = buildGLB(viz.faces.filter((f) => !f.cap), { name: title }); // le modèle entier, sans les faces de coupe
     download(new Blob([glb], { type: 'model/gltf-binary' }), title + ' - 3D.glb');
     showToast(`Modèle 3D exporté (${(glb.byteLength / 1048576).toFixed(1).replace('.', ',')} Mo) : s’ouvre dans Blender, la visionneuse 3D, SketchUp…`, 4200);
+  });
+  // Vidéo 360° : un tour complet de caméra enregistré depuis le canevas (WebM)
+  let rec360 = null;
+  $('btn-3d-video').addEventListener('click', () => {
+    if (!viz) return;
+    if (rec360) { rec360.stop(); return; } // second clic : on arrête
+    const types = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    const mime = typeof MediaRecorder !== 'undefined' && cv3.captureStream && types.find((t) => MediaRecorder.isTypeSupported(t));
+    if (!mime) { showToast('Vidéo indisponible dans ce navigateur (enregistrement WebM non pris en charge).'); return; }
+    if (viz.mode === 'walk') leaveWalk();
+    const btn = $('btn-3d-video'), chunks = [], DUR = 10000, yaw0 = viz.yaw, auto0 = viz.autoRotate;
+    const rec = new MediaRecorder(cv3.captureStream(30), { mimeType: mime, videoBitsPerSecond: 8e6 });
+    rec360 = rec;
+    rec.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+    rec.onstop = () => {
+      rec360 = null; cancelAnimationFrame(raf);
+      viz.yaw = yaw0; viz.autoRotate = auto0; viz.dirty = true;
+      btn.classList.remove('rec'); btn.setAttribute('aria-pressed', 'false');
+      const blob = new Blob(chunks, { type: 'video/webm' });
+      download(blob, (editor.meta.title || 'maison') + ' - 360.webm');
+      showToast(`Vidéo 360° enregistrée (${(blob.size / 1048576).toFixed(1).replace('.', ',')} Mo, WebM).`, 3600);
+    };
+    viz.autoRotate = false; viz.trans = null;
+    btn.classList.add('rec'); btn.setAttribute('aria-pressed', 'true');
+    showToast('Enregistrement de la vidéo 360° (10 s)… clique à nouveau pour arrêter.', 2600);
+    const t0 = performance.now();
+    let raf = 0;
+    const step = (now) => {
+      const k = Math.min(1, (now - t0) / DUR);
+      viz.yaw = yaw0 + 2 * Math.PI * (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2); // départ et arrivée en douceur
+      viz.dirty = true;
+      if (k < 1) raf = requestAnimationFrame(step); else if (rec.state !== 'inactive') rec.stop();
+    };
+    rec.start(250);
+    raf = requestAnimationFrame(step);
   });
   $('btn-3d-photo').addEventListener('click', () => {
     if (viz && viz.render) viz.render();

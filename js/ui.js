@@ -28,6 +28,7 @@ const ICONS = {
   grid: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="1.5"/><path d="M3.5 9.2h17M3.5 14.9h17M9.2 3.5v17M14.9 3.5v17"/></svg>',
   magnet: '<svg viewBox="0 0 24 24"><path d="M6.5 3.5v8a5.5 5.5 0 0 0 11 0v-8"/><path d="M6.5 3.5H10V8H6.5zM14 3.5h3.5V8H14z"/></svg>',
   sun: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M18.7 5.3l-1.8 1.8M7.1 16.9l-1.8 1.8"/></svg>',
+  video: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10.5l5-3v9l-5-3z"/></svg>',
   cube: '<svg viewBox="0 0 24 24"><path d="M12 2.8l8 4.6v9.2l-8 4.6-8-4.6V7.4z"/><path d="M12 12l8-4.6M12 12L4 7.4M12 12v9.2"/></svg>',
   wall: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 9.7h18M3 14.3h18M9 5v4.7M15 5v4.7M6 9.7v4.6M12 9.7v4.6M18 9.7v4.6M9 14.3V19M15 14.3V19"/></svg>',
   conduit: '<svg viewBox="0 0 24 24"><path d="M3 17v-7h8V5h10"/><path d="M6.5 20v-6.5H14V8.5h7"/></svg>',
@@ -885,7 +886,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (localStorage.getItem('electricad-news') !== NEWS) {
       localStorage.setItem('electricad-news', NEWS);
       if (!location.search) {
-        setTimeout(() => showToast('<b>Nouveau</b> : la <b>maison à étage</b> (bouton Maison), empilée en 3D : on monte l’escalier en visite, filtre par niveau, câbles qui montent à l’étage ; vue 3D <b>Coupe</b> ; soleil des saisons ; journée type, <b>panneaux solaires</b>, vues <b>Énergie</b> et <b>Extérieur</b>, <b>matériel et budget</b>.', 9000), 1200);
+        setTimeout(() => showToast('<b>Nouveau</b> : la <b>maison à étage</b> (bouton Maison), empilée en 3D : on monte l’escalier en visite, filtre par niveau, câbles qui montent à l’étage ; vue 3D <b>Coupe</b>, <b>vidéo 360°</b> ; soleil des saisons ; journée type, <b>panneaux solaires</b>, vues <b>Énergie</b> et <b>Extérieur</b>, <b>matériel et budget</b>.', 9000), 1200);
       }
     }
   } catch (_) { /* stockage indisponible */ }
