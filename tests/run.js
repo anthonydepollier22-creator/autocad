@@ -975,6 +975,25 @@ check('Hauteur de pose : 1,10 m par défaut pour un interrupteur, celle choisie 
 check('3D : l’appareil est dessiné à la hauteur choisie ; plan SVG et DXF annotés (h110)', r.top > 100 && r.top < 125 && r.onPlan, `haut de la prise à ${r.top.toFixed(0)} cm`);
 check('NF C 15-100 : axe de prise sous 5 cm refusé, commande hors 0,90–1,30 m signalée (PMR), limites acceptées', r.e === 1 && r.w === 1 && r.eSock === 'err' && r.wSw === 'warn' && r.back);
 
+// Cuisine : 4 prises au-dessus du plan de travail
+r = run(`(function(){
+  var ok = HOUSE_TYPES.filter(function(T){ return T.key !== 'studio'; }).map(function(T){
+    var d = buildHouse(T.key); return !checkNFC15100(d.components, d.wires).global.some(function(g){ return /plan de travail/.test(g.msg); });
+  });
+  var d = buildHouse('t3'), info = computeRooms(d.components, d.wires);
+  var k = info.rooms.findIndex(function(R){ return R.type && R.type.key === 'cuisine'; });
+  var counter = d.components.find(function(c){ return c.type === 'counter'; });
+  var top = d.components.filter(function(c){ return c.type === 'socket_wall' && _distToFootprint(c.x, c.y, counter) < 8; });
+  d.components = d.components.filter(function(c){ return c !== top[0]; });
+  var msg = checkNFC15100(d.components, d.wires).global.find(function(g){ return /plan de travail/.test(g.msg); });
+  // une prise ailleurs dans la cuisine, remontée à 1,10 m, compte pour le plan de travail
+  var other = d.components.find(function(c){ return c.type === 'socket_wall' && roomAt(info, c.x, c.y) === k && _distToFootprint(c.x, c.y, counter) >= 8; });
+  other.h = 110;
+  var fixed = !checkNFC15100(d.components, d.wires).global.some(function(g){ return /plan de travail/.test(g.msg); });
+  return { ok: ok.every(Boolean), top: top.length, msg: msg && msg.level + ' ' + msg.msg, fixed: fixed };
+})()`);
+check('Cuisine : 4 prises au-dessus du plan de travail dans chaque maison générée ; 3 refusées ; une prise à 1,10 m compte', r.ok && r.top === 4 && /^err Cuisine : 3 prises/.test(r.msg) && r.fixed, r.msg);
+
 // Plan d'implantation : légende des symboles, repères de circuits (SVG, DXF)
 r = run(`(function(){
   var d = buildHouse('t3'), des = designInstallation(d.components, d.wires), tags = circuitTags(des);

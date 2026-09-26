@@ -872,7 +872,10 @@ function autoImplant(doc, opts) {
         const l = _rot(s.x - c.x, s.y - c.y, -c.rot);
         return l.x > -20 || l.x < -80; // hors de la cuve
       }));
-      for (const s of _spread(top, t === 'cuisine' ? 4 : 2, [], 40)) put(s);
+      const want = t === 'cuisine' ? 4 : 2;
+      let pick = _spread(top, want, [], t === 'cuisine' ? 20 : 40);
+      if (pick.length < want && t === 'cuisine') pick = _spread(top, want, [], 10); // plan de travail court : prises jumelées
+      for (const s of pick) put(s);
     }
     // appareils branchés sur prise : une prise à portée
     for (const c of doc.components) {

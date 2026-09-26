@@ -411,6 +411,16 @@ function checkNFC15100(components, wires) {
       if ((c.type === 'socket_wall' || c.type === 'rj45') && h < 5) push('err', `${c.label || 'Prise'} : axe à ${h} cm du sol, 5 cm au moins exigés.`, c.id);
       else if (NF_SWITCHES.has(c.type) && (h < 90 || h > 130)) push('warn', `${c.label || 'Interrupteur'} à ${h} cm : les commandes se posent entre 0,90 et 1,30 m (accessibilité PMR).`, c.id);
     }
+    // Cuisine de plus de 4 m² : 4 des 6 prises au-dessus du plan de travail (posées sur
+    // l'emprise d'un plan de travail, ou à 90 cm et plus)
+    info.rooms.forEach((room, i) => {
+      if (!room.type || room.type.key !== 'cuisine' || room.leaked || room.area <= 4) return;
+      const counters = components.filter((o) => o.type === 'counter' && roomAt(info, o.x, o.y) === i);
+      if (!counters.length) return; // plan de travail non dessiné : pas de contrôle
+      const top = components.filter((c) => c.type === 'socket_wall' && roomAt(info, c.x, c.y) === i &&
+        (+c.h >= 90 || counters.some((o) => _distToFootprint(c.x, c.y, o) < 8))).length;
+      if (top < 4) push('err', `${room.name} : ${top} prise${top > 1 ? 's' : ''} au-dessus du plan de travail, 4 exigées (hors évier et plaque).`, room.id);
+    });
     // Cuisine : sortie de câble 32 A pour la plaque de cuisson
     info.rooms.forEach((room, i) => {
       if (!room.type || room.type.key !== 'cuisine' || room.leaked) return;

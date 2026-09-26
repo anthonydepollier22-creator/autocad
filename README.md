@@ -444,10 +444,12 @@ Dessine une **maison complète** et implante l'installation dedans :
   longueur s'affiche en direct pendant le tracé ;
 - **Onglet « Norme »** : contrôle **pièce par pièce** de la NF C 15-100
   (version simplifiée) — prises exigées selon le type et la surface (séjour :
-  1 par 4 m², minimum 5 ; chambre : 3 ; cuisine : 6 dont 4 au-dessus du plan de
-  travail…), point lumineux et commande, GTL et tableau, **détecteur de fumée**,
-  **RJ45** dans les pièces principales, **volume 2** des pièces d'eau (60 cm),
-  sortie 32 A de la plaque. Pastille verte / orange / rouge sur l'onglet, clic sur une pièce pour
+  1 par 4 m², minimum 5 ; chambre : 3 ; cuisine : 6 dont **4 au-dessus du plan de
+  travail**, vérifiées sur l'emprise du plan de travail ou à 90 cm et plus…), point
+  lumineux et commande, GTL et tableau, **détecteur de fumée**, **RJ45** dans les
+  pièces principales, **volume 2** des pièces d'eau (60 cm), sortie 32 A de la
+  plaque, **hauteurs de pose** (axe des prises à 5 cm au moins, commandes entre
+  0,90 et 1,30 m). Pastille verte / orange / rouge sur l'onglet, clic sur une pièce pour
   la cibler ; le type est reconnu d'après le nom (*Séjour*, *Chambre 2*, *SdB*…) ;
 - Exemple fourni : **« Maison T2 — implantation élec. »** (`?ex=maison`, 41 m²,
   conforme), murs/goulottes exclus de la simulation et de l'ERC (aucun faux
@@ -685,7 +687,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-165 vérifications sans dépendance : valeurs numériques de chaque simulation
+166 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

@@ -1265,11 +1265,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Nouveautés : une fois par version (pas quand on arrive par un lien de démo)
   try {
-    const NEWS = '1.7';
+    const NEWS = '1.8';
     if (localStorage.getItem('electricad-news') !== NEWS) {
       localStorage.setItem('electricad-news', NEWS);
       if (!location.search) {
-        setTimeout(() => showToast('<b>Nouveau</b> : <b>import DXF</b> d’un plan d’architecte (murs, portes, fenêtres, pièces) et <b>export DXF</b> pour AutoCAD, vue <b>Lumière</b> en 3D (lux par pièce, appliques en un clic), <b>prise de terre</b> et <b>volumes</b> de la salle d’eau en rayons X, <b>règle</b> (L).', 9000), 1200);
+        setTimeout(() => showToast('<b>Nouveau</b> : <b>tableau</b> modifiable (mono ou triphasé) et ses folios — <b>unifilaire</b>, <b>note de calcul</b>, <b>schémas développés</b>, face avant, étiquettes — et <b>implantation en 3D</b> sur placo ou maçonnerie, à la hauteur voulue.', 9000), 1200);
       }
     }
   } catch (_) { /* stockage indisponible */ }
