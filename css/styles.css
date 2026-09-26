@@ -504,7 +504,7 @@ body.light .badge.sim-plan { color: #0f7a74; }
   font-size: 11.5px; line-height: 1.45;
 }
 .prop-circuit b { display: block; color: var(--accent); }
-.prop-circuit span { color: var(--muted); }
+.prop-circuit span { color: var(--muted); display: block; }
 
 /* ---------- Onglet Tableau ---------- */
 .install { padding: 12px 14px 18px; }

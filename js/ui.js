@@ -1223,9 +1223,16 @@ document.addEventListener('DOMContentLoaded', () => {
       onChk.checked = !!sel[0].on;
       const d = houseUI && houseUI.design();
       const bd = d && d.ok && d.byDevice[sel[0].id];
+      // tableau divisionnaire du plan : son départ et ses circuits
+      const P = d && d.ok && sel[0].type === 'panel_sub' && (d.panels || []).find((x) => x.comp === sel[0].id);
       if (bd) {
         const ct = d.circuits.find((x) => x.id === bd.circuit);
-        propCircuit.innerHTML = `<b>${ct.id} · ${_escHtml(ct.name)}</b><span>${ct.In} A · ${String(ct.S).replace('.', ',')} mm² · ${ct.rcd} · câble ${bd.len.toFixed(1).replace('.', ',')} m</span>`;
+        propCircuit.innerHTML = `<b>${ct.id} · ${_escHtml(ct.name)}</b><span>${ct.In} A · ${String(ct.S).replace('.', ',')} mm² · ${ct.rcd || (ct.ddr ? 'DDR ' + ct.ddr : '—')} · câble ${bd.len.toFixed(1).replace('.', ',')} m</span>`;
+        propCircuit.hidden = false;
+      } else if (P) {
+        const f = P.feeder, cs = d.circuits.filter((x) => x.panel === f.id);
+        propCircuit.innerHTML = `<b>${_escHtml(P.ref)} · alimenté par ${f.id}</b><span>${f.curve || 'C'}${f.In} · ${_escHtml(boardCable(f.S, f.phase))} · ${f.length.toFixed(1).replace('.', ',')} m · ΔU ${f.dUpct.toFixed(1).replace('.', ',')} %</span>` +
+          `<span>${cs.length} circuit${cs.length > 1 ? 's' : ''} : ${_escHtml(cs.map((x) => x.id + ' ' + x.name).join(', '))}</span>`;
         propCircuit.hidden = false;
       } else propCircuit.hidden = true;
     } else {
