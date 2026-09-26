@@ -1145,6 +1145,19 @@ r = run(`(function(){
 })()`);
 check('Interrupteur horaire d’un circuit : module IH, unifilaire, face avant, métré (le contacteur HC du chauffe-eau reste compté à part)', r.ih && r.mat && r.uni && r.front, JSON.stringify(r));
 
+// Liaison enterrée : R2V sous fourreau TPC rouge, grillage avertisseur
+r = run(`(function(){
+  var b = boardTemplate(80), o = boardAddCircuit(b, 'outdoor', { name: 'Extérieur portail', length: 30 }), f = boardAddCircuit(b, 'sub', { name: 'Abri', length: 25 });
+  o.buried = true; f.buried = true;
+  var d = designInstallation([], [], b), mat = materialList([], [], d).lines, uni = unifilarSVGs(d, {}).join('');
+  var tpc = mat.find(function(l){ return /Fourreau TPC/.test(l.name); }), mesh = mat.find(function(l){ return /Grillage avertisseur/.test(l.name); });
+  var r2v = mat.filter(function(l){ return /U1000 R2V 3G/.test(l.name); }).length;
+  var icta25 = mat.find(function(l){ return /ICTA préfilée 3G2,5/.test(l.name); });
+  var want = d.circuits.filter(function(c){ return c.S === 2.5 && c.kind !== 'sub' && !c.buried && c.phase !== '3P'; }).reduce(function(s, c){ return s + c.length; }, 0);
+  return { tpc: tpc && tpc.qty === 61, mesh: mesh && mesh.qty === 61, r2v: r2v === 2, icta: icta25.qty === Math.ceil(want * 1.1), uni: uni.indexOf('enterré (TPC)') > 0, info: d.checks.some(function(c){ return /0,50 m de profondeur/.test(c.msg); }) };
+})()`);
+check('Liaison enterrée : câble R2V (pas d’ICTA), fourreau TPC rouge et grillage avertisseur au métré, mention à l’unifilaire, profondeur rappelée', r.tpc && r.mesh && r.r2v && r.icta && r.uni && r.info, JSON.stringify(r));
+
 // Nomenclature du matériel : folio A3 du dossier, lignes du métré par catégorie
 r = run(`(function(){
   var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), L = materialList(h.components, h.wires, d), svg = nomenclatureSVGs(d, { title: 'T5' }, h.components, h.wires).join('');

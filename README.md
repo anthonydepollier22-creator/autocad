@@ -206,6 +206,10 @@ l'éditeur du tableau, **avec ou sans plan** :
   (F pour la borne, A pour la plaque et le lave-linge), il figure à l'unifilaire
   (disjoncteur + tore), sur la face avant, au câblage, au métré, et en simulation un
   défaut d'isolement ne coupe que ce circuit ;
+- **Liaison enterrée** (bouton ⛏ sur un départ de TD, un circuit photovoltaïque ou
+  extérieur) : câble U1000 R2V au lieu de la gaine ICTA, fourreau TPC rouge et grillage
+  avertisseur au métré, « enterré (TPC) » à l'unifilaire, profondeur rappelée (0,50 m au
+  moins, 0,85 m sous un passage de véhicules) ;
 - **Palette « Domestique (NF) »** complétée pour dessiner un unifilaire à la main :
   disjoncteur différentiel 30 mA, interrupteur-sectionneur, interrupteur horaire
   (manœuvrables au double-clic et simulés comme des interrupteurs), onduleur
@@ -780,7 +784,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-193 vérifications sans dépendance : valeurs numériques de chaque simulation
+194 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

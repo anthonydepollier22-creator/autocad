@@ -15,7 +15,7 @@ const MAT_PRICES = {
   tri: { rcd: 2.6, breaker3P: 45, surge: 145 }, // triphasé : ID 4P (≈ 2,6 × le prix 2P), disjoncteurs 3P+N
   isolator: { 40: 18, 63: 24, 80: 45, 100: 55 },
   ddr: { AC: 48, A: 68, F: 125, B: 320 },
-  pvIsolator: 38, pvLabel: 6, // interrupteur-sectionneur AC près de l'onduleur, étiquettes « deux sources »  // disjoncteur différentiel 1P+N 30 mA (3P+N : × 2,5) // interrupteur-sectionneur de tête d'un tableau divisionnaire (2P)
+  pvIsolator: 38, pvLabel: 6, tpc: 2.2, mesh: 0.6, // fourreau TPC rouge Ø 63, grillage avertisseur (€/m) // interrupteur-sectionneur AC près de l'onduleur, étiquettes « deux sources »  // disjoncteur différentiel 1P+N 30 mA (3P+N : × 2,5) // interrupteur-sectionneur de tête d'un tableau divisionnaire (2P)
   comb: 8.5,            // peigne d'alimentation, par rangée
   link: { 10: 2.9, 16: 4.4, 25: 6.8 }, // conducteur de liaison AGCP → tableau, €/m
   earthBar: 14,         // bornier de terre / répartiteur
@@ -105,19 +105,24 @@ function materialList(components, wires, design) {
 
     // --- Câbles et conduits : longueurs des circuits + 10 % de chutes --------
     const bySection = {};
-    for (const c of design.circuits) if (c.phase !== '3P' && c.kind !== 'sub') bySection[c.S] = (bySection[c.S] || 0) + c.length;
+    for (const c of design.circuits) if (c.phase !== '3P' && c.kind !== 'sub' && !c.buried) bySection[c.S] = (bySection[c.S] || 0) + c.length;
     for (const S of Object.keys(bySection).map(Number).sort((a, b) => a - b)) {
       add('Câbles et conduits', `Gaine ICTA préfilée 3G${String(S).replace('.', ',')} mm²`, Math.ceil(bySection[S] * 1.1), 'm', P.cable[S] || 1.2, `${Math.round(bySection[S])} m mesurés + 10 %`);
     }
     const bySection5 = {};
-    for (const c of design.circuits) if (c.phase === '3P') bySection5[c.S] = (bySection5[c.S] || 0) + c.length;
+    for (const c of design.circuits) if (c.phase === '3P' && c.kind !== 'sub') bySection5[c.S] = (bySection5[c.S] || 0) + c.length;
     for (const S of Object.keys(bySection5).map(Number).sort((a, b) => a - b)) {
       add('Câbles et conduits', `Câble U1000 R2V 5G${String(S).replace('.', ',')} mm² (triphasé)`, Math.ceil(bySection5[S] * 1.1), 'm', (P.cable[S] || 1.2) * 1.6, `${Math.round(bySection5[S])} m mesurés + 10 %`);
     }
     // ligne de chaque tableau divisionnaire : câble rigide (enterré sous fourreau TPC vers une annexe)
-    for (const c of design.circuits.filter((x) => x.kind === 'sub' && x.phase !== '3P')) {
-      add('Câbles et conduits', `Câble U1000 R2V 3G${String(c.S).replace('.', ',')} mm² (ligne ${c.panelRef || 'TD'})`, Math.ceil(Math.round(c.length * 110) / 100), 'm', Math.round((P.cable[c.S] || 1.2) * 1.3 * 100) / 100, `${Math.round(c.length)} m + 10 % ; sous fourreau TPC rouge s’il est enterré`);
+    for (const c of design.circuits.filter((x) => (x.kind === 'sub' || x.buried) && !(x.phase === '3P' && x.kind !== 'sub'))) {
+      const five = c.phase === '3P';
+      add('Câbles et conduits', `Câble U1000 R2V ${five ? '5G' : '3G'}${String(c.S).replace('.', ',')} mm² (${c.kind === 'sub' ? 'ligne ' + (c.panelRef || 'TD') : c.id + ' ' + c.name})`, Math.ceil(Math.round(c.length * 110) / 100), 'm', Math.round((P.cable[c.S] || 1.2) * (five ? 1.6 : 1.3) * 100) / 100, `${Math.round(c.length)} m + 10 %${c.buried ? ' ; enterré' : ' ; sous fourreau TPC rouge s’il est enterré'}`);
     }
+    // liaisons enterrées : fourreau TPC rouge et grillage avertisseur (0,50 m de profondeur au moins)
+    const bur = design.circuits.filter((c) => c.buried).reduce((s, c) => s + c.length, 0);
+    add('Câbles et conduits', 'Fourreau TPC rouge Ø 63 (liaison enterrée)', Math.ceil(bur * 1.1), 'm', P.tpc, 'tranchée de 0,50 m au moins');
+    add('Câbles et conduits', 'Grillage avertisseur rouge', Math.ceil(bur * 1.1), 'm', P.mesh);
   }
   const conduitLen = wires.filter((w) => w.kind === 'conduit').reduce((s, w) => {
     if (w.riser) return s + (w.len || 300); // montée d'étage : hauteur réelle, pas l'écart entre les plans

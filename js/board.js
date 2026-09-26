@@ -93,7 +93,7 @@ function boardFromDesign(design) {
       id: c.id, name: c.name, kind: c.kind, In: c.In, S: c.S, curve: c.curve || 'C', rcd: c.rcd,
       devices: (c.devices || []).slice(), points: c.points, length: Math.round((c.length || 0) * 10) / 10,
       P: Math.round(c.power || 0), appliance: c.appliance || null, typeA: !!c.typeA, typeF: !!c.typeF,
-      contactor: c.contactor || (c.appliance === 'water_heater' ? 'hc' : null), teleruptor: !!c.teleruptor, ddr: c.ddr || null,
+      contactor: c.contactor || (c.appliance === 'water_heater' ? 'hc' : null), teleruptor: !!c.teleruptor, ddr: c.ddr || null, buried: !!c.buried,
       phase: c.phaseAuto ? null : c.phase || null,
     })),
   };
@@ -282,6 +282,7 @@ function checkBoard(design) {
   const heatP = cs.filter((c) => c.kind === 'heating').reduce((s, c) => s + (c.power || 0), 0);
   if (design.supply && design.supply.shed && !heatP) push('warn', 'Délesteur sans circuit de chauffage à piloter.');
   else if (!(design.supply && design.supply.shed) && design.agcp && heatP >= 0.5 * design.agcp.kva * 1000) push('info', `Chauffage électrique ${_bNum(heatP / 1000, 1)} kW pour ${design.agcp.kva} kVA : un délesteur (fil pilote) coupe le chauffage aux pointes et évite le déclenchement du disjoncteur de branchement.`);
+  if (cs.some((c) => c.buried)) push('info', `Liaison enterrée (${cs.filter((c) => c.buried).map((c) => c.id).join(', ')}) : câble U1000 R2V sous fourreau TPC rouge, à 0,50 m de profondeur au moins (0,85 m sous un passage de véhicules), grillage avertisseur rouge au-dessus.`);
   if (cs.some((c) => c.kind === 'pv')) push('info', 'Production photovoltaïque : étiquette « Attention — présence de deux sources de tension » sur le tableau et au compteur, interrupteur-sectionneur côté alternatif à proximité de l’onduleur, onduleur conforme (découplage).');
   if (!out.some((o) => o.level === 'err' || o.level === 'warn')) push('ok', `Tableau conforme : ${cs.length} circuits, ${rcds.length} différentiels 30 mA, réserve ${mods.reservePct} %.`);
   return out;
@@ -715,7 +716,7 @@ function drawUnifilar(ctx, design, meta, folio) {
       else { _uLine(ctx, x, y, x, y + 10, 1.3); _uArrow(ctx, x, y + 10); }
       if (c.phase === '3P') for (let i = 0; i < 4; i++) _uLine(ctx, x - 5, y - 26 + i * 4, x + 5, y - 30 + i * 4, 0.9); // 3 phases + neutre
       layer('TEXTES');
-      const detail = `${boardCable(c.S, c.phase)} · ${f1(c.length)} m` + (c.kind === 'sub' ? ` · vers ${c.panelRef || 'TD'}, folio ${fno(lay.panelFolio[c.id] || 0)}` : c.rooms ? ' · ' + c.rooms : '');
+      const detail = `${boardCable(c.S, c.phase)} · ${f1(c.length)} m` + (c.buried ? ' · enterré (TPC)' : '') + (c.kind === 'sub' ? ` · vers ${c.panelRef || 'TD'}, folio ${fno(lay.panelFolio[c.id] || 0)}` : c.rooms ? ' · ' + c.rooms : '');
       text(fit(c.name, 30), x - 2, UNI.text, { rot: -Math.PI / 2, bold: true, size: 8.5 });
       text(fit(detail, 40), x + 8, UNI.text, { rot: -Math.PI / 2, size: 7, color: mute });
     });
