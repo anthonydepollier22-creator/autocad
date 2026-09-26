@@ -513,9 +513,26 @@ document.addEventListener('DOMContentLoaded', () => {
       const ic = g.level === 'err' ? '❌' : g.level === 'warn' ? '⚠️' : '✅';
       html += `<li${g.compId ? ' class="clickable" data-id="' + g.compId + '"' : ''}>${ic} ${_escHtml(g.msg)}</li>`;
     }
-    html += '</ul><p class="norm-foot">Contrôle indicatif (nombre de prises, éclairage, GTL). Il ne remplace pas la vérification d’un professionnel ni l’attestation Consuel.</p>';
+    html += '</ul>';
+    // Autocontrôle avant le Consuel : points vérifiés sur le plan et le tableau, puis cases à cocher sur place
+    if (typeof selfCheckList === 'function') {
+      const d = houseUI && houseUI.design();
+      const L = selfCheckList(rep, d && d.ok ? d : null), done = (editor.meta && editor.meta.selfcheck) || {};
+      const ic = { ok: '✅', warn: '⚠️', err: '❌', todo: '☐' };
+      const nDone = L.manual.filter((_, i) => done[i]).length;
+      html += `<div class="norm-self"><h4>Autocontrôle avant le Consuel</h4><ul class="erc">` +
+        L.auto.map((x) => `<li>${ic[x.st]} ${_escHtml(x.label)}${x.note ? ` <em>— ${_escHtml(x.note)}</em>` : ''}</li>`).join('') + '</ul>' +
+        `<p class="norm-self-sub">Sur place <b>${nDone} / ${L.manual.length}</b> :</p>` +
+        L.manual.map((m, i) => `<label class="check-row norm-self-item"><input type="checkbox" data-self="${i}"${done[i] ? ' checked' : ''}> ${_escHtml(m)}</label>`).join('') + '</div>';
+    }
+    html += '<p class="norm-foot">Contrôle indicatif (nombre de prises, éclairage, GTL). Il ne remplace pas la vérification d’un professionnel ni l’attestation Consuel.</p>';
     normBox.innerHTML = html;
     bindUnlabeled(unl);
+    normBox.querySelectorAll('[data-self]').forEach((el) => el.addEventListener('change', () => {
+      const m = editor.meta.selfcheck = { ...(editor.meta.selfcheck || {}) };
+      if (el.checked) m[el.dataset.self] = true; else delete m[el.dataset.self];
+      editor.autosave(); renderNorm(true);
+    }));
     normBox.querySelectorAll('[data-id]').forEach((el) => el.addEventListener('click', () => editor.focusComponent(el.dataset.id)));
   }
   function _escHtml(s) {

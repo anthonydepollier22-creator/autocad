@@ -556,6 +556,12 @@ r = run(`(function(){
 })()`);
 check('Dossier : plan, norme, éclairement, tableau, autocontrôle, matériel, journée, bilan annuel ; titre échappé', r[0] && r[1] === 8 && r[2] === 3 && r[3] && r[4] && r[5] && r[6] && r[7], `${r[1]} sections, ${r[2]} SVG`);
 check('Autocontrôle avant le Consuel : points vérifiés sur le plan et le tableau (T3 conforme), prise de terre à mesurer', r[8]);
+r = run(`(function(){
+  var d = getExampleData('maison-t3'), des = designInstallation(d.components, d.wires);
+  var html = buildDossier({ meta: { title: 'T3', selfcheck: { 0: true, 3: true } }, design: des, report: checkNFC15100(d.components, d.wires), images: [] });
+  return { checked: (html.match(/☑/g) || []).length, open: html.split('class="st ">☐').length - 1, total: selfCheckList(null, null).manual.length };
+})()`);
+check('Autocontrôle : les points cochés sur place (onglet Norme) passent « vérifié » dans le dossier', r.checked === 2 && r.open === r.total - 2, `${r.checked} / ${r.total}`);
 
 // ---------------------------------------------------------------------------
 group('Maison à étage (R+1)');

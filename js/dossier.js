@@ -132,7 +132,7 @@ function buildDossier(o) {
       '<p class="small">Vérifié par ÉlectriCAD sur le plan et le tableau (contrôle simplifié, sans valeur d’attestation) :</p><table class="checklist"><tbody>' +
       L.auto.map((x) => `<tr><td class="st ${x.st}">${lab[x.st]}</td><td>${esc(x.label)}${x.note ? ` <span class="small">— ${esc(x.note)}</span>` : ''}</td><td class="st ${x.st}">${txt[x.st]}</td></tr>`).join('') +
       '</tbody></table><h3>À contrôler sur place</h3><table class="checklist"><tbody>' +
-      L.manual.map((m) => `<tr><td>☐</td><td>${esc(m)}</td><td></td></tr>`).join('') + '</tbody></table>' +
+      L.manual.map((m, i) => { const ok = o.meta && o.meta.selfcheck && o.meta.selfcheck[i]; return `<tr><td class="st ${ok ? 'ok' : ''}">${ok ? '☑' : '☐'}</td><td>${esc(m)}</td><td class="st ${ok ? 'ok' : ''}">${ok ? 'vérifié' : ''}</td></tr>`; }).join('') + '</tbody></table>' +
       '<p class="small">L’attestation de conformité est délivrée par le Consuel après sa visite ; faire vérifier l’installation par un électricien qualifié.</p></section>';
   }
 

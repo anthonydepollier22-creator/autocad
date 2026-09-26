@@ -1075,3 +1075,11 @@ body.light .day-sec { --dc7: #4a3aa7; }
 /* Hauteur de pose (panneau Propriétés) */
 .prop-h { display: flex; align-items: center; gap: 6px; }
 .prop-h input { width: 90px; }
+
+/* Autocontrôle (onglet Norme) */
+.norm-self { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); }
+.norm-self h4 { margin: 0 0 6px; font-size: 13px; }
+.norm-self em { color: var(--muted); font-style: normal; }
+.norm-self-sub { margin: 8px 0 4px; font-size: 12px; color: var(--muted); }
+.norm-self-item { font-size: 12px; align-items: flex-start; line-height: 1.35; margin: 3px 0; }
+.norm-self-item input { margin-top: 2px; flex: 0 0 auto; }

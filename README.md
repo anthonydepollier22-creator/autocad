@@ -282,7 +282,8 @@ chaque niveau), **plan coté**, **contrôle NF C 15-100** pièce par pièce,
 **schéma unifilaire** et tableau des circuits (protection, section, longueur, ΔU,
 différentiel), **schémas développés** de l'éclairage, **élévations des murs**, **communication (VDI)**,
 **autocontrôle avant la visite du Consuel** (points vérifiés sur le plan et le tableau,
-puis liste à contrôler sur place), **note de calcul**, **matériel et budget**, **journée type** (graphique, bilan, solaire).
+puis liste à contrôler sur place — cochée au fil du chantier dans l'onglet **Norme** et
+enregistrée avec le projet), **note de calcul**, **matériel et budget**, **journée type** (graphique, bilan, solaire).
 
 ![Dossier du projet](docs/screenshot-dossier.png)
 
@@ -728,7 +729,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-177 vérifications sans dépendance : valeurs numériques de chaque simulation
+178 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
