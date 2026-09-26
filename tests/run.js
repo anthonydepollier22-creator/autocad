@@ -1029,6 +1029,32 @@ r = run(`(function(){
 })()`);
 check('Dossier technique : sommaire (folio 1), plan d’implantation, plan de câblage (un tracé par circuit), unifilaire, câblage, note, développés, élévations, communication numérotés à la suite', r.n === r.total && r.seq && r.cover && r.plan && r.last, r.nums.join(' '));
 
+// Disjoncteur différentiel 30 mA propre à un circuit (borne de recharge, ajout dans un tableau existant)
+r = run(`(function(){
+  var b = boardTemplate(90, { ev: true }), ev = b.circuits.find(function(c){ return c.appliance === 'ev_charger'; });
+  ev.rcd = null; ev.ddr = 'F'; b.rcds = b.rcds.filter(function(r){ return b.circuits.some(function(c){ return c.rcd === r.id; }); });
+  var d = designInstallation([], [], b), E = d.circuits.find(function(c){ return c.id === ev.id; });
+  var errs = d.checks.filter(function(c){ return c.level === 'err' || (c.level === 'warn' && c.ref === ev.id); }).map(function(c){ return c.msg; });
+  var uni = unifilarSVGs(d, {}).join(''), front = boardFrontSVG(d, {}), wir = boardWiringSVGs(d, {}).join(''), mat = materialList([], [], d).lines;
+  var M = boardModules(d), head = M.rows[0][0];
+  ev.ddr = 'AC'; var d2 = designInstallation([], [], b), w2 = d2.checks.some(function(c){ return c.ref === ev.id && c.level === 'warn' && /type F/.test(c.msg); });
+  var ck = b.circuits.find(function(c){ return c.appliance === 'cooktop'; }); ck.rcd = null; ck.ddr = 'AC';
+  var d3 = designInstallation([], [], b), e3 = d3.checks.some(function(c){ return c.ref === ck.id && c.level === 'err' && /type A/.test(c.msg); });
+  return { ddr: E.ddr === 'F' && E.rcd === null && !d.rcds.some(function(r){ return r.type === 'F'; }), errs: errs, head: head.kind === 'ddr' && head.ref === ev.id && head.w === 2,
+    uni: uni.indexOf('Disj. différentiels') > 0 && uni.indexOf('30 mA F') > 0 && uni.indexOf('>DDR F<') > 0, front: front.indexOf('C40 · 30 mA F') > 0, wir: wir.indexOf('>' + ev.id + ' · 3G10<') > 0,
+    mat: mat.some(function(l){ return l.name === 'Disjoncteur différentiel 1P+N 40 A 30 mA type F' && l.qty === 1; }) && !mat.some(function(l){ return /Disjoncteur phase \+ neutre 40 A/.test(l.name); }), w2: w2, e3: e3 };
+})()`);
+check('Disjoncteur différentiel 30 mA d’un circuit : en tête sous l’AGCP, type contrôlé (F pour la borne, A pour la plaque) ; unifilaire, face avant, câblage, métré', r.ddr && !r.errs.length && r.head && r.uni && r.front && r.wir && r.mat && r.w2 && r.e3, r.errs.join(' | ') || JSON.stringify(r));
+r = run(`(function(){
+  var h = buildHouse('t3'), d0 = designInstallation(h.components, h.wires), b = boardFromDesign(d0);
+  var wm = b.circuits.find(function(c){ return c.appliance === 'washer'; }); wm.rcd = null; wm.ddr = 'A';
+  var d = designInstallation(h.components, h.wires, b), sim = new InstallSim(); sim.setDesign(d);
+  sim.step(0.1, h.components, h.wires); sim.faults[wm.devices[0]] = 'leak'; sim.step(0.1, h.components, h.wires);
+  var others = Object.keys(sim.breakers).filter(function(k){ return k !== wm.id; }).every(function(k){ return sim.breakers[k].closed; });
+  return { own: sim.breakers[wm.id].tripped, others: others, rcds: Object.keys(sim.rcds).every(function(k){ return sim.rcds[k].closed; }), log: sim.logs ? '' : '' };
+})()`);
+check('Simulation : un défaut d’isolement sous disjoncteur différentiel ne coupe que son circuit', r.own && r.others && r.rcds, JSON.stringify(r));
+
 // Nomenclature du matériel : folio A3 du dossier, lignes du métré par catégorie
 r = run(`(function(){
   var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), L = materialList(h.components, h.wires, d), svg = nomenclatureSVGs(d, { title: 'T5' }, h.components, h.wires).join('');

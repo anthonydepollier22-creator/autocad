@@ -78,14 +78,18 @@ function initBoardUI(app) {
     const flag = (ref) => { const l = checks.filter((c) => c.ref === ref && (c.level === 'err' || c.level === 'warn')); return l.length ? { cls: l.some((c) => c.level === 'err') ? 'err' : 'warn', tip: l.map((c) => c.msg).join('\n') } : null; };
     const opt = (list, v, fmt) => list.map((x) => `<option value="${x}"${+v === +x || v === x ? ' selected' : ''}>${fmt ? fmt(x) : x}</option>`).join('');
     const pref = (r) => { const p = r.panel && (d.panels || []).find((x) => x.id === r.panel); return p ? ' · ' + p.ref : ''; };
-    const rcdOpts = (v) => `<option value=""${!v ? ' selected' : ''}>—</option>` + d.rcds.map((r) => `<option value="${esc(r.id)}"${r.id === v ? ' selected' : ''}>${esc(r.id + pref(r))}</option>`).join('');
+    // ID du groupe, ou disjoncteur différentiel 30 mA propre au circuit (« ddr:A »)
+    const rcdOpts = (v, dd, sub) => `<option value=""${!v && !dd ? ' selected' : ''}>—</option>` + d.rcds.map((r) => `<option value="${esc(r.id)}"${r.id === v ? ' selected' : ''}>${esc(r.id + pref(r))}</option>`).join('') +
+      (sub ? '' : `<optgroup label="Disjoncteur différentiel 30 mA">${BOARD_RCD_TYPES.map((t) => `<option value="ddr:${t}"${dd === t ? ' selected' : ''}>DDR ${t}</option>`).join('')}</optgroup>`);
     h += '<div class="bd-scroll"><table class="bd-table"><thead><tr><th>Repère</th><th>Désignation</th><th>Type</th><th>Calibre</th><th>Section</th><th>Charge</th><th>Long.</th>' + (tri ? '<th>Ph.</th>' : '') + '<th>ID</th><th><span class="sr-only">Actions</span></th></tr></thead>';
     // tableau principal (départs TD en tête, ID, circuits sans ID), puis chaque tableau divisionnaire
     const groups = [];
     const feeds = d.circuits.filter((c) => c.kind === 'sub' && !d.rcds.some((r) => r.id === c.rcd));
     if (feeds.length) groups.push({ r: null, feed: true, cs: feeds });
+    const ddrs = d.circuits.filter((c) => c.ddr && !d.rcds.some((r) => r.id === c.rcd));
+    if (ddrs.length) groups.push({ r: null, ddr: true, cs: ddrs });
     groups.push(...d.rcds.filter((r) => !r.panel).map((r) => ({ r, cs: d.circuits.filter((c) => c.rcd === r.id) })));
-    const loose = d.circuits.filter((c) => c.kind !== 'sub' && !d.rcds.some((r) => r.id === c.rcd));
+    const loose = d.circuits.filter((c) => c.kind !== 'sub' && !c.ddr && !d.rcds.some((r) => r.id === c.rcd));
     if (loose.length) groups.push({ r: null, cs: loose });
     for (const P of d.panels || []) {
       groups.push({ panel: P, cs: [] });
@@ -103,6 +107,7 @@ function initBoardUI(app) {
       const f = g.r && flag(g.r.id);
       h += `<tbody data-rcd="${g.r ? esc(g.r.id) : ''}"${g.r && g.r.panel ? ' class="bd-inTd"' : ''}><tr class="bd-rcd ${f ? f.cls : ''}"${f ? ` title="${esc(f.tip)}"` : ''}><td colspan="${ncol}">`;
       if (g.feed) h += '<b>Départs en tête</b> vers les tableaux divisionnaires — protégés par l’AGCP 500 mA sélectif, les ID 30 mA sont dans chaque TD';
+      else if (g.ddr) h += '<b>Disjoncteurs différentiels 30 mA</b> en tête, sous l’AGCP — chacun protège son seul circuit (borne de recharge, circuit extérieur, ajout dans un tableau existant)';
       else if (g.r) {
         h += `<b>${esc(g.r.id)}</b> Interrupteur différentiel <select data-rf="In" aria-label="Calibre">${opt(BOARD_RCD_IN, g.r.In, (x) => x + ' A')}</select> 30 mA type <select data-rf="type" aria-label="Type">${opt(BOARD_RCD_TYPES, g.r.type)}</select>` +
           `<span class="bd-count">${g.cs.length}/8 circuits</span>` + (g.cs.length ? '' : '<button type="button" class="bd-x" data-ract="del" title="Supprimer ce différentiel">Supprimer</button>');
@@ -123,7 +128,7 @@ function initBoardUI(app) {
           `<td><select data-cf="S" aria-label="Section">${opt(BOARD_S, c.S, (x) => String(x).replace('.', ',') + ' mm²')}</select></td>` +
           `<td class="bd-load">${load}</td><td class="bd-load">${len}</td>` +
           (tri ? `<td><select data-cf="phase" aria-label="Phase" class="${c.phaseAuto ? 'bd-auto' : ''}" title="${c.phaseAuto ? 'Phase choisie pour équilibrer' : 'Phase'}">${['L1', 'L2', 'L3', '3P'].map((p) => `<option value="${p}"${c.phase === p ? ' selected' : ''}>${p === '3P' ? '3P+N' : p}</option>`).join('')}</select></td>` : '') +
-          `<td><select data-cf="rcd" aria-label="Différentiel">${rcdOpts(c.rcd)}</select></td>` +
+          `<td><select data-cf="rcd" aria-label="Différentiel">${rcdOpts(c.rcd, c.ddr, c.kind === 'sub')}</select></td>` +
           `<td class="bd-acts">` + (c.kind === 'sub' ? `<span class="bd-tdref">→ ${esc(c.panelRef || 'TD')}</span>` : `<button type="button" data-cact="hc" aria-pressed="${c.contactor ? 'true' : 'false'}" title="Contacteur jour / nuit (heures creuses)">HC</button>` +
           `<button type="button" data-cact="tl" aria-pressed="${c.teleruptor ? 'true' : 'false'}" title="Télérupteur">TL</button>`) +
           '<button type="button" data-cact="del" class="bd-x" title="Supprimer le circuit">✕</button></td></tr>';
@@ -203,11 +208,13 @@ function initBoardUI(app) {
         if (!c) return;
         if (['In', 'S', 'points', 'P', 'length'].includes(f)) v = Math.max(0, +v || 0);
         const was = c.kind;
+        if (f === 'rcd' && /^ddr:/.test(v)) { c.ddr = v.slice(4); c.rcd = null; return; } // disjoncteur différentiel du circuit
+        if (f === 'rcd') c.ddr = null;
         c[f] = v;
         if (f === 'rcd' && !v) c.rcd = null;
         // tableau divisionnaire : ses ID suivent le repère du départ ; un départ se raccorde en tête
         if (f === 'id') (b.rcds || []).forEach((r) => { if (r.panel === id) r.panel = v; });
-        if (f === 'kind' && v === 'sub') c.rcd = null;
+        if (f === 'kind' && v === 'sub') { c.rcd = null; c.ddr = null; }
         if (f === 'kind' && was === 'sub' && v !== 'sub') (b.rcds || []).forEach((r) => { if (r.panel === id) r.panel = null; });
       });
     } else if (t.dataset.rf && tb) {

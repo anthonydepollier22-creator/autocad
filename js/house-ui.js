@@ -148,10 +148,14 @@ function initHouseUI(app) {
       `<div class="board-info"><b>Abonnement ${d.agcp.kva} kVA${d.custom ? ' <em class="bd-badge">personnalisé</em>' : ''}</b><span>${d.circuits.length} circuits · ${d.rcds.length} différentiels 30 mA · ${Math.round(d.cableTotal)} m de câble · réserve ${d.reserve} modules</span>` +
       `<button class="bd-open" data-act="board">Modifier le tableau · folios</button></div></div>`;
     // départs des tableaux divisionnaires (en tête, sous l'AGCP) : couper le départ coupe tout le TD
-    const feeds = d.circuits.filter((c) => c.kind === 'sub');
+    // en tête, sous l'AGCP : départs des TD (couper le départ coupe tout le TD) et disjoncteurs différentiels
+    const feeds = d.circuits.filter((c) => (c.kind === 'sub' || c.ddr) && !d.rcds.some((r) => r.id === c.rcd));
     if (feeds.length) {
-      h += '<div class="board-row"><span class="dm dm-head" title="Départs en tête, sous l’AGCP"><b>TD</b><em>départs</em></span><div class="board-mods">';
-      for (const c of feeds) h += `<button class="dm" data-ct="${c.id}" title="${esc(c.id + ' ' + c.name)} → ${c.panelRef}&#10;${c.In} A · ${String(c.S).replace('.', ',')} mm² · ${c.length.toFixed(1).replace('.', ',')} m"><span class="dm-lever"></span><b>${c.id}</b><em>${c.In} A</em><i class="dm-load"><u data-load="${c.id}"></u></i><small>→ ${esc(c.panelRef || 'TD')}</small></button>`;
+      h += '<div class="board-row"><span class="dm dm-head" title="En tête, sous l’AGCP : départs de tableaux divisionnaires et disjoncteurs différentiels"><b>Tête</b><em>sous AGCP</em></span><div class="board-mods">';
+      for (const c of feeds) {
+        const tag = c.kind === 'sub' ? '→ ' + (c.panelRef || 'TD') : `DDR ${c.ddr} · ${c.name}`;
+        h += `<button class="dm" data-ct="${c.id}" title="${esc(c.id + ' ' + c.name)}${c.kind === 'sub' ? ' → ' + c.panelRef : ' — disjoncteur différentiel 30 mA type ' + c.ddr}&#10;${c.In} A · ${String(c.S).replace('.', ',')} mm² · ${c.length.toFixed(1).replace('.', ',')} m"><span class="dm-lever"></span><b>${c.id}</b><em>${c.In} A</em><i class="dm-load"><u data-load="${c.id}"></u></i><small>${esc(tag)}</small></button>`;
+      }
       h += '</div></div>';
     }
     for (const r of d.rcds) {

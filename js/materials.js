@@ -13,7 +13,8 @@ const MAT_PRICES = {
   breaker: { 2: 9, 6: 9, 10: 8, 16: 8, 20: 8.5, 25: 10, 32: 11.5, 40: 15, 50: 24, 63: 28 },
   surge: 69, contactor: 22, teleruptor: 18,
   tri: { rcd: 2.6, breaker3P: 45, surge: 145 }, // triphasé : ID 4P (≈ 2,6 × le prix 2P), disjoncteurs 3P+N
-  isolator: { 40: 18, 63: 24, 80: 45, 100: 55 }, // interrupteur-sectionneur de tête d'un tableau divisionnaire (2P)
+  isolator: { 40: 18, 63: 24, 80: 45, 100: 55 },
+  ddr: { AC: 48, A: 68, F: 125, B: 320 },  // disjoncteur différentiel 1P+N 30 mA (3P+N : × 2,5) // interrupteur-sectionneur de tête d'un tableau divisionnaire (2P)
   comb: 8.5,            // peigne d'alimentation, par rangée
   link: { 10: 2.9, 16: 4.4, 25: 6.8 }, // conducteur de liaison AGCP → tableau, €/m
   earthBar: 14,         // bornier de terre / répartiteur
@@ -58,7 +59,12 @@ function materialList(components, wires, design) {
     const tri = design.supply && design.supply.phases === 3;
     for (const k of ['AC25', 'AC40', 'AC63', 'A', 'A63', 'F', 'B']) add('Tableau', rcdName[k].replace('différentiel', tri ? 'différentiel 4P' : 'différentiel'), rcdKind[k], 'u', tri ? Math.round(P.rcd[k] * P.tri.rcd) : P.rcd[k]);
     const byIn = {}, byIn3 = {};
-    for (const c of design.circuits) { const m = c.phase === '3P' ? byIn3 : byIn; m[c.In] = (m[c.In] || 0) + 1; }
+    const ddr = {}; // disjoncteurs différentiels : un appareil par circuit, compté à part
+    for (const c of design.circuits) {
+      if (c.ddr) { const k = `${c.phase === '3P' ? '3P+N' : '1P+N'} ${c.In} A 30 mA type ${c.ddr}`; ddr[k] = ddr[k] || { n: 0, price: Math.round(P.ddr[c.ddr] * (c.phase === '3P' ? 2.5 : 1)) }; ddr[k].n++; continue; }
+      const m = c.phase === '3P' ? byIn3 : byIn; m[c.In] = (m[c.In] || 0) + 1;
+    }
+    for (const k of Object.keys(ddr).sort()) add('Tableau', `Disjoncteur différentiel ${k}`, ddr[k].n, 'u', ddr[k].price);
     if (design.supply && design.supply.surge) {
       add('Tableau', tri ? 'Parafoudre type 2 (triphasé)' : 'Parafoudre type 2 (monophasé)', 1, 'u', tri ? P.tri.surge : P.surge);
       const m = tri ? byIn3 : byIn; m[10] = (m[10] || 0) + 1; // son disjoncteur de déconnexion

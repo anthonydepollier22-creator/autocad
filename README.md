@@ -200,6 +200,12 @@ l'éditeur du tableau, **avec ou sans plan** :
   section, 6 en cuisine, 4 500 W de chauffage par circuit, plaque et lave-linge sous
   type A, borne sous type F, 8 circuits par différentiel, nombre d'ID selon la
   surface, circuit sans 30 mA, chute de tension, abonnement, 20 % de réserve ;
+- **Disjoncteur différentiel 30 mA** propre à un circuit (colonne ID → « DDR AC / A / F
+  / B ») : en tête du tableau sous l'AGCP, il protège son seul circuit (borne de
+  recharge, circuit extérieur, ajout dans un tableau existant) ; son type est contrôlé
+  (F pour la borne, A pour la plaque et le lave-linge), il figure à l'unifilaire
+  (disjoncteur + tore), sur la face avant, au câblage, au métré, et en simulation un
+  défaut d'isolement ne coupe que ce circuit ;
 - **Tableaux divisionnaires** (garage, atelier, annexe) : un départ « Tableau
   divisionnaire » en tête du tableau principal, sous l'AGCP 500 mA sélectif (pas sous un
   ID 30 mA : aucune sélectivité), alimente un TD avec son interrupteur-sectionneur de
@@ -747,7 +753,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-184 vérifications sans dépendance : valeurs numériques de chaque simulation
+186 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

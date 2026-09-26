@@ -360,6 +360,8 @@ function designInstallation(components, wires, board) {
         rooms: list.length ? roomsLabel(list) : bc.rooms || '', points: list.length ? pts : Math.max(0, +bc.points || 0),
         manual: !list.length, lengthIn: +bc.length || 0, Pin: +bc.P || 0, appliance: bc.appliance || null,
         typeA: !!bc.typeA, typeF: !!bc.typeF, contactor: bc.contactor || null, teleruptor: !!bc.teleruptor, rcd: bc.rcd || null,
+        // disjoncteur différentiel 30 mA propre au circuit (en tête, sous l'AGCP) : type AC, A, F ou B
+        ddr: !bc.rcd && bc.kind !== 'sub' && ['AC', 'A', 'F', 'B'].includes(bc.ddr) ? bc.ddr : null,
         phase: ['L1', 'L2', 'L3', '3P'].includes(bc.phase) ? bc.phase : null,
       });
     }
@@ -766,7 +768,13 @@ class InstallSim {
           } else I += Icc;
         } else if (f === 'leak') {
           const rc = this.rcds[ct.rcd];
-          if (!rc) { this.log(`Défaut d’isolement sur ${comp[id] ? comp[id].label || id : id} : ${ct.id} n’est protégé par aucun différentiel 30 mA — la fuite n’est pas coupée, danger d’électrocution !`, 'err'); continue; }
+          if (!rc && ct.ddr) { // disjoncteur différentiel du circuit : il coupe ce seul circuit
+          const b = this.breakers[ct.id];
+          b.closed = false; b.tripped = true;
+          this.log(`Défaut d’isolement sur ${comp[id] ? comp[id].label || id : id} : fuite ≈ ${Math.round(I_LEAK * 1000)} mA ≥ 30 mA → le disjoncteur différentiel ${ct.id} déclenche (ce circuit seulement).`, 'err');
+          continue;
+        }
+        if (!rc) { this.log(`Défaut d’isolement sur ${comp[id] ? comp[id].label || id : id} : ${ct.id} n’est protégé par aucun différentiel 30 mA — la fuite n’est pas coupée, danger d’électrocution !`, 'err'); continue; }
           rc.closed = false; rc.tripped = true;
           this.log(`Défaut d’isolement sur ${comp[id] ? comp[id].label || id : id} : fuite ≈ ${Math.round(I_LEAK * 1000)} mA ≥ 30 mA → ${ct.rcd} déclenche (${this.design.circuits.filter((x) => x.rcd === ct.rcd).length} circuits coupés).`, 'err');
         }

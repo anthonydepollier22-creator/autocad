@@ -89,7 +89,7 @@ function boardFromDesign(design) {
       id: c.id, name: c.name, kind: c.kind, In: c.In, S: c.S, curve: c.curve || 'C', rcd: c.rcd,
       devices: (c.devices || []).slice(), points: c.points, length: Math.round((c.length || 0) * 10) / 10,
       P: Math.round(c.power || 0), appliance: c.appliance || null, typeA: !!c.typeA, typeF: !!c.typeF,
-      contactor: c.contactor || (c.appliance === 'water_heater' ? 'hc' : null), teleruptor: !!c.teleruptor,
+      contactor: c.contactor || (c.appliance === 'water_heater' ? 'hc' : null), teleruptor: !!c.teleruptor, ddr: c.ddr || null,
       phase: c.phaseAuto ? null : c.phase || null,
     })),
   };
@@ -215,7 +215,7 @@ function checkBoard(design) {
       else if (up) push('warn', `${c.id} ${c.name} : départ sous ${up.id} 30 mA — pas de sélectivité avec les ID du tableau divisionnaire ; raccorder en tête, sous l’AGCP.`, c.id);
       if (c.Ib > c.In + 1e-9) push('err', `${c.id} ${c.name} : ${_bNum(c.Ib, 1)} A appelés > ${c.In} A — calibre et section supérieurs.`, c.id);
       for (const x of cs.filter((x) => x.panel === c.id && x.phase === '3P')) if (c.phase !== '3P') push('err', `${x.id} ${x.name} : départ triphasé dans un tableau divisionnaire alimenté en monophasé.`, x.id);
-    } else if (!c.rcd) push('err', `${c.id} ${c.name} : aucun interrupteur différentiel 30 mA en amont.`, c.id);
+    } else if (!c.rcd && !c.ddr) push('err', `${c.id} ${c.name} : aucun interrupteur différentiel 30 mA en amont.`, c.id);
     if (c.kind === 'light') {
       if (c.points > 8) push('err', `${c.id} ${c.name} : ${c.points} points lumineux — 8 au plus par circuit.`, c.id);
       if (c.In > 16) push('err', `${c.id} ${c.name} : éclairage protégé à ${c.In} A — 16 A au plus.`, c.id);
@@ -229,7 +229,8 @@ function checkBoard(design) {
     if (c.appliance === 'cooktop' && c.phase !== '3P' && (c.In < 32 || c.S < 6)) push('err', `${c.id} Plaque de cuisson : 32 A et 6 mm² en monophasé.`, c.id);
     if (c.appliance === 'cooktop' && c.phase === '3P' && (c.In < 16 || c.S < 2.5)) push('err', `${c.id} Plaque de cuisson triphasée : 20 A et 2,5 mm² (5G2,5).`, c.id);
     if (['oven', 'washer', 'dishwasher', 'dryer', 'water_heater'].includes(c.appliance) && (c.In < 16 || c.S < 2.5)) push('err', `${c.id} ${c.name} : circuit spécialisé 20 A en 2,5 mm².`, c.id);
-    const rc = rcds.find((r) => r.id === c.rcd);
+    // type du différentiel en amont : l'ID du groupe, ou le disjoncteur différentiel du circuit
+    const rc = rcds.find((r) => r.id === c.rcd) || (c.ddr ? { id: 'son disjoncteur différentiel', type: c.ddr } : null);
     if (rc && c.typeA && !['A', 'F', 'B'].includes(rc.type)) push('err', `${c.id} ${c.name} : sous ${rc.id} type ${rc.type} — il faut un différentiel type A (ou F).`, c.id);
     if (rc && c.typeF && !['F', 'B'].includes(rc.type)) push('warn', `${c.id} ${c.name} : borne de recharge sous ${rc.id} type ${rc.type} — type F (ou A-EV, ou B) conseillé.`, c.id);
     if (c.ok === false) push('warn', `${c.id} ${c.name} : chute de tension ${_bNum(c.dUpct, 1)} % > ${c.limit} %.`, c.id);
@@ -253,7 +254,7 @@ function checkBoard(design) {
   const needAC = A <= 35 ? 1 : A <= 100 ? 2 : 3;
   const nAC = rcds.filter((r) => r.type === 'AC' && byR(r).length).length, nA = rcds.filter((r) => r.type !== 'AC' && byR(r).length).length;
   if (A && nAC + nA < needAC + 1) push('warn', `${Math.round(A)} m² : ${needAC + 1} interrupteurs différentiels au moins (${needAC} type AC + 1 type A).`);
-  if (cs.some((c) => c.typeA) && !rcds.some((r) => ['A', 'F', 'B'].includes(r.type))) push('err', 'Plaque de cuisson ou lave-linge : un différentiel type A est obligatoire.');
+  if (cs.some((c) => c.typeA && !c.ddr) && !rcds.some((r) => ['A', 'F', 'B'].includes(r.type))) push('err', 'Plaque de cuisson ou lave-linge : un différentiel type A est obligatoire.');
   // Triphasé : départs 3P+N sur un réseau monophasé, déséquilibre des phases
   const tri = design.supply && design.supply.phases === 3;
   for (const c of cs) if (!tri && c.phase === '3P') push('err', `${c.id} ${c.name} : départ triphasé sur une alimentation monophasée.`, c.id);
@@ -355,8 +356,14 @@ function boardModules(design, pid) {
   for (const c of design.circuits.filter((x) => x.kind === 'sub' && !design.rcds.some((r) => r.id === x.rcd))) {
     items.push({ kind: 'breaker', w: c.phase === '3P' ? 4 : 1, ref: c.id, text: c.name, In: c.In, ct: c, phase: design.supply && design.supply.phases === 3 ? c.phase : null, feed: c.panelRef });
   }
+  // disjoncteurs différentiels 30 mA (un par circuit) : en tête, sous l'AGCP, avec leur contacteur
+  for (const c of design.circuits.filter((x) => x.ddr && !design.rcds.some((r) => r.id === x.rcd))) {
+    items.push({ kind: 'ddr', w: c.phase === '3P' ? 4 : 2, ref: c.id, text: c.name, In: c.In, ct: c, phase: design.supply && design.supply.phases === 3 ? c.phase : null, ddr: c.ddr });
+    if (c.contactor) items.push({ kind: 'contactor', w: 1, ref: 'KM' + c.id.replace(/^C/, ''), text: c.contactor === 'hc' ? 'Contacteur HC' : 'Contacteur', ct: c });
+    if (c.teleruptor) items.push({ kind: 'teleruptor', w: 1, ref: 'KL' + c.id.replace(/^C/, ''), text: 'Télérupteur', ct: c });
+  }
   const groups = design.rcds.map((r) => ({ r, cs: design.circuits.filter((c) => c.rcd === r.id) })).filter((g) => g.cs.length);
-  const loose = design.circuits.filter((c) => c.kind !== 'sub' && !design.rcds.some((r) => r.id === c.rcd));
+  const loose = design.circuits.filter((c) => c.kind !== 'sub' && !c.ddr && !design.rcds.some((r) => r.id === c.rcd));
   if (loose.length) groups.push({ r: null, cs: loose });
   const rows = [[]];
   let used = 0;
@@ -400,8 +407,10 @@ function unifilarLayout(design) {
     const groups = [];
     const feeds = V.circuits.filter((c) => c.kind === 'sub' && !V.rcds.some((r) => r.id === c.rcd));
     if (feeds.length) groups.push({ r: null, feed: true, cs: feeds });
+    const ddrs = V.circuits.filter((c) => c.ddr && !V.rcds.some((r) => r.id === c.rcd));
+    if (ddrs.length) groups.push({ r: null, ddr: true, cs: ddrs });
     groups.push(...V.rcds.map((r) => ({ r, cs: V.circuits.filter((c) => c.rcd === r.id) })).filter((g) => g.cs.length));
-    const loose = V.circuits.filter((c) => c.kind !== 'sub' && !V.rcds.some((r) => r.id === c.rcd));
+    const loose = V.circuits.filter((c) => c.kind !== 'sub' && !c.ddr && !V.rcds.some((r) => r.id === c.rcd));
     if (loose.length) groups.push({ r: null, cs: loose });
     const start = (local) => (local ? 120 : 180 + (V.supply && V.supply.surge ? 70 : 0));
     panelFolio[P.id || ''] = folios.length;
@@ -413,7 +422,7 @@ function unifilarLayout(design) {
         const cs = g.cs.slice(i, i + maxCols);
         const w = Math.max(cs.length, 2) * UNI.colW;
         if (x + w > right) { F = { groups: [], panel: P, view: V, local: F.local + 1 }; folios.push(F); x = start(F.local); }
-        F.groups.push({ r: g.r, feed: !!g.feed, cs, x0: x, w, cont: i > 0 });
+        F.groups.push({ r: g.r, feed: !!g.feed, ddr: !!g.ddr, cs, x0: x, w, cont: i > 0 });
         if (g.feed) for (const c of cs) feedFolio[c.id] = folios.length - 1;
         x += w + UNI.gap;
       }
@@ -625,10 +634,11 @@ function drawUnifilar(ctx, design, meta, folio) {
       text(g.r.id + (g.cont ? ' (suite)' : ''), tx, bus + 34, { bold: true, size: 9, color: blue });
       text(`${g.r.In} A${tri ? ' 4P' : ''}`, tx, bus + 45, { size: 8 }); text(`${g.r.sens || 30} mA`, tx, bus + 55, { size: 8 });
       text(`type ${g.r.type}`, tx, bus + 65, { size: 8 });
-    } else if (g.feed) {
-      // départs vers les tableaux divisionnaires : protégés par l'AGCP 500 mA sélectif
+    } else if (g.feed || g.ddr) {
+      // départs vers les tableaux divisionnaires (AGCP 500 mA sélectif), disjoncteurs différentiels 30 mA
       layer('TEXTES');
-      text('Départs TD', xc + 6, bus + 34, { size: 7.5, bold: true }); text('sous l’AGCP', xc + 6, bus + 44, { size: 7, color: mute });
+      if (g.feed) { text('Départs TD', xc + 6, bus + 34, { size: 7.5, bold: true }); text('sous l’AGCP', xc + 6, bus + 44, { size: 7, color: mute }); }
+      else { text('Disj. différentiels', xc + 6, bus + 34, { size: 7.5, bold: true, color: blue }); text('30 mA, sous l’AGCP', xc + 6, bus + 44, { size: 7, color: mute }); }
       layer('UNIFILAIRE');
       _uLine(ctx, xc, bus + 16, xc, bus + 72, 1.6);
     } else {
@@ -645,9 +655,11 @@ function drawUnifilar(ctx, design, meta, folio) {
       layer('UNIFILAIRE');
       _uLine(ctx, x, sub, x, sub + 14, 1.3);
       _uBreaker(ctx, x, sub + 14, 50);
+      if (c.ddr) { ctx.strokeStyle = blue; _uTorus(ctx, x, sub + 14 + 38, sub + 14 + 26); ctx.strokeStyle = ink; } // disjoncteur différentiel
       layer('TEXTES');
       text(`${c.curve || 'C'}${c.In}`, x + 4, sub + 34, { size: 7.5, bold: true });
-      if (tri && c.phase) text(c.phase === '3P' ? '3P+N' : c.phase, x + 4, sub + 44, { size: 7, color: c.phase === '3P' ? ink : mute });
+      if (c.ddr) text(`30 mA ${c.ddr}`, x + 4, sub + 76, { size: 6.5, color: blue });
+      if (tri && c.phase) text(c.phase === '3P' ? '3P+N' : c.phase, x + 4, c.ddr ? sub + 22 : sub + 44, { size: 7, color: c.phase === '3P' ? ink : mute });
       layer('UNIFILAIRE');
       let y = sub + 64;
       if (c.contactor || c.teleruptor) { _uContactor(ctx, x, y + 4, 38, c.contactor ? (c.contactor === 'hc' ? 'HC' : 'KM') : 'TL'); _uLine(ctx, x, y, x, y + 4, 1.3); y += 42; }
@@ -663,7 +675,7 @@ function drawUnifilar(ctx, design, meta, folio) {
 
   // Nomenclature des départs
   layer('CARTOUCHE');
-  const rowsT = [['Repère', (c) => c.id], ['Protection', (c) => `${c.curve || 'C'}${c.In} A`], ['Différentiel', (c) => c.rcd || (c.kind === 'sub' ? 'AGCP' : '—')], ['Câble', (c) => boardCable(c.S, c.phase)],
+  const rowsT = [['Repère', (c) => c.id], ['Protection', (c) => `${c.curve || 'C'}${c.In} A`], ['Différentiel', (c) => c.rcd || (c.kind === 'sub' ? 'AGCP' : c.ddr ? 'DDR ' + c.ddr : '—')], ['Câble', (c) => boardCable(c.S, c.phase)],
     ['Longueur', (c) => f1(c.length) + ' m'], ['Charge', (c) => (c.kind === 'light' ? c.points + ' pts' : c.kind === 'socket' ? c.points + ' PC' : c.kind === 'sub' ? c.panelRef || 'TD' : c.power >= 1000 ? f1(c.power / 1000) + ' kW' : Math.round(c.power) + ' W')],
     ['ΔU', (c) => f1(c.dUpct) + ' %']];
   if (tri) rowsT.splice(3, 0, ['Phase', (c) => (c.phase === '3P' ? '3P+N' : c.phase || '—')]);
@@ -767,7 +779,7 @@ function drawCalcNote(ctx, design, meta, folio) {
     ['Court-circuit mini', `Icc mini = 0,8 · U0 · S / (2 · ρ · L) ; U0 = ${N.U0} V ; ρ = ${_bNum(N.rho, 3)} Ω·mm²/m (1,25 × ρ20)`],
     ['Longueur protégée', 'Lmax = 0,8 · U0 · S / (2 · ρ · Im) : le magnétique déclenche si L ≤ Lmax'],
     ['', 'Im = 5 In (courbe B), 10 In (courbe C), 20 In (courbe D)'],
-    ['Contacts indirects', 'ID 30 mA sur tous les circuits terminaux (coupure automatique)'],
+    ['Contacts indirects', 'ID (ou disjoncteur différentiel) 30 mA sur tous les circuits terminaux (coupure automatique)'],
   ];
   frm.forEach(([h, v], i) => { if (h) text(h, fx, by + 32 + i * 13, { size: 8, bold: true }); text(v, fx + 104, by + 32 + i * 13, { size: 8 }); });
   // Tableau des circuits
@@ -1303,14 +1315,14 @@ function drawBoardFront(ctx, design, meta) {
     const slots = row.reduce((s, m) => s + m.w, 0);
     for (const m of row) {
       const w = m.w * mw - 0.8;
-      const fill = m.kind === 'rcd' ? '#e8f0fd' : m.kind === 'surge' ? '#fff4e0' : m.kind === 'contactor' || m.kind === 'teleruptor' ? '#eef7ef' : m.kind === 'switch' || m.feed ? '#f4effb' : '#ffffff';
+      const fill = m.kind === 'rcd' || m.kind === 'ddr' ? '#e8f0fd' : m.kind === 'surge' ? '#fff4e0' : m.kind === 'contactor' || m.kind === 'teleruptor' ? '#eef7ef' : m.kind === 'switch' || m.feed ? '#f4effb' : '#ffffff';
       box(x + 0.4, y, w, 44, fill, ink, 0.45);
       // manette
-      box(x + w / 2 - 2.6 + 0.4, y + 14, 5.2, 12, m.kind === 'rcd' ? blue : '#2b3342', null, 0.2);
-      text(m.ref, x + w / 2 + 0.4, y + 6.5, { size: 3, bold: true, color: m.kind === 'rcd' ? blue : ink });
-      const sub = m.kind === 'breaker' ? `C${m.In}${m.phase ? ' · ' + (m.phase === '3P' ? '3P+N' : m.phase) : ''}` : m.kind === 'rcd' ? m.text : m.kind === 'surge' ? 'Type 2' : m.kind === 'switch' ? `${m.In} A` : m.kind === 'contactor' ? 'HC' : 'TL';
+      box(x + w / 2 - 2.6 + 0.4, y + 14, 5.2, 12, m.kind === 'rcd' || m.kind === 'ddr' ? blue : '#2b3342', null, 0.2);
+      text(m.ref, x + w / 2 + 0.4, y + 6.5, { size: 3, bold: true, color: m.kind === 'rcd' || m.kind === 'ddr' ? blue : ink });
+      const sub = m.kind === 'breaker' ? `C${m.In}${m.phase ? ' · ' + (m.phase === '3P' ? '3P+N' : m.phase) : ''}` : m.kind === 'ddr' ? `C${m.In} · 30 mA ${m.ddr}` : m.kind === 'rcd' ? m.text : m.kind === 'surge' ? 'Type 2' : m.kind === 'switch' ? `${m.In} A` : m.kind === 'contactor' ? 'HC' : 'TL';
       text(sub, x + w / 2 + 0.4, y + 34, { size: 2.8 });
-      if (m.kind === 'rcd') { ctx.beginPath(); ctx.arc(x + w - 4, y + 38.5, 1.6, 0, Math.PI * 2); ctx.strokeStyle = ink; ctx.lineWidth = 0.3; ctx.stroke(); text('T', x + w - 4, y + 39.5, { size: 2 }); }
+      if (m.kind === 'rcd' || m.kind === 'ddr') { ctx.beginPath(); ctx.arc(x + w - 4, y + 38.5, 1.6, 0, Math.PI * 2); ctx.strokeStyle = ink; ctx.lineWidth = 0.3; ctx.stroke(); text('T', x + w - 4, y + 39.5, { size: 2 }); }
       // étiquette sous l'appareil
       box(x + 0.4, y + 48, w, 14, '#fff', '#c4ccd9', 0.3);
       const fitL = m.kind === 'rcd' ? { lines: [`${m.rcd.sens || 30} mA`, `type ${m.rcd.type}`], size: 2.4 } : m.feed ? _bFitLines('→ ' + m.feed + ' ' + m.text, w - 1.5, 2.4, 1.4) : _bFitLines(m.text, w - 1.5, 2.4, 1.6);
@@ -1395,7 +1407,8 @@ function drawBoardWiring(ctx, design, meta, folio) {
   };
   const wire = (color, pts, w) => { ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = w || 1.4; ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); };
   const dot = (x, y, c) => { ctx.save(); ctx.fillStyle = c || ink; ctx.beginPath(); ctx.arc(x, y, 1.7, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
-  const isHead = (m) => m.kind === 'rcd' || (m.kind === 'breaker' && (m.ref === 'QF' || m.feed));
+  const isHead = (m) => m.kind === 'rcd' || m.kind === 'ddr' || (m.kind === 'breaker' && (m.ref === 'QF' || m.feed));
+  const isOut = (m) => (m.kind === 'breaker' || m.kind === 'ddr') && m.ct; // départ d'un circuit
   // bornes d'un appareil : [nom du conducteur, x] — 4 pôles sur un appareil 4P, sinon phase + neutre
   const terms = (p) => {
     const four = tri && (p.m.kind === 'rcd' || p.m.kind === 'surge' || p.m.w >= 4 || (p.m.kind === 'breaker' && p.m.ref === 'QF'));
@@ -1474,7 +1487,7 @@ function drawBoardWiring(ctx, design, meta, folio) {
       }
     }
     // bornier de terre de la rangée, sous les appareils
-    const circ = pos.filter((p) => p.m.kind === 'breaker' && p.m.ct);
+    const circ = pos.filter((p) => isOut(p.m));
     if (circ.length) {
       layer('SCHEMA');
       const bx0 = Math.min(...circ.map((p) => p.x)) - 4, bx1 = Math.max(...circ.map((p) => p.x + p.w)) + 4;
@@ -1488,12 +1501,13 @@ function drawBoardWiring(ctx, design, meta, folio) {
       ctx.save(); ctx.lineWidth = 0.9; ctx.strokeStyle = ink; ctx.strokeRect(p.x + 1, yb, p.w - 2, yB - yb); ctx.restore();
       for (const [, tx] of tt) { dot(tx, yb); dot(tx, yB); }
       layer('TEXTES');
-      text(m.ref, p.x + p.w / 2, yb + 15 * sc, { bold: true, size: fs(7), align: 'center', color: m.kind === 'rcd' ? N : ink });
-      const sub = m.kind === 'breaker' ? `C${m.In}` : m.kind === 'rcd' ? `${m.rcd.In} A` : m.kind === 'surge' ? 'type 2' : m.kind === 'contactor' ? 'HC' : 'TL';
+      text(m.ref, p.x + p.w / 2, yb + 15 * sc, { bold: true, size: fs(7), align: 'center', color: m.kind === 'rcd' || m.kind === 'ddr' ? N : ink });
+      const sub = m.kind === 'breaker' || m.kind === 'ddr' ? `C${m.In}` : m.kind === 'rcd' ? `${m.rcd.In} A` : m.kind === 'surge' ? 'type 2' : m.kind === 'contactor' ? 'HC' : 'TL';
       text(sub, p.x + p.w / 2, yb + 27 * sc, { size: fs(6.5), align: 'center' });
       if (m.kind === 'rcd') text(`30 mA ${m.rcd.type}`, p.x + p.w / 2, yb + 39 * sc, { size: fs(6), align: 'center', color: mute });
+      else if (m.kind === 'ddr') text(`30 mA ${m.ddr}${tri ? ' · ' + (m.ct.phase === '3P' ? '3P+N' : tt[0][0]) : ''}`, p.x + p.w / 2, yb + 39 * sc, { size: fs(6), align: 'center', color: mute });
       else if (tri && m.kind === 'breaker' && m.ct) text(m.ct.phase === '3P' ? '3P+N' : tt[0][0], p.x + p.w / 2, yb + 39 * sc, { size: fs(6), align: 'center', color: mute });
-      if (m.kind === 'breaker' && m.ct) {
+      if (isOut(m)) {
         const tP = p.x + p.w / 2;
         layer('SCHEMA');
         for (const [nm, tx] of tt) {
@@ -1572,7 +1586,7 @@ function boardLabelsSVG(design, meta, page) {
       ctx.strokeStyle = '#1a2230'; ctx.lineWidth = 0.2;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 14); ctx.stroke();
       text(m.ref, x + w / 2, y + 4.5, { bold: true, size: 3 });
-      const label = m.kind === 'rcd' ? `${m.rcd.In} A ${m.rcd.sens || 30} mA type ${m.rcd.type}` : m.kind === 'switch' ? `Coupure générale ${m.In} A` : m.feed ? `→ ${m.feed} ${m.text}` : m.text;
+      const label = m.kind === 'rcd' ? `${m.rcd.In} A ${m.rcd.sens || 30} mA type ${m.rcd.type}` : m.kind === 'switch' ? `Coupure générale ${m.In} A` : m.feed ? `→ ${m.feed} ${m.text}` : m.kind === 'ddr' ? `${m.text} · 30 mA ${m.ddr}` : m.text;
       const f = _bFitLines(label, w - 1.5, 2.3, 1.5);
       f.lines.forEach((l, i) => text(l, x + w / 2, y + 8.6 + i * (f.size + 1.2), { size: f.size }));
       x += w;
@@ -1614,8 +1628,10 @@ function boardToSchematic(design, meta) {
     const groups = [];
     const fd = V.circuits.filter((c) => c.kind === 'sub' && !V.rcds.some((r) => r.id === c.rcd));
     if (fd.length) groups.push({ r: null, cs: fd, feed: true });
+    // disjoncteur différentiel : un différentiel et un disjoncteur en série dans sa colonne
+    groups.push(...V.circuits.filter((c) => c.ddr && !V.rcds.some((r) => r.id === c.rcd)).map((c) => ({ r: { id: 'DDR ' + c.id, In: c.In, type: c.ddr }, cs: [c] })));
     groups.push(...V.rcds.map((r) => ({ r, cs: V.circuits.filter((c) => c.rcd === r.id) })).filter((g) => g.cs.length));
-    const loose = V.circuits.filter((c) => c.kind !== 'sub' && !V.rcds.some((r) => r.id === c.rcd));
+    const loose = V.circuits.filter((c) => c.kind !== 'sub' && !c.ddr && !V.rcds.some((r) => r.id === c.rcd));
     if (loose.length) groups.push({ r: null, cs: loose });
     let xEnd = x;
     for (const g of groups) {
