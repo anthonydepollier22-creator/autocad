@@ -40,7 +40,7 @@ const U_TRI = 400;
 const MOUNT_H = {
   socket_wall: 0.3, rj45: 0.3, switch_sa: 1.1, switch_vv_wall: 1.1, dcl: 2.5, wall_light: 1.9, vmc: 2.5,
   radiator: 0.3, oven: 0.9, cooktop: 0.9, washer: 0.3, dishwasher: 0.3, dryer: 0.3, water_heater: 1.2,
-  ev_charger: 1.2, panel_house: 1.5,
+  ev_charger: 1.2, panel_house: 1.5, panel_sub: 1.5,
 };
 
 // Hauteur de pose d'un appareil (m) : la sienne si elle a été choisie (c.h, en cm), sinon la hauteur usuelle
@@ -281,24 +281,55 @@ function designInstallation(components, wires, board) {
 
   // Appareils alimentés par le tableau (les appareils « branchés » passent par une prise)
   const devs = tb ? components.filter((c) => LOADS[c.type] && LOADS[c.type].cls !== 'plug' || SWITCHES_PLAN.has(c.type)) : [];
-  const net = tb ? _buildNetwork(wires, [tb, ...devs]) : { edges: [], anchorNode: [] };
+  // Tableaux divisionnaires posés sur le plan (TD1, TD2… dans l'ordre des repères)
+  const tdComps = tb ? components.filter((c) => c.type === 'panel_sub').sort((a, b) => String(a.label || a.id).localeCompare(String(b.label || b.id), 'fr', { numeric: true })) : [];
+  const panelsC = [tb, ...tdComps], nP = panelsC.length;
+  const net = tb ? _buildNetwork(wires, [...panelsC, ...devs]) : { edges: [], anchorNode: [] };
   const hasNet = net.edges.length > 0;
-  const tbA = net.anchorNode[0];
-  const sp = hasNet && tbA ? _shortest(net, tbA.node) : null;
+  const pA = panelsC.map((p, i) => net.anchorNode[i]);
+  const sps = pA.map((A) => (hasNet && A ? _shortest(net, A.node) : null));
+  const tbA = pA[0], sp = sps[0];
   const tbRiser = MOUNT_H.panel_house - 0.1;
-  const route = {}; // id -> { len (m), edges: [indices], stub (m), off }
+  const riserOf = (p) => (MOUNT_H[p.type] || 1.5) - 0.1;
+  // appareils d'un TD du plan : ceux de sa pièce ; tableau personnalisé : ceux des circuits de ses ID
+  const devPanel = {};
+  if (tdComps.length) {
+    if (B) {
+      const feeders = B.circuits.filter((c) => c.kind === 'sub');
+      const rP = new Map((B.rcds || []).map((r) => [String(r.id), r.panel]));
+      for (const bc of B.circuits) {
+        const f = rP.get(String(bc.rcd)), i = f ? feeders.findIndex((x) => String(x.id) === String(f)) : -1;
+        if (i >= 0 && i < tdComps.length) for (const id of bc.devices || []) devPanel[id] = i + 1;
+      }
+    } else {
+      tdComps.forEach((t, i) => { const r = roomOf(t); if (r >= 0) for (const c of devs) if (roomOf(c) === r) devPanel[c.id] = i + 1; });
+    }
+  }
+  // chemin dans les goulottes depuis le tableau pi jusqu'au nœud d'ancrage A
+  const pathFrom = (spP, A) => { const edges = []; for (let v = A.node; spP.via[v] >= 0;) { const e = net.edges[spP.via[v]]; edges.push(spP.via[v]); v = e.a === v ? e.b : e.a; } return edges; };
+  const route = {}; // id -> { len (m), edges: [indices], stub (m), off, panel }
   let offNet = 0;
   devs.forEach((c, k) => {
-    const A = net.anchorNode[k + 1];
+    const pi = devPanel[c.id] || 0, P = panelsC[pi], PA = pA[pi], spP = sps[pi];
+    const A = net.anchorNode[nP + k];
     const rise = Math.max(0, mountH(c) - 0.1);
-    if (sp && A && A.stub < 150 && sp.dist[A.node] < Infinity) {
-      const edges = [];
-      for (let v = A.node; sp.via[v] >= 0;) { const e = net.edges[sp.via[v]]; edges.push(sp.via[v]); v = e.a === v ? e.b : e.a; }
-      route[c.id] = { len: (sp.dist[A.node] + tbA.stub + A.stub) / PLAN_UNITS_PER_M + rise + tbRiser, edges, stub: A.stub / PLAN_UNITS_PER_M + rise, node: A.node };
+    const direct = (Math.abs(c.x - P.x) + Math.abs(c.y - P.y)) / PLAN_UNITS_PER_M + rise + riserOf(P);
+    const viaNet = spP && A && A.stub < 150 && spP.dist[A.node] < Infinity ? (spP.dist[A.node] + PA.stub + A.stub) / PLAN_UNITS_PER_M + rise + riserOf(P) : Infinity;
+    if (pi && viaNet > 2 * direct + 3 && viaNet < Infinity) {
+      // TD : goulottes tracées depuis le tableau principal seulement (relancer « Goulottes ») — câble en direct
+      route[c.id] = { len: direct, edges: [], stub: 0, off: true, direct: true, panel: pi };
+    } else if (viaNet < Infinity) {
+      route[c.id] = { len: viaNet, edges: pathFrom(spP, A), stub: A.stub / PLAN_UNITS_PER_M + rise, node: A.node, panel: pi };
     } else {
       offNet++;
-      route[c.id] = { len: (Math.abs(c.x - tb.x) + Math.abs(c.y - tb.y)) / PLAN_UNITS_PER_M + rise + tbRiser, edges: [], stub: 0, off: true };
+      route[c.id] = { len: (Math.abs(c.x - P.x) + Math.abs(c.y - P.y)) / PLAN_UNITS_PER_M + rise + riserOf(P), edges: [], stub: 0, off: true, panel: pi };
     }
+  });
+  // lignes d'alimentation des TD du plan : du tableau principal au TD, dans les goulottes
+  const tdLink = tdComps.map((t, i) => {
+    const A = pA[i + 1];
+    if (sp && A && A.stub < 150 && sp.dist[A.node] < Infinity) return { len: (sp.dist[A.node] + tbA.stub + A.stub) / PLAN_UNITS_PER_M + tbRiser + riserOf(t), edges: pathFrom(sp, A), comp: t };
+    return { len: (Math.abs(t.x - tb.x) + Math.abs(t.y - tb.y)) / PLAN_UNITS_PER_M + tbRiser + riserOf(t), edges: [], off: true, comp: t };
   });
   if (offNet) {
     design.issues.push({
@@ -370,39 +401,60 @@ function designInstallation(components, wires, board) {
       design.issues.push({ level: 'warn', msg: `${design.orphans.length} appareil${design.orphans.length > 1 ? 's' : ''} du plan sur aucun circuit du tableau personnalisé : « Répartir les appareils » les range.` });
     }
   } else {
-    // Éclairage : 8 points maximum par circuit (16 A, 1,5 mm²), commandes comprises
-    const lights = byRoom(devs.filter((c) => LOADS[c.type] && LOADS[c.type].cls === 'light'));
-    const lightGroups = chunk(lights, 8), lightNames = names('Éclairage', lightGroups);
-    const wired = new Set();
-    lightGroups.forEach((g, i) => {
-      const rooms = new Set(g.map(roomOf));
-      const sw = devs.filter((c) => SWITCHES_PLAN.has(c.type) && rooms.has(roomOf(c)) && !wired.has(c.id));
-      sw.forEach((c) => wired.add(c.id));
-      // trois commandes ou plus pour un même éclairage (entrée, couloir) : télérupteur et poussoirs
-      const tl = [...rooms].some((r) => sw.filter((c) => roomOf(c) === r).length >= 3);
-      add({ kind: 'light', name: lightNames[i], In: 16, S: 1.5, devices: g.concat(sw), rooms: roomsLabel(g), points: g.length, teleruptor: tl });
+    // Circuits d'un tableau (principal, ou divisionnaire du plan avec son repère dans les noms)
+    const autoGroup = (D, tag) => {
+      const nm = (base, groups) => names(base + tag, groups);
+      // Éclairage : 8 points maximum par circuit (16 A, 1,5 mm²), commandes comprises
+      const lights = byRoom(D.filter((c) => LOADS[c.type] && LOADS[c.type].cls === 'light'));
+      const lightGroups = chunk(lights, 8), lightNames = nm('Éclairage', lightGroups);
+      const wired = new Set();
+      lightGroups.forEach((g, i) => {
+        const rooms = new Set(g.map(roomOf));
+        const sw = D.filter((c) => SWITCHES_PLAN.has(c.type) && rooms.has(roomOf(c)) && !wired.has(c.id));
+        sw.forEach((c) => wired.add(c.id));
+        // trois commandes ou plus pour un même éclairage (entrée, couloir) : télérupteur et poussoirs
+        const tl = [...rooms].some((r) => sw.filter((c) => roomOf(c) === r).length >= 3);
+        add({ kind: 'light', name: lightNames[i], In: 16, S: 1.5, devices: g.concat(sw), rooms: roomsLabel(g), points: g.length, teleruptor: tl });
+      });
+      // Prises : cuisine (6 max, circuit dédié), autres pièces (8 max) — 20 A, 2,5 mm²
+      const sk = byRoom(D.filter((c) => c.type === 'socket_wall'));
+      const kitchen = sk.filter((c) => roomKey(roomOf(c)) === 'cuisine');
+      const others = sk.filter((c) => roomKey(roomOf(c)) !== 'cuisine');
+      const socketGroups = chunk(others, 8), socketNames = nm('Prises', socketGroups);
+      socketGroups.forEach((g, i) => add({ kind: 'socket', name: socketNames[i], In: 20, S: 2.5, devices: g, rooms: roomsLabel(g), points: g.length }));
+      chunk(kitchen, 6).forEach((g, i, all) => add({ kind: 'socket', name: 'Prises cuisine' + tag + (all.length > 1 ? ' ' + (i + 1) : ''), In: 20, S: 2.5, devices: g, rooms: roomsLabel(g), points: g.length }));
+      // Chauffage : 4 500 W maximum par circuit (20 A, 2,5 mm²)
+      const rads = byRoom(D.filter((c) => c.type === 'radiator'));
+      const heat = [];
+      for (const r of rads) {
+        const g = heat[heat.length - 1];
+        if (g && g.P + loadPower(r) <= 4500 && levelOf(g.list[0]) === levelOf(r)) { g.list.push(r); g.P += loadPower(r); } else heat.push({ list: [r], P: loadPower(r) });
+      }
+      const heatNames = nm('Chauffage', heat.map((g) => g.list));
+      heat.forEach((g, i) => add({ kind: 'heating', name: heatNames[i], In: 20, S: 2.5, devices: g.list, rooms: roomsLabel(g.list), points: g.list.length }));
+      // Circuits spécialisés : un par appareil
+      for (const c of byRoom(D.filter((c) => LOADS[c.type] && LOADS[c.type].cls === 'dedicated'))) {
+        const s = LOADS[c.type];
+        const same = circuits.filter((x) => x.appliance === c.type).length;
+        add({ kind: 'dedicated', appliance: c.type, name: s.circuit + (same ? ' ' + (same + 1) : ''), In: s.In, S: s.S, devices: [c], rooms: roomName(roomOf(c)), points: 1, typeA: !!s.typeA, typeF: !!s.typeF, contactor: c.type === 'water_heater' ? 'hc' : null });
+      }
+    };
+    autoGroup(devs.filter((c) => !devPanel[c.id]), '');
+    // Tableaux divisionnaires du plan : un départ en tête (dimensionné plus loin), puis leurs circuits
+    tdComps.forEach((t, i) => {
+      const D = devs.filter((c) => devPanel[c.id] === i + 1);
+      const r = roomOf(t);
+      const f = add({ kind: 'sub', name: r >= 0 ? roomName(r) : 'Tableau divisionnaire', In: 32, S: 6, devices: [], rooms: roomName(r), points: 0, auto: true, manual: true, lengthIn: 0, Pin: 0 });
+      const n0 = circuits.length;
+      autoGroup(D, ' TD' + (i + 1));
+      for (const c of circuits.slice(n0)) c.panel = f.id;
     });
-    // Prises : cuisine (6 max, circuit dédié), autres pièces (8 max) — 20 A, 2,5 mm²
-    const kitchen = sockets.filter((c) => roomKey(roomOf(c)) === 'cuisine');
-    const others = sockets.filter((c) => roomKey(roomOf(c)) !== 'cuisine');
-    const socketGroups = chunk(others, 8), socketNames = names('Prises', socketGroups);
-    socketGroups.forEach((g, i) => add({ kind: 'socket', name: socketNames[i], In: 20, S: 2.5, devices: g, rooms: roomsLabel(g), points: g.length }));
-    chunk(kitchen, 6).forEach((g, i, all) => add({ kind: 'socket', name: 'Prises cuisine' + (all.length > 1 ? ' ' + (i + 1) : ''), In: 20, S: 2.5, devices: g, rooms: roomsLabel(g), points: g.length }));
-    // Chauffage : 4 500 W maximum par circuit (20 A, 2,5 mm²)
-    const rads = byRoom(devs.filter((c) => c.type === 'radiator'));
-    const heat = [];
-    for (const r of rads) {
-      const g = heat[heat.length - 1];
-      if (g && g.P + loadPower(r) <= 4500 && levelOf(g.list[0]) === levelOf(r)) { g.list.push(r); g.P += loadPower(r); } else heat.push({ list: [r], P: loadPower(r) });
-    }
-    const heatNames = names('Chauffage', heat.map((g) => g.list));
-    heat.forEach((g, i) => add({ kind: 'heating', name: heatNames[i], In: 20, S: 2.5, devices: g.list, rooms: roomsLabel(g.list), points: g.list.length }));
-    // Circuits spécialisés : un par appareil
-    for (const c of byRoom(devs.filter((c) => LOADS[c.type] && LOADS[c.type].cls === 'dedicated'))) {
-      const s = LOADS[c.type];
-      const same = circuits.filter((x) => x.appliance === c.type).length;
-      add({ kind: 'dedicated', appliance: c.type, name: s.circuit + (same ? ' ' + (same + 1) : ''), In: s.In, S: s.S, devices: [c], rooms: roomName(roomOf(c)), points: 1, typeA: !!s.typeA, typeF: !!s.typeF, contactor: c.type === 'water_heater' ? 'hc' : null });
-    }
+  }
+  // Départs de TD du plan (dans l'ordre) : longueur et cheminement mesurés depuis le tableau principal
+  circuits.filter((c) => c.kind === 'sub').forEach((f, i) => { if (tdLink[i]) { f.lengthIn = Math.round(tdLink[i].len * 10) / 10; f.link = tdLink[i]; f.comp = tdLink[i].comp.id; } });
+  const nFeed = circuits.filter((c) => c.kind === 'sub').length;
+  if (B && tdComps.length > nFeed) {
+    design.issues.push({ level: 'warn', msg: `${tdComps.slice(nFeed).map((t) => t.label || 'TD').join(', ')} posé sur le plan sans départ dans le tableau personnalisé : « + Circuit → Tableau divisionnaire » (ou « Revenir à l’automatique »).` });
   }
 
   // Appareils branchés : sur la prise la plus proche de la même pièce
@@ -442,7 +494,8 @@ function designInstallation(components, wires, board) {
     }
     let tree = 0;
     used.forEach((e) => { tree += net.edges[e].len; });
-    ct.length = tree / PLAN_UNITS_PER_M + stubs + direct + (used.size ? (tbA.stub / PLAN_UNITS_PER_M + tbRiser) : 0);
+    const pi = route[ct.devices[0].id].panel || 0; // tableau d'où part le circuit (principal ou TD du plan)
+    ct.length = tree / PLAN_UNITS_PER_M + stubs + direct + (used.size ? (pA[pi].stub / PLAN_UNITS_PER_M + riserOf(panelsC[pi])) : 0);
     if (B && !ct.length && ct.lengthIn) ct.length = ct.lengthIn;
     ct.edges = [...used];
     ct.power = ct.devices.reduce((s, c) => s + (LOADS[c.type] ? (LOADS[c.type].Pmax || loadPower(c)) : 0), 0);
@@ -475,20 +528,22 @@ function designInstallation(components, wires, board) {
     if (!ct.ok) design.issues.push({ level: 'warn', msg: `${ct.id} ${ct.name} : chute de tension ${ct.dUpct.toFixed(1).replace('.', ',')} % > ${ct.limit} % — augmenter la section ou scinder le circuit.` });
   }
 
-  // Tableaux divisionnaires (tableau personnalisé) : un départ « sub » en tête du tableau
-  // principal (sous l'AGCP) alimente les ID dont « panel » est son repère, et leurs circuits
+  // Tableaux divisionnaires : un départ « sub » en tête du tableau principal (sous l'AGCP)
+  // alimente les ID dont « panel » est son repère (tableau personnalisé), ou les circuits
+  // des appareils de sa pièce (TD posé sur le plan, conception automatique)
   design.panels = [];
-  if (B) {
-    const feeders = circuits.filter((c) => c.kind === 'sub');
-    const rcdPanel = new Map((B.rcds || []).map((r) => [String(r.id), r.panel && feeders.some((f) => f.id === r.panel) ? String(r.panel) : null]));
+  const feeders = circuits.filter((c) => c.kind === 'sub');
+  for (const f of feeders) if (f.link) f.edges = f.link.edges; // cheminement du départ (plan de câblage)
+  if (feeders.length) {
+    if (B) {
+      const rcdPanel = new Map((B.rcds || []).map((r) => [String(r.id), r.panel && feeders.some((f) => f.id === r.panel) ? String(r.panel) : null]));
+      for (const ct of circuits) { const p = ct.kind === 'sub' ? null : rcdPanel.get(ct.rcd) || null; if (p) ct.panel = p; }
+    }
     feeders.forEach((f, i) => {
       f.panelRef = 'TD' + (i + 1);
-      design.panels.push({ id: f.id, ref: f.panelRef, name: f.name, feeder: f });
+      design.panels.push({ id: f.id, ref: f.panelRef, name: f.name, feeder: f, comp: f.comp || null });
     });
-    for (const ct of circuits) {
-      const p = ct.kind === 'sub' ? null : rcdPanel.get(ct.rcd) || null;
-      if (p) { ct.panel = p; ct.panelRef = feeders.find((f) => f.id === p).panelRef; }
-    }
+    for (const ct of circuits) if (ct.panel) ct.panelRef = feeders.find((f) => f.id === ct.panel).panelRef;
     // puissance du départ : saisie, sinon puissance probable du tableau divisionnaire
     for (const f of feeders) {
       const down = circuits.filter((c) => c.panel === f.id);
@@ -500,6 +555,14 @@ function designInstallation(components, wires, board) {
         + (down.some((c) => c.kind === 'socket') ? 800 : 0));
       f.power = f.Pin > 0 ? f.Pin : f.Pauto;
       f.points = down.length;
+      if (f.auto) {
+        // départ dimensionné : 32 A (40, 63 selon l'appel), section du calibre, augmentée si la ligne
+        // est longue (ΔU ≤ 1,5 % sur le départ, court-circuit en bout de ligne)
+        const Ib = f.power / U_NOM;
+        f.In = Ib <= 32 ? 32 : Ib <= 40 ? 40 : 63;
+        const Ss = [6, 10, 16].filter((S) => ({ 6: 32, 10: 40, 16: 63 })[S] >= f.In);
+        f.S = Ss.find((S) => (2 * RHO_CU * f.length * Ib) / S / U_NOM * 100 <= 1.5 && (typeof calcLmax !== 'function' || f.length <= calcLmax(S, f.In, 'C'))) || 16;
+      }
       f.limit = down.some((c) => c.kind === 'light') ? 3 : 5; // le départ entame la chute de tension des circuits aval
       f.dU = (2 * RHO_CU * f.length * (f.power / U_NOM)) / f.S;
       f.dUpct = (f.dU / U_NOM) * 100;
@@ -561,18 +624,19 @@ function designInstallation(components, wires, board) {
       if (r) r.circuits.push(ct.id); else ct.rcd = null;
     }
   } else {
-    // Interrupteurs différentiels 30 mA selon la surface (NF C 15-100)
+    // Interrupteurs différentiels 30 mA selon la surface (NF C 15-100) — tableau principal
     const A = design.area;
+    const mainCs = circuits.filter((c) => c.kind !== 'sub' && !c.panel);
     const acCount = A <= 35 ? 1 : A <= 100 ? 2 : 3;
     const rcds = design.rcds;
     for (let i = 0; i < acCount; i++) rcds.push({ id: 'ID' + (rcds.length + 1), In: A <= 35 ? 25 : 40, type: 'AC', circuits: [] });
     rcds.push({ id: 'ID' + (rcds.length + 1), In: 40, type: 'A', circuits: [] });
-    if (circuits.some((c) => c.typeF)) rcds.push({ id: 'ID' + (rcds.length + 1), In: 40, type: 'F', circuits: [] });
+    if (mainCs.some((c) => c.typeF)) rcds.push({ id: 'ID' + (rcds.length + 1), In: 40, type: 'F', circuits: [] });
     const typeA = rcds.find((r) => r.type === 'A'), typeF = rcds.find((r) => r.type === 'F');
     const acs = rcds.filter((r) => r.type === 'AC');
     let rr = 0;
     const leastLoaded = () => acs.slice().sort((a, b) => a.circuits.length - b.circuits.length)[0];
-    for (const ct of circuits) {
+    for (const ct of mainCs) {
       let target;
       if (ct.typeF && typeF) target = typeF;
       else if (ct.typeA) target = typeA;
@@ -586,8 +650,18 @@ function designInstallation(components, wires, board) {
       target.circuits.push(ct.id);
       ct.rcd = target.id;
     }
+    // Tableaux divisionnaires du plan : leurs propres ID 30 mA (AC, A, F selon les appareils ; 8 circuits par ID)
+    for (const f of feeders) {
+      const byType = {};
+      for (const ct of circuits.filter((c) => c.panel === f.id)) {
+        const t = ct.typeF ? 'F' : ct.typeA ? 'A' : 'AC';
+        let r = (byType[t] || []).find((x) => x.circuits.length < 8);
+        if (!r) { r = { id: 'ID' + (rcds.length + 1), In: 40, type: t, circuits: [], panel: f.id }; rcds.push(r); (byType[t] = byType[t] || []).push(r); }
+        r.circuits.push(ct.id); ct.rcd = r.id;
+      }
+    }
     rcds.forEach((r, i) => { const old = r.id; r.id = 'ID' + (i + 1); circuits.forEach((c) => { if (c.rcd === old) c.rcd = '#' + r.id; }); });
-    circuits.forEach((c) => { c.rcd = c.rcd.replace('#', ''); });
+    circuits.forEach((c) => { c.rcd = c.rcd ? c.rcd.replace('#', '') : null; }); // départ de TD : en tête, sans ID
   }
 
   // Puissance installée / probable → abonnement et réglage du disjoncteur de branchement

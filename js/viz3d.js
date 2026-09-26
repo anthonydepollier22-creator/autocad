@@ -1022,6 +1022,14 @@ const BUILDERS3D = {
       }
     }
   },
+  // tableau divisionnaire : coffret d'une rangée (garage, atelier)
+  panel_sub: (v, c) => {
+    const m = _mount(v, c, 50);
+    _mb(v, m, 0, 0, 125, 44, 34, 12, '#fafbfc');
+    _mb(v, m, 0, 12, 128, 38, 28, 0.6, '#dfe3e8');
+    _mb(v, m, 0, 12.4, 139, 8, 30, 1.2, '#f7f7f5');
+    for (let k = 0; k < 5; k++) _mb(v, m, -12 + k * 6, 13, 141, 5, 4, 2.5, '#2f6fd1');
+  },
   socket_wall: (v, c) => {
     const m = _mount(v, c, 45);
     const y = +c.h > 0 ? c.h - 4.5 : _onWorktop(v, c) ? 106 : 24; // hauteur choisie (axe, cm)
@@ -1925,12 +1933,13 @@ function _buildCables(viz, components, design, snap, sim, nearWall, lvl) {
     }
     viz.em = 0; viz.obj = null; viz.off = null; viz.alpha = 1;
     if (dim) return; // pas de courant animé sur les circuits estompés
-    // Courant animé : du tableau vers chaque appareil qui consomme
-    if (!snap || !live || !tb) return;
+    // Courant animé : du tableau (principal, ou divisionnaire posé sur le plan) vers chaque appareil qui consomme
+    const P = ct.panel && (design.panels || []).find((x) => x.id === ct.panel), src = (P && P.comp && byId[P.comp]) || tb;
+    if (!snap || !live || !src) return;
     for (const id of ct.devices) {
       const dv = snap.devices[id], r = design.route[id], c = byId[id];
-      if (!dv || !dv.P || !r || r.off || !c || !shown(c.x) || !shown(tb.x)) continue;
-      const pts = _flowPath(net, r, design, tb, c, nearWall, lift, offOf);
+      if (!dv || !dv.P || !r || r.off || !c || !shown(c.x) || !shown(src.x)) continue;
+      const pts = _flowPath(net, r, design, src, c, nearWall, lift, offOf);
       if (pts.length < 2) continue;
       const I = dv.P / Math.max(1, dv.U);
       viz.flows.push({ pts, speed: 50 + 280 * Math.min(1, I / 12), color: [1, 0.8, 0.4], size: 6 + Math.min(5, I / 3) });

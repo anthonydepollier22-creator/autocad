@@ -213,7 +213,12 @@ l'éditeur du tableau, **avec ou sans plan** :
   est comptée depuis l'origine (ligne comprise) et le court-circuit minimal en bout de
   ligne ajoute l'impédance de la ligne (Lmax réduite). En triphasé, un TD monophasé
   suit la phase de son départ, un TD 3P+N équilibre ses circuits. Chaque TD a ses
-  folios (unifilaire, câblage), sa face avant, ses étiquettes et son coffret au métré ;
+  folios (unifilaire, câblage), sa face avant, ses étiquettes et son coffret au métré.
+  Le symbole **Tableau divisionnaire** se pose aussi sur le plan (palette 2D, ou
+  « Tableau div. » dans Implanter en 3D) : les appareils de sa pièce en partent, les
+  goulottes sont retracées depuis lui, la ligne est mesurée dans les goulottes depuis
+  le tableau principal, le départ est dimensionné (32 A en 6 mm², section augmentée
+  si la ligne est longue) et le TD reçoit ses ID (AC, A ou F selon ses appareils) ;
 - **Folio unifilaire normalisé** (A3 paysage, symboles CEI 60617) : réseau, compteur,
   disjoncteur de branchement 500 mA, parafoudre, borne principale et prise de terre,
   jeu de barres, différentiels, disjoncteurs, contacteurs, désignations verticales,
@@ -753,7 +758,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-186 vérifications sans dépendance : valeurs numériques de chaque simulation
+187 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

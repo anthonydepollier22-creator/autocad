@@ -336,7 +336,7 @@ function roomRuns(info, i) {
 const NF_SOCKETS = new Set(['socket_wall']);
 const NF_LIGHTS = new Set(['dcl', 'wall_light']);
 const NF_SWITCHES = new Set(['switch_sa', 'switch_vv_wall']);
-const NF_EQUIP = new Set([...NF_SOCKETS, ...NF_LIGHTS, ...NF_SWITCHES, 'jbox', 'panel_house', 'gtl']);
+const NF_EQUIP = new Set([...NF_SOCKETS, ...NF_LIGHTS, ...NF_SWITCHES, 'jbox', 'panel_house', 'panel_sub', 'gtl']);
 
 function checkNFC15100(components, wires) {
   const report = { hasPlan: wires.some((w) => w.kind === 'wall'), rooms: [], global: [], errors: 0, warnings: 0, ok: false };

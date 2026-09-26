@@ -840,6 +840,16 @@ Object.assign(SYMBOLS, {
         for (let i = 0; i < 4; i++) ctx.strokeRect(-30 + i * 16, -18 + r * 24, 12, 14);
     },
   },
+  // Tableau divisionnaire (garage, atelier, annexe) : alimenté depuis le tableau principal
+  panel_sub: {
+    name: 'Tableau divisionnaire', category: 'Implantation élec.', prefix: 'TD', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -28, y: -22, w: 56, h: 44 },
+    draw(ctx) {
+      ctx.strokeRect(-28, -22, 56, 44);
+      for (let i = 0; i < 3; i++) ctx.strokeRect(-22 + i * 16, -16, 12, 12);
+      ctx.save(); ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('TD', 0, 16); ctx.restore();
+    },
+  },
   gtl: {
     name: 'GTL (gaine technique)', category: 'Implantation élec.', prefix: 'GTL', plan: true,
     terminals: [{ x: 0, y: 0 }], bbox: { x: -20, y: -60, w: 40, h: 120 },

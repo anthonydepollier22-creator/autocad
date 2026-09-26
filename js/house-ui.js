@@ -1304,6 +1304,7 @@ function initHouseUI(app) {
     switch_vv_wall: { label: 'Va-et-vient', wall: true }, wall_light: { label: 'Applique', wall: true },
     rj45: { label: 'RJ45', wall: true }, dcl: { label: 'Point lumineux', ceil: true }, smoke_detector: { label: 'DAAF', ceil: true },
     radiator: { label: 'Radiateur', wall: true, furn: true, value: '1000 W' }, vmc: { label: 'Bouche VMC', ceil: true },
+    panel_sub: { label: 'Tableau divisionnaire', wall: true, furn: true },
   };
   const IMPLANTED = new Set([...Object.keys(IMPLANT), 'radiator', 'jbox', 'vmc']);
   const isCeil = (t) => t === 'dcl' || t === 'smoke_detector' || t === 'vmc';
@@ -1489,6 +1490,12 @@ function initHouseUI(app) {
     if (!IMPLANT[k].ceil && !IMPLANT[k].furn && implantH()) c.h = implantH();
     editor.components.push(c);
     const h = Math.round(mountH(c) * 100) + ' cm';
+    if (k === 'panel_sub') {
+      // les appareils de sa pièce partent du TD : goulottes retracées (tronc principal jusqu'au TD)
+      if (editor.wires.some((w) => w.kind === 'conduit')) { const doc = { components: editor.components, wires: editor.wires, counters: editor.counters }; autoConduits(doc); editor.wires = doc.wires; }
+      implantChanged(`Pose : <b>tableau divisionnaire</b> ${esc(c.label)}${tg.room ? ' — ' + esc(tg.room) : ''} à 1,50 m : les appareils de la pièce en partent, départ en tête du tableau principal (bouton Tableau). Annulable (Ctrl+Z).`);
+      return;
+    }
     implantChanged(`Pose : <b>${esc(SYMBOLS[k].name)}</b> ${esc(c.label)}${tg.room ? ' — ' + esc(tg.room) : ''}` +
       (IMPLANT[k].ceil ? ' (plafond)' : IMPLANT[k].furn ? `, contre ${tg.mat ? esc(tg.mat.label.toLowerCase()) : 'le mur'} (sortie de câble à 30 cm)`
         : ` à ${h}, ${tg.mat ? esc(tg.mat.label.toLowerCase()) + (tg.mat.hollow ? ' → boîte cloison sèche' : ' → boîte maçonnerie') : ''}`) + '. Annulable (Ctrl+Z).');
@@ -1577,7 +1584,7 @@ function initHouseUI(app) {
       c.on = !c.on;
       touched();
       showToast(`<b>${esc(LOADS[c.type].name)}</b> ${c.on ? 'en marche' : 'à l’arrêt'}.`, 1600);
-    } else if (c.type === 'panel_house' || c.type === 'gtl') {
+    } else if (c.type === 'panel_house' || c.type === 'panel_sub' || c.type === 'gtl') {
       showTab('install');
       showToast('Le tableau est dans l’onglet <b>Tableau</b> : clique une manette pour couper ou réarmer un circuit.', 3000);
     } else if (c.type === 'breaker' || c.type === 'rcd') {
@@ -1593,7 +1600,7 @@ function initHouseUI(app) {
     const hid = id && (byId(id) || String(id).startsWith('cable:')) ? id : null;
     if (viz.hoverObj !== hid) { viz.hoverObj = hid; if (!viz._raf) viz.render(); }
     const c = id && byId(id);
-    cv3.style.cursor = c && (SWITCH_ALL.has(c.type) || LOADS[c.type] || LIGHT_T.has(c.type) || c.type === 'panel_house') ? 'pointer' : '';
+    cv3.style.cursor = c && (SWITCH_ALL.has(c.type) || LOADS[c.type] || LIGHT_T.has(c.type) || c.type === 'panel_house' || c.type === 'panel_sub') ? 'pointer' : '';
     if (!c) { tip.hidden = true; return; }
     const d = design && design.ok ? design : null;
     let h = `<b>${esc(SYMBOLS[c.type].name)}</b>${c.label ? ' · ' + esc(c.label) : ''}`;

@@ -1029,6 +1029,31 @@ r = run(`(function(){
 })()`);
 check('Dossier technique : sommaire (folio 1), plan d’implantation, plan de câblage (un tracé par circuit), unifilaire, câblage, note, développés, élévations, communication numérotés à la suite', r.n === r.total && r.seq && r.cover && r.plan && r.last, r.nums.join(' '));
 
+// Tableau divisionnaire posé sur le plan : les appareils de sa pièce en partent (goulottes propres)
+r = run(`(function(){
+  var h = buildHouse('t5'), info = computeRooms(h.components, h.wires);
+  var gi = info.rooms.findIndex(function(r){ return /garage/i.test(r.name); });
+  var inG = function(c){ return roomAt(info, c.x, c.y) === gi; };
+  var devsG = h.components.filter(function(c){ return inG(c) && (LOADS[c.type] || SWITCHES_PLAN.has(c.type)); });
+  var ref = devsG.find(function(c){ return c.type === 'socket_wall'; });
+  var d0 = designInstallation(h.components, h.wires);
+  var doc = { components: h.components.concat([{ id: 'TDx', type: 'panel_sub', x: ref.x + 60, y: ref.y, rot: ref.rot || 0, label: 'TD1', value: '' }]), wires: h.wires.slice() };
+  autoConduits(doc);
+  var d = designInstallation(doc.components, doc.wires), F = d.circuits.find(function(c){ return c.kind === 'sub'; });
+  var down = d.circuits.filter(function(c){ return c.panel === F.id; });
+  var devIds = [].concat.apply([], down.map(function(c){ return c.devices; }));
+  var errs = d.checks.filter(function(c){ return c.level === 'err' || c.level === 'warn'; }).map(function(c){ return c.msg; });
+  var b = boardFromDesign(d), dB = designInstallation(doc.components, doc.wires, b), FB = dB.circuits.find(function(c){ return c.kind === 'sub'; });
+  var b2 = boardFromDesign(d0), d2 = designInstallation(doc.components, doc.wires, b2);
+  return { panel: d.panels.length === 1 && F.name === 'Garage' && F.In === 32 && F.S >= 6 && F.edges.length > 0 && F.length > 5,
+    garage: devIds.length === devsG.length && devIds.every(function(id){ return devsG.some(function(c){ return c.id === id; }); }),
+    short: down.every(function(c){ return c.length < 12; }), ids: d.rcds.filter(function(r){ return r.panel === F.id; }).map(function(r){ return r.type; }).sort().join(),
+    main: d0.circuits.length === d.circuits.length - 1 - down.length + d0.circuits.filter(function(c){ return c.devices.some(function(id){ return devsG.some(function(g){ return g.id === id; }); }) && c.devices.every(function(id){ return devsG.some(function(g){ return g.id === id; }); }); }).length,
+    errs: errs, custom: FB && Math.abs(FB.length - F.length) < 0.2 && dB.circuits.filter(function(c){ return c.panel; }).length === down.length && !dB.orphans.length,
+    warn: d2.issues.some(function(i){ return /TD1 posé sur le plan sans départ/.test(i.msg); }), b3d: typeof BUILDERS3D.panel_sub === 'function', sym: SYMBOLS.panel_sub.prefix === 'TD' };
+})()`);
+check('Tableau divisionnaire posé sur le plan : départ 32 A mesuré dans les goulottes, appareils de sa pièce sur ses circuits (câbles courts), ses ID AC et F ; repris par le tableau personnalisé', r.panel && r.garage && r.short && r.ids === 'AC,F' && !r.errs.length && r.custom && r.warn && r.b3d && r.sym, r.errs.join(' | ') || JSON.stringify(r));
+
 // Disjoncteur différentiel 30 mA propre à un circuit (borne de recharge, ajout dans un tableau existant)
 r = run(`(function(){
   var b = boardTemplate(90, { ev: true }), ev = b.circuits.find(function(c){ return c.appliance === 'ev_charger'; });

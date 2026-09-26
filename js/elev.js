@@ -7,7 +7,7 @@
 const ELEV_H = 250; // cm : hauteur sous plafond dessinée
 const ELEV_TYPES = new Set([
   'socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light', 'radiator', 'water_heater', 'ev_charger',
-  'panel_house', 'oven', 'cooktop', 'washer', 'dishwasher', 'dryer',
+  'panel_house', 'panel_sub', 'oven', 'cooktop', 'washer', 'dishwasher', 'dryer',
 ]);
 const ELEV_OPEN = { door: [80, 0, 204], window_a: [80, 95, 215], garage_door: [240, 0, 200] }; // largeur, bas, haut (cm)
 const _elevSide = (nx, ny) => { // mur vu depuis la pièce : la normale pointe vers l'intérieur
@@ -160,6 +160,7 @@ function drawElevations(ctx, design, meta, rooms, folio) {
         else if (t === 'rj45') { ctx.strokeRect(px - 4, py - 3, 8, 6); ln(px - 1.5, py + 3, px - 1.5, py + 1, 0.6); ln(px + 1.5, py + 3, px + 1.5, py + 1, 0.6); }
         else if (t === 'wall_light') { ctx.beginPath(); ctx.arc(px, py, 4.5, 0, Math.PI * 2); ctx.stroke(); ln(px - 3, py - 3, px + 3, py + 3, 0.7); ln(px - 3, py + 3, px + 3, py - 3, 0.7); }
         else if (t === 'radiator') { const hw = Math.max(6, (SYMBOLS.radiator.bbox.w / 200) * s); ctx.strokeRect(px - hw, Y(75), hw * 2, Y(15) - Y(75)); for (let i = 1; i < 5; i++) ln(px - hw + (i * hw) / 2.5, Y(72), px - hw + (i * hw) / 2.5, Y(18), 0.4); }
+        else if (t === 'panel_sub') { ctx.strokeRect(px - 7, py - 8, 14, 16); ln(px - 5, py, px + 5, py, 0.5); }
         else if (t === 'panel_house') { ctx.strokeRect(px - 8, py - 12, 16, 24); ln(px - 6, py - 4, px + 6, py - 4, 0.5); ln(px - 6, py + 4, px + 6, py + 4, 0.5); }
         else { ctx.beginPath(); ctx.moveTo(px - 4, py + 3); ctx.lineTo(px + 4, py + 3); ctx.lineTo(px, py - 4); ctx.closePath(); ctx.stroke(); } // sortie de câble
         ctx.restore();

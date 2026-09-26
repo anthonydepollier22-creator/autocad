@@ -1153,8 +1153,12 @@ function autoConduits(doc) {
   };
   const source = targetCell(tb);
   if (source < 0) return { conduits: 0, length: 0 };
-  const targets = doc.components.filter((c) => WIRED_TYPES.has(c.type))
-    .map((c) => ({ c, cell: targetCell(c) })).filter((t) => t.cell >= 0);
+  // Tableaux divisionnaires : le tronc principal les rejoint ; les appareils de leur pièce
+  // partent d'eux (un arbre de goulottes par TD)
+  const tds = doc.components.filter((c) => c.type === 'panel_sub').map((c) => ({ c, cell: targetCell(c), room: roomAt(info, c.x, c.y) })).filter((t) => t.cell >= 0 && t.room >= 0);
+  const tdRooms = new Set(tds.map((t) => t.room));
+  const all = doc.components.filter((c) => WIRED_TYPES.has(c.type)).map((c) => ({ c, cell: targetCell(c) })).filter((t) => t.cell >= 0);
+  const targets = all.filter((t) => !tdRooms.has(roomAt(info, t.c.x, t.c.y))).concat(tds.map((t) => ({ c: t.c, cell: t.cell })));
 
   // Maison à étage : l'escalier relie les deux plans (colonne montante)
   const RISE = 300; // cm de câble pour monter d'un niveau
@@ -1211,13 +1215,14 @@ function autoConduits(doc) {
     return null;
   };
   // Ordre : du plus proche au plus éloigné du tableau (le tronc se forme d'abord)
-  const sx = cellXY(source);
-  targets.sort((a, b) => {
+  let count = 0, length = 0;
+  const grow = (src, list) => {
+  const sx = cellXY(src);
+  list.sort((a, b) => {
     const pa = cellXY(a.cell), pb = cellXY(b.cell);
     return Math.hypot(pa.x - sx.x, pa.y - sx.y) - Math.hypot(pb.x - sx.x, pb.y - sx.y);
   });
-  let count = 0, length = 0;
-  for (const t of targets) {
+  for (const t of list) {
     if (inTree[t.cell]) continue;
     const cells = route(t.cell);
     if (!cells || cells.length < 2) continue;
@@ -1247,6 +1252,12 @@ function autoConduits(doc) {
       doc.wires.push({ id: _uid(doc, 'g'), kind: 'conduit', points: out });
     }
     count++;
+  }
+  };
+  grow(source, targets);
+  for (const t of tds) { // arbre propre à chaque TD, dans sa pièce
+    inTree.fill(0); inTree[t.cell] = 1;
+    grow(t.cell, all.filter((x) => roomAt(info, x.c.x, x.c.y) === t.room));
   }
   _clean(doc);
   return { conduits: count, length: length / PLAN_UNITS_PER_M };
