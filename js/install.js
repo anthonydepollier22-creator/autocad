@@ -266,7 +266,7 @@ function designInstallation(components, wires, board) {
   const design = {
     ok: false, circuits: [], rcds: [], agcp: null, issues: [], area: 0, byDevice: {}, plugs: {},
     installed: 0, probable: 0, cableTotal: 0, panel: null, custom: !!B, orphans: [],
-    supply: { phases: B && B.supply && +B.supply.phases === 3 ? 3 : 1, surge: !!(B && B.supply && B.supply.surge), kva: null, rows: (B && B.supply && +B.supply.rows) || 0 },
+    supply: { phases: B && B.supply && +B.supply.phases === 3 ? 3 : 1, surge: !!(B && B.supply && B.supply.surge), kva: null, rows: (B && B.supply && +B.supply.rows) || 0, ra: (B && B.supply && +B.supply.ra) || null },
   };
   const tb = components.find((c) => c.type === 'panel_house');
   if (!tb && !B) { design.issues.push({ level: 'err', msg: 'Aucun tableau électrique : place-le (ou lance l’implantation automatique).' }); return design; }
@@ -459,6 +459,9 @@ function designInstallation(components, wires, board) {
       ct.In = 16; ct.derated = true;
       dU = (2 * RHO_CU * far * ct.In) / ct.S;
     }
+    // Éclairage loin du tableau : un court-circuit en bout de ligne doit faire déclencher
+    // le magnétique (longueur maximale protégée, note de calcul) — 10 A au lieu de 16 A
+    if (!B && ct.kind === 'light' && ct.In === 16 && typeof calcLmax === 'function' && far > calcLmax(ct.S, 16, 'C')) { ct.In = 10; ct.derated = true; }
     ct.dU = dU;
     ct.dUpct = (dU / U_NOM) * 100;
     ct.ok = ct.dUpct <= ct.limit;

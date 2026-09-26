@@ -72,6 +72,7 @@ function buildDossier(o) {
     if (notes.length) h += '<ul class="checks">' + notes.map((i) => `<li class="${i.level}">${esc(i.msg)}</li>`).join('') + '</ul>';
     h += '</section>';
     if (o.boardFrontSVG) h += `<section class="page"><h2>Face avant du tableau</h2><div class="svg front">${o.boardFrontSVG}</div></section>`;
+    if (o.calcNoteSVGs && o.calcNoteSVGs.length) h += o.calcNoteSVGs.map((svg, k) => `<section class="page"><h2>Note de calcul${o.calcNoteSVGs.length > 1 ? ` (${k + 1}/${o.calcNoteSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
   }
 
   // Matériel et budget

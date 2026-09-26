@@ -10,6 +10,8 @@
  *  • drawUnifilar(ctx, …) : folio unifilaire normalisé (symboles CEI,
  *    nomenclature, cartouche), dessiné par le même code en SVG, en DXF et à
  *    l'écran ; plusieurs folios si le tableau est grand.
+ *  • calcNote(design) : note de calcul par circuit (Ib, In, Iz, ΔU, Icc mini,
+ *    longueur maximale protégée), folios A3 en SVG / DXF, tableur CSV.
  *  • Face avant (rangées de 13 modules, réserve) et étiquettes à imprimer.
  */
 
@@ -75,7 +77,7 @@ function boardCable(S, phase) { return (phase === '3P' ? '5G' : '3G') + _bS(S); 
 function boardFromDesign(design) {
   return {
     v: 1,
-    supply: { kva: design.agcp ? design.agcp.kva : 9, phases: (design.supply && design.supply.phases) || 1, surge: !!(design.supply && design.supply.surge), area: Math.round(design.area || 0) },
+    supply: { kva: design.agcp ? design.agcp.kva : 9, phases: (design.supply && design.supply.phases) || 1, surge: !!(design.supply && design.supply.surge), area: Math.round(design.area || 0), ra: (design.supply && design.supply.ra) || null },
     rcds: design.rcds.map((r) => ({ id: r.id, In: r.In, type: r.type, sens: r.sens || 30 })),
     circuits: design.circuits.map((c) => ({
       id: c.id, name: c.name, kind: c.kind, In: c.In, S: c.S, curve: c.curve || 'C', rcd: c.rcd,
@@ -205,6 +207,11 @@ function checkBoard(design) {
     if (rc && c.typeA && !['A', 'F', 'B'].includes(rc.type)) push('err', `${c.id} ${c.name} : sous ${rc.id} type ${rc.type} — il faut un différentiel type A (ou F).`, c.id);
     if (rc && c.typeF && !['F', 'B'].includes(rc.type)) push('warn', `${c.id} ${c.name} : borne de recharge sous ${rc.id} type ${rc.type} — type F (ou A-EV, ou B) conseillé.`, c.id);
     if (c.ok === false) push('warn', `${c.id} ${c.name} : chute de tension ${_bNum(c.dUpct, 1)} % > ${c.limit} %.`, c.id);
+    // Note de calcul : courant admissible du câble (triphasé : 3 conducteurs chargés), longueur protégée
+    const Iz3 = c.phase === '3P' && CALC_IZ[3][c.S];
+    if (Iz3 && c.In > Iz3) push('err', `${c.id} ${c.name} : ${c.In} A sur ${boardCable(c.S, c.phase)} — Iz = ${_bNum(Iz3, 1)} A en triphasé, section supérieure.`, c.id);
+    const L = c.far || c.length || 0, Lmax = calcLmax(c.S, c.In, c.curve);
+    if (L > Lmax) push('err', `${c.id} ${c.name} : ${_bNum(L, 1)} m > ${_bNum(Lmax)} m protégés — un court-circuit en bout de ligne (≈ ${_bNum((0.8 * CALC_U0 * c.S) / (2 * CALC_RHO * L))} A) ne ferait pas déclencher le ${c.curve || 'C'}${c.In} (${(CALC_IM[c.curve || 'C'] || 10) * c.In} A) : section supérieure ou calibre inférieur.`, c.id);
   }
   // Différentiels
   const byR = (r) => cs.filter((c) => c.rcd === r.id);
@@ -228,6 +235,9 @@ function checkBoard(design) {
     const L = design.phaseLoad, v = [L.L1, L.L2, L.L3], mx = Math.max(...v), mn = Math.min(...v);
     if (mx > 3000 && mx - mn > 0.3 * mx) push('warn', `Phases déséquilibrées : L1 ${_bNum(L.L1 / 1000, 1)} kW, L2 ${_bNum(L.L2 / 1000, 1)} kW, L3 ${_bNum(L.L3 / 1000, 1)} kW — répartir les gros circuits.`);
   }
+  // Prise de terre (schéma TT) : l'AGCP différentiel 500 mA impose RA ≤ 50 V / 0,5 A = 100 Ω
+  const ra = design.supply && +design.supply.ra;
+  if (ra > 100) push('err', `Prise de terre ${_bNum(ra)} Ω > 100 Ω : avec l’AGCP 500 mA, 50 V / 0,5 A = 100 Ω au plus — ajouter un piquet ou une boucle à fond de fouille.`);
   // Abonnement
   if (design.agcp && design.probable > design.agcp.kva * 1000) push('warn', `Puissance probable ${_bNum(design.probable / 1000, 1)} kW > abonnement ${design.agcp.kva} kVA : le disjoncteur de branchement risque de couper.`);
   // Réserve et options
@@ -241,6 +251,44 @@ function checkBoard(design) {
 // ---------------------------------------------------------------------------
 // Face avant : modules sur rail DIN (rangées de 13 modules de 18 mm)
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Note de calcul (NF C 15-100, méthode conventionnelle du guide UTE C 15-105)
+// ---------------------------------------------------------------------------
+// Courant admissible Iz (A) : cuivre isolé PVC, méthode de référence B (conduit
+// encastré), 30 °C ; 2 conducteurs chargés en monophasé, 3 en triphasé
+const CALC_IZ = { 2: { 1.5: 17.5, 2.5: 24, 4: 32, 6: 41, 10: 57, 16: 76 }, 3: { 1.5: 15.5, 2.5: 21, 4: 28, 6: 36, 10: 50, 16: 68 } };
+const CALC_RHO = 0.023;                 // Ω·mm²/m : cuivre en court-circuit (1,25 × ρ à 20 °C)
+const CALC_IM = { B: 5, C: 10, D: 20 }; // seuil haut du déclenchement magnétique (× In)
+const CALC_U0 = 230;
+// Longueur maximale protégée (m) : défaut phase-neutre franc en bout de ligne,
+// tension ramenée à 80 % : Icc mini = 0,8·U0·S / (2·ρ·L) doit atteindre Im
+function calcLmax(S, In, curve) { return (0.8 * CALC_U0 * S) / (2 * CALC_RHO * (CALC_IM[curve || 'C'] || 10) * In); }
+function calcNote(design) {
+  const supply = design.supply || {};
+  const rows = design.circuits.map((c) => {
+    const three = c.phase === '3P', curve = c.curve || 'C';
+    const L = c.far || c.length || 0;
+    const Iz = CALC_IZ[three ? 3 : 2][c.S] || null;
+    const Ib = c.kind === 'socket' ? c.In : (c.power || 0) / (three ? Math.sqrt(3) * U_TRI : CALC_U0);
+    const Im = (CALC_IM[curve] || 10) * c.In;
+    const Lmax = calcLmax(c.S, c.In, curve);
+    const icc = L > 0 ? (0.8 * CALC_U0 * c.S) / (2 * CALC_RHO * L) : null;
+    const r = { id: c.id, name: c.name, phase: c.phase || null, kind: c.kind, P: c.power || 0, Ib, In: c.In, curve, S: c.S, cable: boardCable(c.S, c.phase), Iz, L, dU: c.dUpct, dUmax: c.limit, icc, Im, Lmax };
+    r.okIz = Iz !== null && c.In <= Iz && Ib <= c.In + 1e-9;
+    r.okL = L <= Lmax;
+    r.okU = !(c.dUpct > c.limit);
+    r.ok = r.okIz && r.okL && r.okU;
+    return r;
+  });
+  return {
+    rows, tri: supply.phases === 3, U0: CALC_U0, rho: CALC_RHO,
+    ra: supply.ra || null, raMax: 100,    // AGCP différentiel 500 mA : RA ≤ 50 V / 0,5 A
+    pdc: 3000,                            // pouvoir de coupure en aval du disjoncteur de branchement
+    agcp: design.agcp, probable: design.probable,
+    errors: rows.filter((r) => !r.ok).length,
+  };
+}
+
 const BOARD_ROW = 13;
 function boardModules(design) {
   const items = [];
@@ -343,6 +391,37 @@ function _uEarth(ctx, x, y) {
 }
 function _uArrow(ctx, x, y) { ctx.beginPath(); ctx.moveTo(x - 3.5, y); ctx.lineTo(x + 3.5, y); ctx.lineTo(x, y + 6); ctx.closePath(); ctx.fill(); }
 
+// Cadre A3 et cartouche communs aux folios (unifilaire, note de calcul)
+function _uCartouche(ctx, design, meta, subtitle, k, nF) {
+  const { W, H } = UNI, ink = '#1a2230', mute = '#5b6b82';
+  const text = (t, x, y, o) => {
+    o = o || {};
+    ctx.save(); ctx.fillStyle = o.color || ink; ctx.font = `${o.bold ? 'bold ' : ''}${o.size || 9}px sans-serif`;
+    ctx.textAlign = o.align || 'left'; ctx.fillText(t, x, y); ctx.restore();
+  };
+  const fit = (t, n) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
+  ctx.save(); ctx.strokeStyle = ink;
+  ctx.lineWidth = 1.6; ctx.strokeRect(15, 15, W - 30, H - 30);
+  const cy = H - 15 - 62;
+  ctx.lineWidth = 1.2; ctx.strokeRect(15, cy, W - 30, 62);
+  for (const cx of [430, 700, 900, 1060]) _uLine(ctx, cx, cy, cx, H - 15, 1);
+  const title = (meta && meta.title) || 'Installation électrique';
+  text(fit(title, 52), 26, cy + 24, { bold: true, size: 14 });
+  text(subtitle, 26, cy + 42, { size: 9.5 });
+  text('Dessiné avec ÉlectriCAD', 26, cy + 55, { size: 7.5, color: mute });
+  const d0 = design.agcp, tri = design.supply && design.supply.phases === 3;
+  text(`${tri ? 'Triphasé 400 V ~ (3P+N)' : 'Monophasé 230 V ~'} · abonnement ${d0.kva} kVA`, 440, cy + 22, { size: 9 });
+  text(`AGCP ${d0.setting} A 500 mA · ${design.rcds.length} ID 30 mA · ${design.circuits.length} circuits`, 440, cy + 37, { size: 9 });
+  text(`${_bNum(design.cableTotal)} m de câble · puissance probable ${_bNum(design.probable / 1000, 1)} kW`, 440, cy + 52, { size: 8, color: mute });
+  const date = (meta && meta.date) || new Date().toISOString().slice(0, 10);
+  text('Date', 710, cy + 20, { size: 7.5, color: mute }); text(date, 710, cy + 33, { size: 9.5 });
+  text('Auteur', 710, cy + 46, { size: 7.5, color: mute }); text(fit((meta && meta.author) || '—', 26), 710, cy + 57, { size: 9 });
+  text('Norme', 910, cy + 20, { size: 7.5, color: mute }); text('NF C 15-100', 910, cy + 34, { size: 10, bold: true });
+  text('contrôle simplifié — à faire valider', 910, cy + 48, { size: 7, color: mute }); text('par un professionnel (Consuel)', 910, cy + 57, { size: 7, color: mute });
+  text('Folio', 1070, cy + 20, { size: 7.5, color: mute }); text(`${k + 1} / ${nF}`, 1117, cy + 48, { size: 22, bold: true, align: 'center' });
+  ctx.restore();
+}
+
 function drawUnifilar(ctx, design, meta, folio) {
   const lay = unifilarLayout(design), k = folio || 0, F = lay.folios[k], nF = lay.folios.length;
   const { W, H, colW, bus, sub } = UNI;
@@ -363,25 +442,9 @@ function drawUnifilar(ctx, design, meta, folio) {
 
   // Cadre et cartouche
   layer('CARTOUCHE');
-  ctx.lineWidth = 1.6; ctx.strokeRect(15, 15, W - 30, H - 30);
-  const cy = H - 15 - 62;
-  ctx.lineWidth = 1.2; ctx.strokeRect(15, cy, W - 30, 62);
-  for (const cx of [430, 700, 900, 1060]) _uLine(ctx, cx, cy, cx, H - 15, 1);
-  const title = (meta && meta.title) || 'Installation électrique';
-  text(fit(title, 52), 26, cy + 24, { bold: true, size: 14 });
-  text('Schéma unifilaire du tableau de répartition', 26, cy + 42, { size: 9.5 });
-  text('Dessiné avec ÉlectriCAD', 26, cy + 55, { size: 7.5, color: mute });
+  _uCartouche(ctx, design, meta, 'Schéma unifilaire du tableau de répartition', k, nF);
   const d0 = design.agcp;
   const tri = design.supply && design.supply.phases === 3;
-  text(`${tri ? 'Triphasé 400 V ~ (3P+N)' : 'Monophasé 230 V ~'} · abonnement ${d0.kva} kVA`, 440, cy + 22, { size: 9 });
-  text(`AGCP ${d0.setting} A 500 mA · ${design.rcds.length} ID 30 mA · ${design.circuits.length} circuits`, 440, cy + 37, { size: 9 });
-  text(`${_bNum(design.cableTotal)} m de câble · puissance probable ${f1(design.probable / 1000)} kW`, 440, cy + 52, { size: 8, color: mute });
-  const date = (meta && meta.date) || new Date().toISOString().slice(0, 10);
-  text('Date', 710, cy + 20, { size: 7.5, color: mute }); text(date, 710, cy + 33, { size: 9.5 });
-  text('Auteur', 710, cy + 46, { size: 7.5, color: mute }); text(fit((meta && meta.author) || '—', 26), 710, cy + 57, { size: 9 });
-  text('Norme', 910, cy + 20, { size: 7.5, color: mute }); text('NF C 15-100', 910, cy + 34, { size: 10, bold: true });
-  text('contrôle simplifié — à faire valider', 910, cy + 48, { size: 7, color: mute }); text('par un professionnel (Consuel)', 910, cy + 57, { size: 7, color: mute });
-  text('Folio', 1070, cy + 20, { size: 7.5, color: mute }); text(`${k + 1} / ${nF}`, 1117, cy + 48, { size: 22, bold: true, align: 'center' });
 
   // Légende des symboles (premier folio)
   if (k === 0) {
@@ -544,6 +607,146 @@ function unifilarDXF(design, meta) {
   return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: n * (UNI.H + 60) }, {
     U: 1 / 0.3528, insunits: 4, layers: [['UNIFILAIRE', 7], ['TEXTES', 2], ['CARTOUCHE', 8]],
   });
+}
+
+// Note de calcul en folios A3 : hypothèses, formules, un tableau des circuits
+const CALC_ROWS = 34; // lignes par folio
+function calcNoteFolios(design) { return Math.max(1, Math.ceil(design.circuits.length / CALC_ROWS)); }
+function drawCalcNote(ctx, design, meta, folio) {
+  const N = calcNote(design), k = folio || 0, nF = calcNoteFolios(design);
+  const ink = '#1a2230', mute = '#5b6b82', red = '#b3261e', green = '#1e7b34';
+  const layer = (n) => { if ('layer' in ctx) ctx.layer = n; };
+  const text = (t, x, y, o) => {
+    o = o || {};
+    ctx.save(); ctx.fillStyle = o.color || ink; ctx.font = `${o.bold ? 'bold ' : ''}${o.size || 9}px sans-serif`;
+    ctx.textAlign = o.align || 'left'; ctx.fillText(t, x, y); ctx.restore();
+  };
+  const f1 = (v) => _bNum(v, 1), f0 = (v) => _bNum(v);
+  ctx.save(); ctx.strokeStyle = ink; ctx.lineCap = 'round';
+  layer('CARTOUCHE');
+  _uCartouche(ctx, design, meta, 'Note de calcul des circuits (sections et protections)', k, nF);
+  layer('TEXTES');
+  text('Note de calcul', 30, 46, { bold: true, size: 17 });
+  text('NF C 15-100 — méthode conventionnelle du guide UTE C 15-105 · protection contre les surcharges, les courts-circuits, les contacts indirects ; chute de tension', 170, 45, { size: 8.5, color: mute });
+  // Hypothèses et formules
+  const bx = 30, by = 60, bh = 124;
+  layer('CARTOUCHE');
+  ctx.lineWidth = 0.8; ctx.strokeRect(bx, by, 560, bh); ctx.strokeRect(bx + 570, by, 560, bh);
+  layer('TEXTES');
+  const a = N.agcp || { kva: 0, setting: 0 };
+  const ra = N.ra ? `RA = ${f0(N.ra)} Ω mesurée — ${N.ra <= N.raMax ? 'conforme' : 'trop élevée'} (${N.raMax} Ω au plus)` : `RA à mesurer au raccordement : ${N.raMax} Ω au plus`;
+  const hyp = [
+    ['Alimentation', `${N.tri ? 'triphasée 400 V ~ (3P+N)' : 'monophasée 230 V ~'}, abonnement ${a.kva} kVA, AGCP ${N.tri ? '4P' : '2P'} ${a.setting} A différentiel 500 mA`],
+    ['Schéma des liaisons', `TT : ${ra}`],
+    ['', `RA · IΔn ≤ 50 V : 100 Ω pour l’AGCP 500 mA, 1 667 Ω pour les ID 30 mA`],
+    ['Pouvoir de coupure', '3 kA au moins en aval du disjoncteur de branchement (NF EN 60898-1 « 3000 »)'],
+    ['Câbles', `cuivre isolé PVC en conduit encastré, méthode B, 30 °C, ${N.tri ? '2 ou 3' : '2'} conducteurs chargés`],
+    ['Puissance probable', `${f1((N.probable || 0) / 1000)} kW (foisonnement appliqué)`],
+    ['Longueur L', 'jusqu’à l’appareil le plus éloigné du circuit (mesurée sur le plan)'],
+  ];
+  text('Hypothèses', bx + 8, by + 15, { bold: true, size: 9.5 });
+  hyp.forEach(([h, v], i) => { if (h) text(h, bx + 8, by + 32 + i * 13, { size: 8, bold: true }); text(v, bx + 118, by + 32 + i * 13, { size: 8 }); });
+  const fx = bx + 578;
+  text('Formules et critères', fx, by + 15, { bold: true, size: 9.5 });
+  const frm = [
+    ['Surcharges', 'Ib ≤ In ≤ Iz (prises : Ib = In) ; Iz selon la section et le nombre de conducteurs chargés'],
+    ['Chute de tension', `ΔU = b · ρ1 · L · Ib / S ; b = 2 (mono) ou √3 (tri sous 400 V) ; ρ1 = ${_bNum(RHO_CU, 4)} Ω·mm²/m`],
+    ['', 'ΔU ≤ 3 % pour l’éclairage, 5 % pour les autres usages'],
+    ['Court-circuit mini', `Icc mini = 0,8 · U0 · S / (2 · ρ · L) ; U0 = ${N.U0} V ; ρ = ${_bNum(N.rho, 3)} Ω·mm²/m (1,25 × ρ20)`],
+    ['Longueur protégée', 'Lmax = 0,8 · U0 · S / (2 · ρ · Im) : le magnétique déclenche si L ≤ Lmax'],
+    ['', 'Im = 5 In (courbe B), 10 In (courbe C), 20 In (courbe D)'],
+    ['Contacts indirects', 'ID 30 mA sur tous les circuits terminaux (coupure automatique)'],
+  ];
+  frm.forEach(([h, v], i) => { if (h) text(h, fx, by + 32 + i * 13, { size: 8, bold: true }); text(v, fx + 104, by + 32 + i * 13, { size: 8 }); });
+  // Tableau des circuits
+  const cols = [
+    ['Repère', 46, (r) => r.id, { bold: true }],
+    ['Circuit', 176, (r) => (r.name.length > 34 ? r.name.slice(0, 33) + '…' : r.name)],
+  ];
+  if (N.tri) cols.push(['Phase', 40, (r) => (r.phase === '3P' ? '3P+N' : r.phase || '—')]);
+  cols.push(
+    ['P (W)', 54, (r) => (r.P ? f0(r.P) : '—'), { right: true }],
+    ['Ib (A)', 46, (r) => f1(r.Ib), { right: true }],
+    ['Protection', 60, (r) => `${r.curve}${r.In} A`],
+    ['Câble', 56, (r) => r.cable],
+    ['Iz (A)', 46, (r) => (r.Iz ? f1(r.Iz) : '—'), { right: true, bad: (r) => !r.okIz }],
+    ['L (m)', 46, (r) => f1(r.L), { right: true, bad: (r) => !r.okL }],
+    ['ΔU (%)', 62, (r) => `${f1(r.dU)} / ${r.dUmax}`, { right: true, bad: (r) => !r.okU }],
+    ['Icc mini (A)', 64, (r) => (r.icc ? f0(r.icc) : '—'), { right: true, bad: (r) => !r.okL }],
+    ['Im (A)', 50, (r) => f0(r.Im), { right: true }],
+    ['Lmax (m)', 56, (r) => f0(r.Lmax), { right: true, bad: (r) => !r.okL }],
+  );
+  const tx0 = 30, tx1 = UNI.W - 30, ty = 204, hh = 22, rh = 15;
+  const used = cols.reduce((s, c) => s + c[1], 0);
+  cols.push(['Vérification', tx1 - tx0 - used, (r) => (r.ok ? 'conforme' : [!r.okIz && 'In > Iz', !r.okL && 'L > Lmax', !r.okU && 'ΔU'].filter(Boolean).join(' · ')), { verdict: true }]);
+  const rows = N.rows.slice(k * CALC_ROWS, (k + 1) * CALC_ROWS);
+  const y1 = ty + hh + rows.length * rh;
+  // fond de l'en-tête et lignes alternées (SVG seulement : le DXF garde le trait)
+  if (!('layer' in ctx)) {
+    ctx.fillStyle = '#e8eef6'; ctx.beginPath(); ctx.rect(tx0, ty, tx1 - tx0, hh); ctx.fill();
+    ctx.fillStyle = '#f5f7fa';
+    rows.forEach((r, i) => { if (i % 2) { ctx.beginPath(); ctx.rect(tx0, ty + hh + i * rh, tx1 - tx0, rh); ctx.fill(); } });
+    ctx.fillStyle = '#fbe9e7';
+    rows.forEach((r, i) => { if (!r.ok) { ctx.beginPath(); ctx.rect(tx0, ty + hh + i * rh, tx1 - tx0, rh); ctx.fill(); } });
+  }
+  layer('CARTOUCHE');
+  ctx.strokeStyle = ink;
+  _uLine(ctx, tx0, ty, tx1, ty, 1.1); _uLine(ctx, tx0, ty + hh, tx1, ty + hh, 1); _uLine(ctx, tx0, y1, tx1, y1, 1.1);
+  for (let i = 1; i < rows.length; i++) _uLine(ctx, tx0, ty + hh + i * rh, tx1, ty + hh + i * rh, 0.4);
+  let x = tx0;
+  for (const c of cols) { _uLine(ctx, x, ty, x, y1, x === tx0 ? 1.1 : 0.5); x += c[1]; }
+  _uLine(ctx, tx1, ty, tx1, y1, 1.1);
+  layer('TEXTES');
+  x = tx0;
+  for (const [lab, w, f, o] of cols) {
+    const oo = o || {};
+    text(lab, oo.right ? x + w - 5 : x + 5, ty + 14.5, { bold: true, size: 8, align: oo.right ? 'right' : 'left' });
+    rows.forEach((r, i) => {
+      const y = ty + hh + i * rh + 10.8, bad = oo.bad && oo.bad(r);
+      const color = oo.verdict ? (r.ok ? green : red) : bad ? red : ink;
+      text(String(f(r)), oo.right ? x + w - 5 : x + 5, y, { size: 8, bold: oo.bold || bad || (oo.verdict && !r.ok), color, align: oo.right ? 'right' : 'left' });
+    });
+    x += w;
+  }
+  // Bilan
+  const nOk = N.rows.filter((r) => r.ok).length;
+  const yb = Math.min(y1 + 22, UNI.H - 90);
+  if (k === nF - 1) {
+    text(nOk === N.rows.length ? `Les ${N.rows.length} circuits satisfont aux quatre critères (surcharge, court-circuit, chute de tension, contacts indirects par ID 30 mA).`
+      : `${N.rows.length - nOk} circuit${N.rows.length - nOk > 1 ? 's' : ''} sur ${N.rows.length} à revoir : augmenter la section, réduire le calibre ou raccourcir la ligne.`, tx0, yb, { size: 9, bold: true, color: nOk === N.rows.length ? green : red });
+    // Bilan de puissance : abonnement, courant d'emploi, répartition des phases
+    const P = N.probable || 0, kva = a.kva || 0;
+    const lines = [`Puissance probable ${f1(P / 1000)} kW pour un abonnement de ${kva} kVA : ${P <= kva * 1000 ? 'suffisant' : 'insuffisant, le disjoncteur de branchement risque de couper'}.`];
+    if (N.tri && design.phaseLoad) {
+      const L = design.phaseLoad;
+      lines.push(`Répartition des phases (puissances installées) : L1 ${f1(L.L1 / 1000)} kW · L2 ${f1(L.L2 / 1000)} kW · L3 ${f1(L.L3 / 1000)} kW — AGCP réglé à ${a.setting} A par phase.`);
+    } else lines.push(`Courant d’emploi probable ${f1(P / N.U0)} A pour un AGCP réglé à ${a.setting} A.`);
+    lines.forEach((l, i) => text(l, tx0, yb + 18 + i * 13, { size: 8.5 }));
+  } else text(`Suite folio ${k + 2} →`, tx1, yb, { size: 8, color: mute, align: 'right' });
+  ctx.restore();
+}
+function calcNoteSVGs(design, meta) {
+  const out = [];
+  for (let k = 0; k < calcNoteFolios(design); k++) {
+    const ctx = new SVGContext();
+    drawCalcNote(ctx, design, meta, k);
+    out.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${UNI.W} ${UNI.H}" width="420mm" height="297mm" font-family="sans-serif"><rect width="${UNI.W}" height="${UNI.H}" fill="#fff"/>${ctx.out.join('')}</svg>`);
+  }
+  return out;
+}
+function calcNoteDXF(design, meta) {
+  const ctx = new DXFContext(), n = calcNoteFolios(design);
+  for (let k = 0; k < n; k++) { ctx.save(); ctx.translate(0, k * (UNI.H + 60)); drawCalcNote(ctx, design, meta, k); ctx.restore(); }
+  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: n * (UNI.H + 60) }, { U: 1 / 0.3528, insunits: 4, layers: [['TEXTES', 7], ['CARTOUCHE', 8]] });
+}
+// Tableur (séparateur « ; », virgule décimale)
+function calcNoteCSV(design) {
+  const N = calcNote(design), n = (v, d) => (v === null || v === undefined ? '' : Number(v).toFixed(d || 0).replace('.', ','));
+  let csv = 'Repère;Circuit;Phase;P (W);Ib (A);Protection;Câble;Iz (A);L (m);ΔU (%);ΔU max (%);Icc mini (A);Im (A);Lmax (m);Vérification\n';
+  for (const r of N.rows) {
+    csv += `"${r.id}";"${r.name.replace(/"/g, '""')}";${r.phase === '3P' ? '3P+N' : r.phase || ''};${n(r.P)};${n(r.Ib, 1)};${r.curve}${r.In};${r.cable};${n(r.Iz, 1)};${n(r.L, 1)};${n(r.dU, 2)};${r.dUmax};${n(r.icc)};${n(r.Im)};${n(r.Lmax)};"${r.ok ? 'conforme' : [!r.okIz && 'In > Iz', !r.okL && 'L > Lmax', !r.okU && 'ΔU'].filter(Boolean).join(' · ')}"\n`;
+  }
+  return csv;
 }
 
 // ---------------------------------------------------------------------------

@@ -178,7 +178,7 @@ l'éditeur du tableau, **avec ou sans plan** :
 - **Tableau modifiable** : chaque interrupteur différentiel (25 / 40 / 63 A, type AC,
   A, F ou B) et ses circuits — repère, désignation, type, calibre (C2 à C63), section
   (1,5 à 16 mm²), charge (points, prises ou watts), longueur, contacteur heures
-  creuses, télérupteur — ordre modifiable, **+ Circuit** d'après 19 circuits types
+  creuses, télérupteur — ordre modifiable, **+ Circuit** d'après 22 circuits types
   (éclairage, prises, cuisine, plaque 32 A / 6 mm², four, lave-linge, chauffe-eau,
   chauffage, VMC, borne IRVE 40 A / 10 mm², volets, PAC…), **+ Différentiel**,
   abonnement, coffret et **parafoudre** ;
@@ -203,6 +203,15 @@ l'éditeur du tableau, **avec ou sans plan** :
   jeu de barres, différentiels, disjoncteurs, contacteurs, désignations verticales,
   **nomenclature** (repère, protection, ID, câble 3G…, longueur, charge, ΔU), légende
   et **cartouche** ; plusieurs folios numérotés si le tableau est grand ;
+- **Note de calcul** (folio A3, méthode conventionnelle du guide UTE C 15-105) : pour
+  chaque circuit Ib, protection, câble, **Iz** (méthode B, 2 ou 3 conducteurs chargés),
+  longueur jusqu'à l'appareil le plus éloigné, **ΔU**, **Icc mini** en bout de ligne
+  (0,8·U0·S / 2ρL), seuil magnétique Im et **longueur maximale protégée** Lmax — un
+  éclairage C16 en 1,5 mm² est limité à 37,5 m (l'implantation automatique passe alors
+  en C10), une prise C20 en 2,5 mm² à 50 m ; hypothèses (schéma TT, pouvoir de coupure
+  3 kA), formules, bilan de puissance et des phases. La **prise de terre** mesurée se
+  saisit dans le tableau (100 Ω au plus avec l'AGCP 500 mA). Export SVG, DXF et
+  **CSV** (tableur) ;
 - **Face avant** du coffret (rangées de 13 modules de 18 mm, réserve, GTL) et
   **étiquettes** de repérage à imprimer à l'échelle 1 ;
 - **Dans l'éditeur** : le tableau devient un schéma ordinaire (réseau, compteur, AGCP,
@@ -212,12 +221,15 @@ l'éditeur du tableau, **avec ou sans plan** :
   simulés comme les disjoncteurs) ; les étiquettes des symboles verticaux passent à
   droite ;
 - **Exports** : SVG, **DXF** (en millimètres, calques UNIFILAIRE / TEXTES / CARTOUCHE,
-  validé par ezdxf) et **Imprimer / PDF** (folios A3, face avant, étiquettes A4) ; le
+  validé par ezdxf) et **Imprimer / PDF** (folios A3 unifilaire et note de calcul, face
+  avant, étiquettes A4) ; le
   dossier du projet et le métré (coffret, parafoudre, contacteurs, ID 63 A…) suivent.
 
 ![Éditeur du tableau : circuits modifiables et aperçu du folio](docs/screenshot-tableau-editeur.png)
 
 ![Folio unifilaire A3 : symboles, nomenclature, cartouche](docs/screenshot-unifilaire.png)
+
+![Note de calcul : Iz, ΔU, Icc mini et longueur maximale protégée par circuit](docs/screenshot-note-calcul.png)
 
 ![Face avant du tableau](docs/screenshot-face-avant.png)
 
@@ -228,7 +240,7 @@ enregistrer en PDF : page de garde et chiffres clés, **vues 3D** calculées à 
 (extérieur, intérieur coupé — pour une maison à étage : extérieur, coupe verticale et
 chaque niveau), **plan coté**, **contrôle NF C 15-100** pièce par pièce,
 **schéma unifilaire** et tableau des circuits (protection, section, longueur, ΔU,
-différentiel), **matériel et budget**, **journée type** (graphique, bilan, solaire).
+différentiel), **note de calcul**, **matériel et budget**, **journée type** (graphique, bilan, solaire).
 
 ![Dossier du projet](docs/screenshot-dossier.png)
 
@@ -663,7 +675,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-158 vérifications sans dépendance : valeurs numériques de chaque simulation
+163 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

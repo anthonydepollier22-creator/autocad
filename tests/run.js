@@ -881,6 +881,34 @@ check('Triphasé : AGCP 4P réglé à kVA × 5/3, phases équilibrées (écart <
 check('Triphasé : ΔU d’un départ 3P+N = √3·ρ·L·I / S sous 400 V ; 3P+N sur du monophasé refusé', near(r.du[0], r.du[1], 1e-9) && r.bad && r.sim, r.du[0].toFixed(2) + ' %');
 check('Triphasé : folio (barre 3P+N, 4P, câble 5G6) et métré (ID 4P, disjoncteurs 3P+N, 5G)', r.svg && r.mat);
 
+// Note de calcul : Iz, Icc mini en bout de ligne, longueur maximale protégée, prise de terre
+r = run(`(function(){
+  var lm = [calcLmax(1.5, 16, 'C'), calcLmax(2.5, 20, 'C'), calcLmax(6, 32, 'C'), calcLmax(1.5, 16, 'B')];
+  var h = buildHouse('t3'), dh = designInstallation(h.components, h.wires), N = calcNote(dh);
+  var r0 = N.rows[0], icc = 0.8 * 230 * r0.S / (2 * 0.023 * r0.L);
+  // éclairage de 50 m en 1,5 mm² : C16 non protégé (Icc mini < 160 A), C10 conforme
+  var b = boardTemplate(80), light = b.circuits.find(function(c){ return c.kind === 'light'; });
+  light.length = 50;
+  var d1 = designInstallation([], [], b), e1 = d1.checks.filter(function(c){ return c.level === 'err' && c.ref === light.id; }).map(function(c){ return c.msg; });
+  var row1 = calcNote(d1).rows.find(function(x){ return x.id === light.id; });
+  light.In = 10; var d2 = designInstallation([], [], b), e2 = d2.checks.filter(function(c){ return c.level === 'err' && c.ref === light.id; }).length;
+  // prise de terre : 150 Ω refusée (AGCP 500 mA → 100 Ω), 40 Ω acceptée
+  b.supply.ra = 150; var ra1 = designInstallation([], [], b).checks.some(function(c){ return c.level === 'err' && /Prise de terre/.test(c.msg); });
+  b.supply.ra = 40; var d3 = designInstallation([], [], b), ra2 = d3.checks.some(function(c){ return /Prise de terre/.test(c.msg); });
+  // triphasé : 3 conducteurs chargés, Iz = 15,5 A en 1,5 mm² → un 3P+N 16 A est refusé
+  var bt = boardTemplate(120, { tri: true }); boardAddCircuit(bt, 'other', { name: 'Moteur', phase: '3P', In: 16, S: 1.5, P: 3000 });
+  var dt = designInstallation([], [], bt), izErr = dt.checks.some(function(c){ return c.level === 'err' && /Iz = 15,5 A/.test(c.msg); });
+  var svgs = calcNoteSVGs(dh, { title: 'T3' }), dxf = calcNoteDXF(dh, {}), csv = calcNoteCSV(dh);
+  return { lm: lm, allOk: N.rows.every(function(x){ return x.ok; }) && N.errors === 0, icc: [r0.icc, icc], iz: r0.Iz, e1: e1, row1: row1, e2: e2, ra1: ra1, ra2: ra2, ra: calcNote(d3).ra, izErr: izErr,
+    svg: svgs.length === 1 && svgs[0].indexOf('Note de calcul') > 0 && svgs[0].indexOf('Lmax') > 0 && svgs[0].indexOf('conforme') > 0,
+    dxf: dxf.indexOf('CARTOUCHE') > 0 && dxf.indexOf('Icc mini') > 0, csv: csv.trim().split('\\n').length === dh.circuits.length + 1 };
+})()`);
+check('Longueur maximale protégée Lmax = 0,8·U0·S / (2·ρ·Im) : C16 1,5 mm² ≈ 37,5 m, C20 2,5 mm² = 50 m, C32 6 mm² = 75 m, courbe B × 2', near(r.lm[0], 37.5, 0.01) && near(r.lm[1], 50, 0.01) && near(r.lm[2], 75, 0.01) && near(r.lm[3], 75, 0.01), r.lm.map(function(v){ return v.toFixed(1); }).join(' · ') + ' m');
+check('Note de calcul du T3 : tous les circuits conformes, Icc mini = 0,8·U0·S / (2·ρ·L), Iz 17,5 A en 1,5 mm²', r.allOk && near(r.icc[0], r.icc[1], 1e-9) && r.iz === 17.5, `${r.icc[0].toFixed(0)} A en bout de C1`);
+check('Éclairage de 50 m en C16 refusé (Icc mini < 160 A), accepté en C10 ; 3P+N 16 A en 1,5 mm² refusé (Iz 15,5 A)', r.e1.length === 1 && /50,0 m > 38 m/.test(r.e1[0]) && !r.row1.okL && r.e2 === 0 && r.izErr, r.e1[0]);
+check('Prise de terre : 150 Ω refusés (AGCP 500 mA → 100 Ω au plus), 40 Ω acceptés et reportés dans la note', r.ra1 && !r.ra2 && r.ra === 40);
+check('Note de calcul : folio A3 SVG, DXF (calques TEXTES / CARTOUCHE) et tableur CSV', r.svg && r.dxf && r.csv);
+
 // ---------------------------------------------------------------------------
 group('Murs : placo, maçonnerie, implantation en 3D');
 r = run(`(function(){

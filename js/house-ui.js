@@ -1658,6 +1658,7 @@ function initHouseUI(app) {
         planSVG: buildSVG(editor.components, editor.wires, SYMBOLS, { ...editor.meta, date: new Date().toISOString().slice(0, 10), legend: true, tags: d && d.ok ? circuitTags(d) : null }),
         unifilarSVG: d && d.ok ? unifilarSVG(d, editor.meta) : '',
         boardFrontSVG: d && d.ok ? boardFrontSVG(d, editor.meta) : '',
+        calcNoteSVGs: d && d.ok ? calcNoteSVGs(d, editor.meta) : [],
         materials: d && d.ok ? materialList(editor.components, editor.wires, d) : null,
         images: hasPlan() ? dossierImages(d) : [],
         day: dayData,

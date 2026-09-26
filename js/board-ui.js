@@ -4,7 +4,8 @@
  * À gauche, le tableau : abonnement, parafoudre, coffret, interrupteurs
  * différentiels et leurs circuits (repère, désignation, type, calibre,
  * section, charge, longueur, contacteur / télérupteur), contrôles NF C 15-100
- * en direct. À droite, l'aperçu : folio unifilaire, face avant, étiquettes.
+ * en direct. À droite, l'aperçu : folio unifilaire, note de calcul, face avant,
+ * étiquettes.
  * La première modification fige le tableau automatique en tableau
  * personnalisé (annulable, et réversible). Sans plan, on part d'un modèle.
  */
@@ -61,6 +62,7 @@ function initBoardUI(app) {
       `<label>Abonnement <select data-sf="kva"><option value="">auto (${d.agcp.auto || d.agcp.kva} kVA)</option>${kvaOpts}</select></label>` +
       `<label>Coffret <select data-sf="rows"><option value="">auto (${M.rowsCount} rangée${M.rowsCount > 1 ? 's' : ''})</option>${[1, 2, 3, 4, 5].map((n) => `<option value="${n}"${rowsWant === n ? ' selected' : ''}>${n} rangée${n > 1 ? 's' : ''} × 13</option>`).join('')}</select></label>` +
       (d.panel ? '' : `<label>Surface <input type="number" min="10" max="1000" step="1" data-sf="area" value="${Math.round(d.area || 0)}"> m²</label>`) +
+      `<label title="Résistance de la prise de terre mesurée (100 Ω au plus avec l’AGCP 500 mA)">Terre <input type="number" min="0" max="2000" step="1" data-sf="ra" value="${d.supply && d.supply.ra ? d.supply.ra : ''}" placeholder="à mesurer"> Ω</label>` +
       `<label class="check-row"><input type="checkbox" data-sf="surge"${d.supply && d.supply.surge ? ' checked' : ''}> Parafoudre</label>` +
       `<span class="bd-agcp">AGCP ${tri ? '4P' : '2P'} ${d.agcp.setting} A · 500 mA${tri && d.phaseLoad ? ` · L1 ${num(d.phaseLoad.L1 / 1000, 1)} / L2 ${num(d.phaseLoad.L2 / 1000, 1)} / L3 ${num(d.phaseLoad.L3 / 1000, 1)} kW` : ''}</span></div>`;
     // Tableau des circuits, par différentiel
@@ -139,8 +141,15 @@ function initBoardUI(app) {
       svg = pages[st.folio];
       $('bd-folios').hidden = pages.length < 2;
       $('bd-folio-lbl').textContent = `Folio ${st.folio + 1} / ${pages.length}`;
+    } else if (st.view === 'calc') {
+      const pages = calcNoteSVGs(d, meta());
+      st.folio = Math.min(st.folio, pages.length - 1);
+      svg = pages[st.folio];
+      $('bd-folios').hidden = pages.length < 2;
+      $('bd-folio-lbl').textContent = `Folio ${st.folio + 1} / ${pages.length}`;
     } else if (st.view === 'front') svg = boardFrontSVG(d, meta());
     else svg = boardLabelsSVG(d, meta());
+    modal.querySelector('[data-bx="csv"]').hidden = st.view !== 'calc';
     sheet.innerHTML = svg.replace(/width="[^"]*mm" height="[^"]*mm"/, `style="width:${Math.round(st.zoom * 100)}%;height:auto"`);
     modal.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === st.view));
   }
@@ -177,6 +186,7 @@ function initBoardUI(app) {
         else if (f === 'kva') b.supply.kva = t.value ? +t.value : null;
         else if (f === 'rows') b.supply.rows = t.value ? +t.value : 0;
         else if (f === 'area') b.supply.area = Math.max(10, +t.value || 0);
+        else if (f === 'ra') b.supply.ra = +t.value > 0 ? +t.value : null;
         else if (f === 'phases') { b.supply.phases = +t.value; b.supply.kva = null; if (+t.value === 1) b.circuits.forEach((c) => { if (c.phase === '3P') c.phase = null; }); }
       });
     }
@@ -230,7 +240,7 @@ function initBoardUI(app) {
   });
 
   // ---- Aperçu, exports ----------------------------------------------------------
-  modal.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { st.view = b.dataset.view; renderPreview(design()); }));
+  modal.querySelectorAll('[data-view]').forEach((b) => b.addEventListener('click', () => { st.view = b.dataset.view; st.folio = 0; renderPreview(design()); }));
   $('bd-prev').addEventListener('click', () => { st.folio = Math.max(0, st.folio - 1); renderPreview(design()); });
   $('bd-next').addEventListener('click', () => { st.folio++; renderPreview(design()); });
   $('bd-zoom-in').addEventListener('click', () => { st.zoom = Math.min(3, st.zoom * 1.25); renderPreview(design()); });
@@ -241,12 +251,19 @@ function initBoardUI(app) {
     if (!d || !d.ok) { showToast('Crée d’abord le tableau.'); return; }
     const k = b.dataset.bx;
     if (k === 'svg') {
-      const svg = st.view === 'uni' ? unifilarSVG(d, meta()) : st.view === 'front' ? boardFrontSVG(d, meta()) : boardLabelsSVG(d, meta());
-      const what = { uni: 'unifilaire', front: 'face avant', labels: 'étiquettes' }[st.view];
+      const svg = st.view === 'uni' ? unifilarSVG(d, meta()) : st.view === 'calc' ? calcNoteSVGs(d, meta())[st.folio] || calcNoteSVGs(d, meta())[0] : st.view === 'front' ? boardFrontSVG(d, meta()) : boardLabelsSVG(d, meta());
+      const what = { uni: 'unifilaire', calc: 'note de calcul', front: 'face avant', labels: 'étiquettes' }[st.view];
       download(new Blob([svg], { type: 'image/svg+xml' }), fileName(base() + ' - ' + what + '.svg'));
     } else if (k === 'dxf') {
-      download(new Blob([unifilarDXF(d, meta())], { type: 'application/dxf' }), fileName(base() + ' - unifilaire.dxf'));
-      showToast('Schéma unifilaire exporté en <b>DXF</b> (millimètres, calques UNIFILAIRE, TEXTES, CARTOUCHE).', 3500);
+      if (st.view === 'calc') {
+        download(new Blob([calcNoteDXF(d, meta())], { type: 'application/dxf' }), fileName(base() + ' - note de calcul.dxf'));
+        showToast('Note de calcul exportée en <b>DXF</b> (millimètres, calques TEXTES et CARTOUCHE).', 3500);
+      } else {
+        download(new Blob([unifilarDXF(d, meta())], { type: 'application/dxf' }), fileName(base() + ' - unifilaire.dxf'));
+        showToast('Schéma unifilaire exporté en <b>DXF</b> (millimètres, calques UNIFILAIRE, TEXTES, CARTOUCHE).', 3500);
+      }
+    } else if (k === 'csv') {
+      download(new Blob(['\ufeff' + calcNoteCSV(d)], { type: 'text/csv;charset=utf-8' }), fileName(base() + ' - note de calcul.csv'));
     } else if (k === 'print') printAll(d);
     else if (k === 'schema') {
       if ((editor.components.length || editor.wires.length) && !confirm('Le schéma unifilaire va remplacer le document ouvert dans l’éditeur (plan compris). Enregistre-le d’abord (bouton Enregistrer) pour le retrouver. Continuer ?')) return;
@@ -263,7 +280,7 @@ function initBoardUI(app) {
     const win = window.open('', '_blank');
     if (!win) { showToast('Autorise les fenêtres surgissantes pour imprimer.'); return; }
     const strip = (s) => s.replace(/width="[^"]*mm" height="[^"]*mm"/, '');
-    const pages = unifilarSVGs(d, meta()).map((s) => `<section class="a3">${strip(s)}</section>`).join('');
+    const pages = unifilarSVGs(d, meta()).concat(calcNoteSVGs(d, meta())).map((s) => `<section class="a3">${strip(s)}</section>`).join('');
     const front = boardFrontSVG(d, meta()), labels = boardLabelsSVG(d, meta());
     const mm = (s) => { const m = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(s); return m ? [+m[1], +m[2]] : [210, 297]; };
     const [fw, fh] = mm(front);
