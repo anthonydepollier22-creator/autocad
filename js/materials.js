@@ -21,6 +21,7 @@ const MAT_PRICES = {
   socket: 4.9, switchSa: 5.2, switchVv: 6.4, push: 5.9, dcl: 3.6, rj45: 12.5, cableOut32: 9.5, cableOut20: 6.5, smoke: 19.9,
   box: 0.65, boxDcl: 3.2, boxPlaco: 0.95, boxAir: 1.9, // boîtes : maçonnerie, cloison sèche, étanche à l'air (doublage)
   gtl: 95,
+  vdiBox: 185, cat6: 0.78, patch: 3.5, // coffret de communication grade 2TV, câble catégorie 6 (€/m), cordon
   // équipements (facultatifs)
   radiator: 240, vmc: 115, evCharger: 690,
 };
@@ -118,6 +119,15 @@ function materialList(components, wires, design) {
   add('Appareillage', 'Boîte d’encastrement étanche à l’air (doublage, RE 2020)', box.air, 'u', P.boxAir);
   add('Appareillage', 'Boîte d’encastrement maçonnerie', box.mac, 'u', P.box);
   add('Appareillage', 'Boîte DCL de plafond', count('dcl'), 'u', P.boxDcl);
+
+  // --- Communication -----------------------------------------------------------
+  // coffret en GTL, câblage en étoile catégorie 6 (longueurs mesurées)
+  const vdi = typeof vdiDesign === 'function' && count('rj45') ? vdiDesign(components, wires) : null;
+  if (vdi && vdi.ok) {
+    add('Communication', `Coffret de communication grade 2TV (brassage ${vdi.panel} ports)`, 1, 'u', P.vdiBox, 'box opérateur fournie par l’opérateur');
+    add('Communication', 'Câble catégorie 6 grade 2TV (4 paires)', Math.ceil(vdi.total * 1.1), 'm', P.cat6, `${Math.round(vdi.total)} m mesurés + 10 %`);
+    add('Communication', 'Cordon de brassage RJ45', vdi.ports, 'u', P.patch);
+  }
 
   // --- Équipements (facultatifs, souvent achetés à part) -------------------------
   add('Équipements', 'Radiateur à inertie 1 000 W', count('radiator'), 'u', P.radiator);

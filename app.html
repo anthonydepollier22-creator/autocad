@@ -422,9 +422,9 @@
         <div class="bd-head">
           <button type="button" class="btn-ghost" data-bx="svg" title="Télécharger la vue affichée en SVG">SVG</button>
           <button type="button" class="btn-ghost" data-bx="schema" title="Ouvrir le schéma unifilaire dans l'éditeur, symbole par symbole, pour le compléter librement">Dans l’éditeur</button>
-          <button type="button" class="btn-ghost" data-bx="dxf" title="Folio affiché (unifilaire, note de calcul, schémas développés) en DXF (AutoCAD, LibreCAD…), en millimètres">DXF</button>
+          <button type="button" class="btn-ghost" data-bx="dxf" title="Folio affiché (unifilaire, note de calcul, schémas développés, communication) en DXF (AutoCAD, LibreCAD…), en millimètres">DXF</button>
           <button type="button" class="btn-ghost" data-bx="csv" title="Note de calcul en tableur (CSV, Excel)" hidden>CSV</button>
-          <button type="button" class="btn-primary" data-bx="print" title="Folios A3 (unifilaire, note de calcul, schémas développés), face avant et étiquettes : imprimer ou enregistrer en PDF">Imprimer / PDF</button>
+          <button type="button" class="btn-primary" data-bx="print" title="Folios A3 (unifilaire, note de calcul, schémas développés, communication), face avant et étiquettes : imprimer ou enregistrer en PDF">Imprimer / PDF</button>
           <button id="board-close" class="icon-btn" title="Fermer" aria-label="Fermer">✕</button>
         </div>
       </header>
@@ -438,6 +438,7 @@
               <button type="button" data-view="labels">Étiquettes</button>
               <button type="button" data-view="calc" title="Note de calcul : Ib, In, Iz, ΔU, Icc mini, longueur maximale protégée">Note de calcul</button>
               <button type="button" data-view="dev" title="Schémas développés des commandes d'éclairage : simple allumage, va-et-vient, télérupteur">Développés</button>
+              <button type="button" data-view="vdi" title="Réseau de communication : coffret grade 2TV, câblage en étoile catégorie 6 jusqu'à chaque prise RJ45">Communication</button>
             </div>
             <div id="bd-folios" class="bd-folios" hidden>
               <button id="bd-prev" type="button" aria-label="Folio précédent">‹</button><span id="bd-folio-lbl"></span><button id="bd-next" type="button" aria-label="Folio suivant">›</button>
@@ -480,6 +481,7 @@
   <script src="js/houses.js"></script>
   <script src="js/install.js"></script>
   <script src="js/board.js"></script>
+  <script src="js/vdi.js"></script>
   <script src="js/day.js"></script>
   <script src="js/materials.js"></script>
   <script src="js/dossier.js"></script>

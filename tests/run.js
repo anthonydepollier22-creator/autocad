@@ -13,7 +13,7 @@ const vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const sb = { Math, JSON, console, TextEncoder, TextDecoder, performance };
 vm.createContext(sb);
-for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'day', 'materials', 'svg', 'dxf', 'board', 'viz3d', 'gl3d', 'export3d', 'dossier']) {
+for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'day', 'materials', 'svg', 'dxf', 'board', 'vdi', 'viz3d', 'gl3d', 'export3d', 'dossier']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f + '.js'), 'utf8'), sb, { filename: f + '.js' });
 }
 const run = (code) => vm.runInContext(code, sb);
@@ -927,6 +927,25 @@ r = run(`(function(){
 })()`);
 check('Schémas développés du R+1 : chaque point lumineux dessiné, simple allumage, va-et-vient (2 commandes), télérupteur (3 commandes et plus)', r.drawn === r.lamps && r.kinds.sa > 0 && r.vv && r.tlOk, `${r.lamps} points · ${Object.keys(r.kinds).map(function(k){ return r.kinds[k] + ' ' + k; }).join(', ')}`);
 check('Télérupteur posé au tableau pour 3 commandes (métré), folios A3 SVG et DXF (calque SCHEMA), schéma type sans plan', r.mat === r.tls && r.n >= 2 && r.svg && r.dxf && r.gen, `${r.mat} télérupteur(s) · ${r.n} folios`);
+
+// Communication (VDI) : coffret en GTL, étoile catégorie 6 le long des goulottes
+r = run(`(function(){
+  var h = buildHouse('t5'), v = vdiDesign(h.components, h.wires), rj = h.components.filter(function(c){ return c.type === 'rj45'; });
+  var gtl = h.components.find(function(c){ return c.type === 'gtl'; });
+  // chaque lien est au moins aussi long que la distance à vol d'oiseau, remontées et lovage compris
+  var longer = v.links.every(function(l){ var c = h.components.find(function(x){ return x.id === l.id; }); return l.len >= Math.hypot(c.x - gtl.x, c.y - gtl.y) / 100 + 1; });
+  var rooms = v.links.map(function(l){ return l.room; }).join(',');
+  var mat = materialList(h.components, h.wires, designInstallation(h.components, h.wires)).lines.filter(function(l){ return l.cat === 'Communication'; });
+  var cable = mat.find(function(l){ return /catégorie 6/.test(l.name); });
+  // lien trop long : prise RJ45 déplacée à 100 m du coffret, hors des goulottes
+  var far = JSON.parse(JSON.stringify(rj[0])); far.id = 'far'; far.label = 'RJ9'; far.x = gtl.x + 9000; far.y = gtl.y;
+  var v2 = vdiDesign(h.components.concat([far]), h.wires), err = v2.checks.find(function(c){ return c.level === 'err'; });
+  var d = designInstallation(h.components, h.wires), svg = vdiSVGs(d, { title: 'T5' }, h.components, h.wires)[0], dxf = vdiDXF(d, {}, h.components, h.wires);
+  return { ok: v.ok && v.links.length === rj.length && v.ports === rj.length && v.panel >= rj.length, longer: longer, rooms: rooms, total: v.total,
+    mat: mat.length === 3 && cable.qty === Math.ceil(v.total * 1.1), err: err && err.msg, svg: svg.indexOf('Coffret de communication') > 0 && svg.indexOf('DTIo') > 0 && svg.indexOf('RJ1') > 0, dxf: dxf.indexOf('SCHEMA') > 0 };
+})()`);
+check('Communication : une prise RJ45 par port du coffret (GTL), liens mesurés sur les goulottes, remontées et lovage compris', r.ok && r.longer && /Séjour/.test(r.rooms), `${r.total.toFixed(0)} m · ${r.rooms}`);
+check('Communication : lien de plus de 90 m refusé ; métré (coffret 2TV, câble catégorie 6 + 10 %, cordons) ; folio A3 SVG et DXF', /RJ9.*> 90 m/.test(r.err) && r.mat && r.svg && r.dxf, r.err);
 
 // ---------------------------------------------------------------------------
 group('Murs : placo, maçonnerie, implantation en 3D');

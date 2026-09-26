@@ -219,6 +219,11 @@ l'éditeur du tableau, **avec ou sans plan** :
   télérupteurs et poussoirs), entre la phase et le neutre, conducteurs en couleur
   (phase, neutre bleu, retour lampe, navettes) ; un schéma type par circuit pour un
   tableau sans plan. Export SVG et DXF (calques SCHEMA / TEXTES / CARTOUCHE) ;
+- **Communication (VDI)** : coffret de communication **grade 2TV** dans la GTL
+  (arrivée opérateur et DTIo, box, switch, répartiteur TV, panneau de brassage),
+  câblage **en étoile** en catégorie 6 jusqu'à chaque prise RJ45, longueurs mesurées
+  sur les goulottes du plan (remontées et lovage compris), lien de 90 m au plus ;
+  le métré compte le coffret, le câble et les cordons. Export SVG et DXF ;
 - **Face avant** du coffret (rangées de 13 modules de 18 mm, réserve, GTL) et
   **étiquettes** de repérage à imprimer à l'échelle 1 ;
 - **Dans l'éditeur** : le tableau devient un schéma ordinaire (réseau, compteur, AGCP,
@@ -228,8 +233,8 @@ l'éditeur du tableau, **avec ou sans plan** :
   simulés comme les disjoncteurs) ; les étiquettes des symboles verticaux passent à
   droite ;
 - **Exports** : SVG, **DXF** (en millimètres, calques UNIFILAIRE / TEXTES / CARTOUCHE,
-  validé par ezdxf) et **Imprimer / PDF** (folios A3 unifilaire, note de calcul et schémas
-  développés, face avant, étiquettes A4) ; le
+  validé par ezdxf) et **Imprimer / PDF** (folios A3 unifilaire, note de calcul, schémas
+  développés et communication, face avant, étiquettes A4) ; le
   dossier du projet et le métré (coffret, parafoudre, contacteurs, ID 63 A…) suivent.
 
 ![Éditeur du tableau : circuits modifiables et aperçu du folio](docs/screenshot-tableau-editeur.png)
@@ -240,6 +245,8 @@ l'éditeur du tableau, **avec ou sans plan** :
 
 ![Schémas développés : simple allumage, va-et-vient, télérupteur et poussoirs](docs/screenshot-schemas-developpes.png)
 
+![Communication : coffret grade 2TV et câblage en étoile jusqu'aux prises RJ45](docs/screenshot-communication.png)
+
 ![Face avant du tableau](docs/screenshot-face-avant.png)
 
 ### Dossier du projet — imprimable ou PDF
@@ -249,7 +256,7 @@ enregistrer en PDF : page de garde et chiffres clés, **vues 3D** calculées à 
 (extérieur, intérieur coupé — pour une maison à étage : extérieur, coupe verticale et
 chaque niveau), **plan coté**, **contrôle NF C 15-100** pièce par pièce,
 **schéma unifilaire** et tableau des circuits (protection, section, longueur, ΔU,
-différentiel), **schémas développés** de l'éclairage, **note de calcul**, **matériel et budget**, **journée type** (graphique, bilan, solaire).
+différentiel), **schémas développés** de l'éclairage, **communication (VDI)**, **note de calcul**, **matériel et budget**, **journée type** (graphique, bilan, solaire).
 
 ![Dossier du projet](docs/screenshot-dossier.png)
 
@@ -657,7 +664,8 @@ python3 -m http.server 8000
 │   ├── plan.js        # Plan de maison : pièces, surfaces, cotations, NF C 15-100
 │   ├── houses.js      # Types de maison, ameublement, implantation et goulottes automatiques
 │   ├── install.js     # Conception du tableau, câbles, chutes de tension, simulation physique
-│   ├── board.js       # Tableau : modèle, contrôles NF, folio unifilaire, face avant, étiquettes
+│   ├── board.js       # Tableau : modèle, contrôles NF, unifilaire, note de calcul, schémas développés, face avant, étiquettes
+│   ├── vdi.js         # Communication : coffret grade 2TV, câblage en étoile catégorie 6, folio
 │   ├── board-ui.js    # Éditeur du tableau et du schéma unifilaire
 │   ├── day.js         # Journée type : emploi du temps, énergie par heure et par usage
 │   ├── materials.js   # Matériel et budget de l'installation, export CSV
@@ -687,7 +695,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-166 vérifications sans dépendance : valeurs numériques de chaque simulation
+168 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
