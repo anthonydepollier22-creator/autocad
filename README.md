@@ -381,7 +381,8 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   l'accessibilité PMR, 1,10 m au-dessus d'un plan de travail, 1,90 m) : la 3D, les
   remontées de câble et l'éclairement en tiennent compte, et le contrôle NF signale une
   prise à moins de 5 cm du sol ou une commande hors de 0,90–1,30 m ; point lumineux et
-  DAAF au plafond en visant le sol ; « Déplacer » (l'appareil, puis son nouveau mur)
+  DAAF au plafond en visant le sol ; **radiateur** dos au mur visé et **bouche VMC**
+  au plafond ; « Déplacer » (l'appareil, puis son nouveau mur)
   et « Retirer ». La hauteur se règle aussi en 2D (panneau Propriétés, *Hauteur de
   pose*) et s'inscrit sur le plan d'implantation (« PC4 h110 »), en SVG et en DXF. Les murs se teintent selon leur **matériau** : **cloison placo
   72/48** (montants de l'ossature tous les 60 cm), carreau de plâtre, brique,
