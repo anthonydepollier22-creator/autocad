@@ -1039,6 +1039,14 @@ r = run(`(function(){
 })()`);
 check('Élévations : montants des cloisons placo en pointillés, aucune boîte d’encastrement sur un montant', r.hollow > 3 && r.studs > 10 && !r.clash && r.dash, JSON.stringify(r));
 
+// Repère du TD : celui du symbole posé sur le plan
+r = run(`(function(){
+  var d = getExampleData('maison-t5-td'), comps = d.components.map(function(c){ return c.type === 'panel_sub' ? Object.assign({}, c, { label: 'TD2' }) : c; });
+  var des = designInstallation(comps, d.wires);
+  return { ref: des.panels[0].ref, names: des.circuits.filter(function(c){ return c.panel; }).map(function(c){ return c.name; }).join(', ') };
+})()`);
+check('Repère du tableau divisionnaire repris du plan (TD2 reste TD2 sur les folios et dans les noms)', r.ref === 'TD2' && /TD2/.test(r.names) && !/TD1/.test(r.names), JSON.stringify(r));
+
 // Exemple « Maison T5 + garage — tableau divisionnaire »
 r = run(`(function(){
   var d = getExampleData('maison-t5-td'), des = designInstallation(d.components, d.wires), td = d.components.find(function(c){ return c.type === 'panel_sub'; });

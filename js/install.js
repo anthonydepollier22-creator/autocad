@@ -447,7 +447,7 @@ function designInstallation(components, wires, board) {
       const r = roomOf(t);
       const f = add({ kind: 'sub', name: r >= 0 ? roomName(r) : 'Tableau divisionnaire', In: 32, S: 6, devices: [], rooms: roomName(r), points: 0, auto: true, manual: true, lengthIn: 0, Pin: 0 });
       const n0 = circuits.length;
-      autoGroup(D, ' TD' + (i + 1));
+      autoGroup(D, ' ' + (/^[A-Za-z]{1,4}\d+$/.test(t.label || '') ? t.label : 'TD' + (i + 1)));
       for (const c of circuits.slice(n0)) c.panel = f.id;
     });
   }
@@ -540,8 +540,14 @@ function designInstallation(components, wires, board) {
       const rcdPanel = new Map((B.rcds || []).map((r) => [String(r.id), r.panel && feeders.some((f) => f.id === r.panel) ? String(r.panel) : null]));
       for (const ct of circuits) { const p = ct.kind === 'sub' ? null : rcdPanel.get(ct.rcd) || null; if (p) ct.panel = p; }
     }
+    const used = new Set();
     feeders.forEach((f, i) => {
-      f.panelRef = 'TD' + (i + 1);
+      // repère du TD : celui du symbole posé sur le plan (TD2 reste TD2), sinon TD1, TD2… dans l'ordre
+      const lab = f.link && f.link.comp && /^[A-Za-z]{1,4}\d+$/.test(f.link.comp.label || '') ? f.link.comp.label : null;
+      let ref = lab && !used.has(lab) ? lab : 'TD' + (i + 1);
+      for (let n = i + 1; used.has(ref); n++) ref = 'TD' + n;
+      used.add(ref);
+      f.panelRef = ref;
       design.panels.push({ id: f.id, ref: f.panelRef, name: f.name, feeder: f, comp: f.comp || null });
     });
     for (const ct of circuits) if (ct.panel) ct.panelRef = feeders.find((f) => f.id === ct.panel).panelRef;
