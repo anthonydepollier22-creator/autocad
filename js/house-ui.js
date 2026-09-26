@@ -1346,6 +1346,22 @@ function initHouseUI(app) {
     const wire = editor.wires.find((q) => q.id === w.wid);
     return { x: Math.round(x), y: Math.round(y), rot: furn ? _rotBack(hit.nx, hit.nz) : _rotDevice(hit.nx, hit.nz), room: roomNameAt(x, y), mat: wire ? wallMaterial(wire) : null };
   }
+  // Pièce sous le point visé au sol : { index, étiquette (composant room) ou null, nom actuel }
+  const ROOM_CYCLE = ['Chambre', 'Bureau', 'Salle d’eau', 'WC', 'Dressing', 'Cellier', 'Séjour', 'Cuisine', 'Entrée', 'Dégagement', 'Buanderie'];
+  function roomUnder(hit) {
+    if (!hit || hit.kind !== 'floor') return null;
+    const info = computeRooms(editor.components, editor.wires), i = roomAt(info, hit.x, hit.y);
+    if (i < 0) return null;
+    const label = editor.components.find((c) => c.type === 'room' && roomAt(info, c.x, c.y) === i) || null;
+    return { i, label, current: label ? label.value : '' };
+  }
+  function nextRoomName(R) {
+    const base = String(R.current || '').replace(/\s+\d+$/, '');
+    const k = ROOM_CYCLE.indexOf(base), name = ROOM_CYCLE[(k + 1) % ROOM_CYCLE.length];
+    if (name !== 'Chambre') return name;
+    const n = editor.components.filter((c) => c.type === 'room' && c !== R.label && /^Chambre/.test(c.value || '')).length;
+    return n ? `Chambre ${n + 1}` : 'Chambre';
+  }
   // Cloison : point sur l'axe d'un mur visé, sinon au sol (accroché à un mur proche, grille de 5 cm)
   function partitionPoint(hit) {
     if (!hit) return null;
@@ -1417,6 +1433,15 @@ function initHouseUI(app) {
       implantChanged(`Cloison <b>placo 72/48</b> de ${(L / 100).toFixed(2).replace('.', ',')} m.` + (fresh.length ? ` Nouvelle pièce de ${fresh.map((r) => r.area.toFixed(1).replace('.', ',')).join(' et ')} m² : renomme son étiquette « Pièce » dans le plan (Chambre, Bureau…).` : ''));
       return;
     }
+    if (k === 'room') { // nom de la pièce visée : chaque clic passe au nom suivant
+      const R = roomUnder(hit);
+      if (!R) { showToast('Vise le sol d’une pièce fermée.'); return; }
+      const next = nextRoomName(R);
+      if (R.label) R.label.value = next;
+      else editor.components.push({ id: editor.uid(), type: 'room', x: Math.round(hit.x), y: Math.round(hit.y), rot: 0, label: editor.nextRef('room'), value: next });
+      implantChanged(`Pièce : <b>${esc(next)}</b> (clic suivant : ${esc(nextRoomName({ ...R, current: next }))}).`);
+      return;
+    }
     if (k === 'door') { // porte : ouverture de 80 cm dans le mur visé, battant côté pièce
       const wire = hit && hit.kind === 'wall' && editor.wires.find((q) => q.id === hit.w.wid);
       if (!wire) { showToast('Vise un mur pour y percer une porte.'); return; }
@@ -1475,6 +1500,9 @@ function initHouseUI(app) {
         const pt = partitionPoint(hit);
         if (pt && !v3.wallA) h = '<b>Cloison placo</b><span>premier point</span>';
         else if (pt) { const B = partitionEnd(v3.wallA, pt); h = `<b>Cloison placo</b><span>${(Math.hypot(B.x - v3.wallA.x, B.y - v3.wallA.y) / 100).toFixed(2).replace('.', ',')} m</span>`; }
+      } else if (k === 'room') {
+        const R = roomUnder(hit);
+        if (R) h = `<b>${esc(R.current || 'Pièce sans nom')}</b><span>→ ${esc(nextRoomName(R))}</span>`;
       } else if (k === 'door') {
         const wire = hit && hit.kind === 'wall' && editor.wires.find((q) => q.id === hit.w.wid);
         if (wire) h = `<b>Porte 80 cm</b><span>${esc(wallMaterial(wire).label)}</span><span>battant côté ${esc(roomNameAt(hit.w.a.x + hit.ux * hit.t + hit.nx * 40, hit.w.a.y + hit.uz * hit.t + hit.nz * 40) || 'pièce')}</span>`;
@@ -1493,7 +1521,7 @@ function initHouseUI(app) {
     }
     cv3.style.cursor = h ? 'crosshair' : '';
     if (!h) { tip.hidden = true; return; }
-    tip.innerHTML = h + '<em>Clic : ' + (k === 'del' ? 'retirer' : k === 'move' ? (v3.moving ? 'poser ici' : 'choisir l’appareil') : k.startsWith('mat:') ? 'changer le matériau' : v3.hoverDev ? 'poser un appareil sur le mur derrière' : 'poser') + '</em>';
+    tip.innerHTML = h + '<em>Clic : ' + (k === 'del' ? 'retirer' : k === 'move' ? (v3.moving ? 'poser ici' : 'choisir l’appareil') : k.startsWith('mat:') ? 'changer le matériau' : k === 'room' ? 'nom suivant' : v3.hoverDev ? 'poser un appareil sur le mur derrière' : 'poser') + '</em>';
     tip.hidden = false;
     const r = view3d.getBoundingClientRect();
     tip.style.left = Math.min(p.x + 16, r.width - 260) + 'px';
