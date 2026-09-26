@@ -1459,7 +1459,7 @@ function drawBoardWiring(ctx, design, meta, folio) {
   };
   const wire = (color, pts, w) => { ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = w || 1.4; ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); };
   const dot = (x, y, c) => { ctx.save(); ctx.fillStyle = c || ink; ctx.beginPath(); ctx.arc(x, y, 1.7, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
-  const isHead = (m) => m.kind === 'rcd' || m.kind === 'ddr' || (m.kind === 'breaker' && (m.ref === 'QF' || m.feed));
+  const isHead = (m) => m.kind === 'rcd' || m.kind === 'ddr' || m.kind === 'shed' || (m.kind === 'breaker' && (m.ref === 'QF' || m.feed)); // le délesteur est alimenté en tête
   const isOut = (m) => (m.kind === 'breaker' || m.kind === 'ddr') && m.ct; // départ d'un circuit
   // bornes d'un appareil : [nom du conducteur, x] — 4 pôles sur un appareil 4P, sinon phase + neutre
   const terms = (p) => {
