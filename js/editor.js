@@ -187,6 +187,12 @@ class Editor {
     if (type === 'breaker' || type === 'rcd' || type === 'agcp') c.closed = true; // conduisent par défaut
     if (type === 'room') c.value = 'Pièce'; // à renommer : Chambre, Séjour, Cuisine…
     this.components.push(c);
+    // tableau divisionnaire : les goulottes repartent aussi de lui vers les appareils de sa pièce
+    if (type === 'panel_sub' && typeof autoConduits === 'function' && this.wires.some((w) => w.kind === 'conduit')) {
+      const doc = { components: this.components, wires: this.wires, counters: this.counters };
+      autoConduits(doc); this.wires = doc.wires;
+      if (typeof showToast === 'function') showToast(`<b>${c.label}</b> posé : les appareils de sa pièce en partent (goulottes retracées), départ en tête du tableau principal — bouton <b>Tableau</b>.`, 5000);
+    }
     this.pushHistory();
     this.render();
     return c;
