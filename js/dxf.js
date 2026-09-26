@@ -10,7 +10,7 @@
  */
 
 const DXF_LAYERS = [
-  ['MURS', 7], ['MENUISERIES', 30], ['MOBILIER', 8], ['ELECTRICITE', 1], ['GOULOTTES', 9],
+  ['MURS', 7], ['MURS-HACHURES', 8], ['MENUISERIES', 30], ['MOBILIER', 8], ['ELECTRICITE', 1], ['GOULOTTES', 9],
   ['FILS', 5], ['PIECES', 3], ['REPERES', 2], ['COTES', 4], ['CARTOUCHE', 7], ['ESCALIER', 6], ['CIRCUITS', 1],
 ];
 
@@ -102,7 +102,11 @@ function buildDXF(components, wires, symbols, meta) {
   // Murs (épaisseur réelle), goulottes, fils
   for (const w of wires) {
     const pts = w.points.map((p) => ({ x: p.x, y: p.y }));
-    if (w.kind === 'wall') { ctx.layer = 'MURS'; ctx.poly(pts, false, w.ext ? 20 : 10); }
+    if (w.kind === 'wall') {
+      ctx.layer = 'MURS'; ctx.poly(pts, false, w.ext ? 20 : 10);
+      // matériau : montants de cloison sèche ou hachures de maçonnerie (calque dédié, masquable)
+      if (typeof wallMarks === 'function') { ctx.layer = 'MURS-HACHURES'; for (const [x1, y1, x2, y2] of wallMarks(w)) ctx.poly([ctx._ap(x1, y1), ctx._ap(x2, y2)], false); }
+    }
     else if (w.kind === 'conduit') { ctx.layer = 'GOULOTTES'; ctx.poly(pts, false, w.riser ? 0 : 5); }
     else { ctx.layer = 'FILS'; ctx.poly(pts, false); }
   }
