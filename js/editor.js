@@ -809,10 +809,16 @@ class Editor {
       ctx.stroke();
     };
     if (w.kind === 'wall') {
-      // Mur : trait épais plein
+      // Mur : trait épais plein, repères du matériau (montants de placo, hachures de maçonnerie)
       ctx.strokeStyle = selected || hovered ? col : this.colors.comp;
       ctx.lineWidth = 9;
       path();
+      if (this.view.scale > 0.45 && typeof wallMarks === 'function') {
+        ctx.save(); ctx.strokeStyle = this.colors.bg; ctx.lineWidth = 1.1; ctx.lineCap = 'butt'; ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        for (const [x1, y1, x2, y2] of wallMarks(w)) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); }
+        ctx.stroke(); ctx.restore();
+      }
     } else if (w.kind === 'conduit' && w.riser) {
       // Montée d'étage : relie les deux plans (tirets) ; sa longueur réelle est la hauteur d'étage
       ctx.strokeStyle = selected || hovered ? col : this.colors.label;

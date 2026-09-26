@@ -65,6 +65,22 @@ function wallMaterial(w) {
   const doublage = !!(w && w.ext) && !WALL_MATS[mat].hollow && w.doublage !== false;
   return { mat, doublage, hollow: WALL_MATS[mat].hollow || doublage, label: WALL_MATS[mat].label + (doublage ? ' + doublage placo' : '') };
 }
+// Repères du matériau sur le trait d'un mur (plan 2D) : montants tous les 60 cm
+// pour une cloison sèche (placo, ossature bois), hachures à 45° pour la maçonnerie
+function wallMarks(w) {
+  const m = WALL_MATS[wallMaterial(w).mat], out = [];
+  for (let i = 0; i < w.points.length - 1; i++) {
+    const a = w.points[i], b = w.points[i + 1], L = Math.hypot(b.x - a.x, b.y - a.y);
+    if (L < 20) continue;
+    const ux = (b.x - a.x) / L, uy = (b.y - a.y) / L, nx = -uy, ny = ux;
+    if (m.hollow) {
+      for (let t = 30; t < L - 10; t += 60) out.push([a.x + ux * t + nx * 3.2, a.y + uy * t + ny * 3.2, a.x + ux * t - nx * 3.2, a.y + uy * t - ny * 3.2]);
+    } else {
+      for (let t = 8; t < L - 4; t += 12) out.push([a.x + ux * (t - 2.6) + nx * 3.2, a.y + uy * (t - 2.6) + ny * 3.2, a.x + ux * (t + 2.6) - nx * 3.2, a.y + uy * (t + 2.6) - ny * 3.2]);
+    }
+  }
+  return out;
+}
 // Mur (segment) le plus proche d'un point, à moins de maxD : { w, a, b, d, t (abscisse), ux, uy, nx, ny (côté du point) }
 function nearestWall(wires, x, y, maxD) {
   let best = null;

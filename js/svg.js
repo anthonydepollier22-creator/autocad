@@ -127,6 +127,8 @@ function buildSVG(components, wires, symbols, meta) {
   for (const wi of wires) {
     if (wi.kind === 'wall') {
       ctx.out.push(`<path d="${pathOf(wi)}" fill="none" stroke="#1f2733" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>`);
+      const mk = typeof wallMarks === 'function' ? wallMarks(wi) : [];
+      if (mk.length) ctx.out.push(`<path d="${mk.map(([x1, y1, x2, y2]) => `M${ctx._n(x1)} ${ctx._n(y1)}L${ctx._n(x2)} ${ctx._n(y2)}`).join('')}" fill="none" stroke="#ffffff" stroke-width="1.1" stroke-opacity="0.85"/>`);
     } else if (wi.kind === 'conduit' && wi.riser) {
       // montée d'étage entre les deux plans
       const m = typeof riserLabelAt === 'function' ? riserLabelAt(wi, wires) : wi.points[0];
