@@ -429,7 +429,12 @@ function initHouseUI(app) {
     return String(H % 24).padStart(2, '0') + ':' + String(M).padStart(2, '0');
   };
   const fmtKWh1 = (k) => (k < 10 ? k.toFixed(1) : Math.round(k).toString()).replace('.', ',') + ' kWh';
-  const pvKwc = () => +(editor.meta.pv || 0);
+  // panneaux solaires de la journée type : le choix fait ici, sinon l'onduleur du tableau (3, 6 ou 9 kWc)
+  const pvKwc = () => {
+    if (editor.meta.pv !== undefined && editor.meta.pv !== null) return +editor.meta.pv || 0;
+    const d = editor.meta.board ? ensureDesign() : null, P = d && d.production ? d.production / 1000 : 0;
+    return P ? [3, 6, 9].reduce((b, k) => (Math.abs(k - P) < Math.abs(b - P) ? k : b), 3) : 0;
+  };
   const pvShift = () => !!editor.meta.pvShift && pvKwc() > 0;
 
   function dayHTML() {
