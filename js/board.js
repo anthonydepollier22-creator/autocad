@@ -1184,6 +1184,101 @@ function developedDXF(design, meta, components, wires) {
 }
 
 // ---------------------------------------------------------------------------
+// Chauffage électrique : raccordement des radiateurs (phase, neutre, fil pilote,
+// terre) circuit par circuit ; le fil pilote vient du délesteur ou d'un
+// programmateur (gestionnaire d'énergie)
+// ---------------------------------------------------------------------------
+const HEAT_PER = 6; // circuits par folio
+function heatingCircuits(design, components) {
+  const byId = {};
+  for (const c of components || []) byId[c.id] = c;
+  return design.circuits.filter((c) => c.kind === 'heating').map((c) => {
+    const rads = (c.devices || []).map((id) => byId[id]).filter((d) => d && LOADS[d.type] && LOADS[d.type].cls === 'heating');
+    const list = rads.length ? rads.map((d) => ({ ref: d.label || d.id, P: loadPower(d), room: (c.rooms || '').split(', ').length === 1 ? c.rooms : '' }))
+      : Array.from({ length: Math.max(1, c.points || 1) }, (_, i) => ({ ref: `R${i + 1}`, P: Math.round((c.power || 0) / Math.max(1, c.points || 1)), room: '' }));
+    return { c, rads: list.slice(0, 6), more: Math.max(0, list.length - 6) };
+  });
+}
+function heatingFolios(list) { return Math.max(1, Math.ceil(list.length / HEAT_PER)); }
+function drawHeating(ctx, design, meta, list, folio) {
+  const k = folio || 0, nF = heatingFolios(list), mine = list.slice(k * HEAT_PER, (k + 1) * HEAT_PER);
+  const ink = '#1a2230', mute = '#5b6b82', L = '#b3261e', N = '#1668c4', FP = '#1a1a1a', PE = '#2e9e46';
+  const layer = (n) => { if ('layer' in ctx) ctx.layer = n; };
+  const text = (t, x, y, o) => {
+    o = o || {};
+    ctx.save(); ctx.fillStyle = o.color || ink; ctx.font = `${o.bold ? 'bold ' : ''}${o.size || 8}px sans-serif`;
+    ctx.textAlign = o.align || 'left'; ctx.fillText(t, x, y); ctx.restore();
+  };
+  const wire = (color, pts, w, dash) => { ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = w || 1.3; if (dash) ctx.setLineDash(dash); ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); };
+  const dot = (x, y, c) => { ctx.save(); ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, 1.8, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
+  const shed = design.supply && design.supply.shed;
+  ctx.save(); ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  layer('CARTOUCHE');
+  _uCartouche(ctx, design, meta, 'Chauffage électrique — raccordement fil pilote', k, nF);
+  layer('TEXTES');
+  text('Chauffage électrique — fil pilote', 30, 46, { bold: true, size: 17 });
+  text('Chaque radiateur : phase, neutre, fil pilote (ordres confort / éco / hors-gel / arrêt) et terre ; 4 500 W au plus par circuit de 2,5 mm² (20 A)', 30, 62, { size: 8, color: mute });
+  // légende des conducteurs
+  [['Phase', L], ['Neutre', N], ['Fil pilote (noir ou gris)', FP], ['Terre', PE]].forEach(([t, c], i) => { const x = UNI.W - 30 - (4 - i) * 150; layer('SCHEMA'); wire(c, [[x, 42], [x + 20, 42]], 2); layer('TEXTES'); text(t, x + 25, 45, { size: 8 }); });
+  // source des ordres fil pilote
+  const sx = 30, sy = 92;
+  layer('SCHEMA'); ctx.save(); ctx.lineWidth = 1.2; if (!shed) ctx.setLineDash([4, 3]); ctx.strokeRect(sx, sy, 130, 42); ctx.restore();
+  layer('TEXTES');
+  text(shed ? 'Délesteur DL' : 'Programmateur (option)', sx + 8, sy + 16, { bold: true, size: 8.5 });
+  text(shed ? 'coupe le chauffage aux pointes' : 'gestionnaire d’énergie fil pilote', sx + 8, sy + 28, { size: 7, color: mute });
+  text(shed ? 'sortie fil pilote par zone' : 'sans : radiateurs en confort', sx + 8, sy + 38, { size: 7, color: mute });
+  const fpY = sy + 29;
+  const x0 = 200, colW = 160, yTop = 150, radH = 40, gap = 24;
+  mine.forEach(({ c, rads, more }, i) => {
+    const x = x0 + i * colW, xl = x, xn = x + 9, xf = x + 18, xp = x + 27;
+    layer('TEXTES');
+    // en-tête au-dessus du bus du fil pilote (fpY), pour ne pas le croiser
+    text(`${c.id} · ${c.name.length > 22 ? c.name.slice(0, 21) + '…' : c.name}`, x - 6, fpY - 22, { bold: true, size: 8.5 });
+    text(`${c.curve || 'C'}${c.In} · ${boardCable(c.S, c.phase)}${c.rcd ? ' · ' + c.rcd : ''} · ${_bNum((c.power || 0) / 1000, 1)} kW`, x - 6, fpY - 11, { size: 7, color: c.power > 4500 && c.S < 4 ? '#b3261e' : mute });
+    // disjoncteur sur la phase, puis les quatre conducteurs vers les radiateurs
+    layer('SCHEMA');
+    ctx.strokeStyle = ink; _uBreaker(ctx, xl, yTop, 36); ctx.strokeStyle = ink;
+    const yEnd = yTop + 48 + rads.length * (radH + gap);
+    wire(L, [[xl, yTop + 36], [xl, yEnd]], 1.4); wire(N, [[xn, yTop], [xn, yEnd]], 1.4); wire(PE, [[xp, yTop], [xp, yEnd]], 1.4);
+    // fil pilote : depuis la source, le long du haut de page, puis dans la colonne
+    wire(FP, [[xf, fpY + (i % 2 ? 3 : 0)], [xf, yEnd]], 1.2, shed ? null : [3, 2]);
+    if (i === 0) wire(FP, [[sx + 130, fpY], [x0 + (mine.length - 1) * colW + 18, fpY]], 1.2, shed ? null : [3, 2]);
+    dot(xf, fpY, FP);
+    rads.forEach((r, j) => {
+      const y = yTop + 48 + j * (radH + gap), bx = x + 50;
+      layer('SCHEMA');
+      ctx.save(); ctx.lineWidth = 1.1; ctx.strokeStyle = ink; ctx.strokeRect(bx, y, 86, radH); ctx.restore();
+      for (let q = 1; q < 6; q++) wire('#9aa4b2', [[bx + q * 14.3, y + 6], [bx + q * 14.3, y + radH - 6]], 0.6); // éléments chauffants
+      const ty = (n) => y + 8 + n * 8;
+      [[xl, L], [xn, N], [xf, FP], [xp, PE]].forEach(([cx, col], n) => { wire(col, [[cx, ty(n)], [bx, ty(n)]], 1, col === FP && !shed ? [3, 2] : null); dot(cx, ty(n), col); });
+      layer('TEXTES');
+      text(r.ref, bx + 43, y + radH + 9, { size: 7, bold: true, align: 'center' });
+      text(`${_bNum(r.P)} W${r.room ? ' · ' + r.room : ''}`, bx + 43, y + radH + 17, { size: 6.5, color: mute, align: 'center' });
+    });
+    if (more) { layer('TEXTES'); text(`+ ${more} radiateur${more > 1 ? 's' : ''}`, x + 50, yEnd + 12, { size: 7, color: mute }); }
+  });
+  if (!mine.length) { layer('TEXTES'); text('Aucun circuit de chauffage électrique.', 30, 170, { size: 11, color: mute }); }
+  layer('TEXTES');
+  const yb = UNI.H - 15 - 62 - 22;
+  text('Le fil pilote n’est jamais relié à la terre ni au neutre ; sans gestionnaire, il reste isolé (dans un domino) et le radiateur fonctionne en confort. Boîte de sortie de câble à 30 cm du sol derrière chaque radiateur.', 30, yb, { size: 7.5, color: mute });
+  ctx.restore();
+}
+function heatingSVGs(design, meta, components) {
+  const list = heatingCircuits(design, components), out = [];
+  for (let k = 0; k < heatingFolios(list); k++) {
+    const ctx = new SVGContext();
+    drawHeating(ctx, design, meta, list, k);
+    out.push(_folioWrap(ctx.out.join('')));
+  }
+  return out;
+}
+function heatingDXF(design, meta, components) {
+  const list = heatingCircuits(design, components), ctx = new DXFContext(), n = heatingFolios(list);
+  for (let k = 0; k < n; k++) { ctx.save(); ctx.translate(0, k * (UNI.H + 60)); drawHeating(ctx, design, meta, list, k); ctx.restore(); }
+  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: n * (UNI.H + 60) }, { U: 1 / 0.3528, insunits: 4, layers: [['SCHEMA', 7], ['TEXTES', 2], ['CARTOUCHE', 8]] });
+}
+
+// ---------------------------------------------------------------------------
 // Dossier technique : les folios A3 dans l'ordre, numérotés à la suite, et
 // leur sommaire (folio 1)
 // ---------------------------------------------------------------------------
@@ -1203,6 +1298,8 @@ function _technicalSeries(design, components, wires) {
   S.push({ title: 'Note de calcul', what: 'Ib, In, Iz, ΔU, Icc mini, longueur maximale protégée, bilan de puissance', n: calcNoteFolios(design), draw: (ctx, m, k) => drawCalcNote(ctx, design, m, k) });
   const lc = lightingControls(design, components, wires);
   S.push({ title: 'Schémas développés', what: 'Commandes d’éclairage pièce par pièce', n: devFolios(lc), draw: (ctx, m, k) => drawDeveloped(ctx, design, m, lc, k) });
+  const hc = heatingCircuits(design, components);
+  if (hc.length) S.push({ title: 'Chauffage (fil pilote)', what: 'Radiateurs de chaque circuit : phase, neutre, fil pilote, terre', n: heatingFolios(hc), draw: (ctx, m, k) => drawHeating(ctx, design, m, hc, k) });
   if (hasPlan && typeof elevations === 'function') {
     const E = elevations(components, wires);
     S.push({ title: 'Élévations des murs', what: 'Hauteurs de pose de l’appareillage, pièce par pièce', n: elevLayout(E).length, draw: (ctx, m, k) => drawElevations(ctx, design, m, E, k) });

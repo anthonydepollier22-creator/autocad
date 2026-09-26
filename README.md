@@ -273,6 +273,10 @@ l'éditeur du tableau, **avec ou sans plan** :
   télérupteurs et poussoirs), entre la phase et le neutre, conducteurs en couleur
   (phase, neutre bleu, retour lampe, navettes) ; un schéma type par circuit pour un
   tableau sans plan. Export SVG et DXF (calques SCHEMA / TEXTES / CARTOUCHE) ;
+- **Chauffage (fil pilote)** (folios A3) : pour chaque circuit de chauffage, le
+  disjoncteur puis chaque radiateur raccordé en phase, neutre, fil pilote et terre, le
+  fil pilote venant du délesteur (ou d'un programmateur en option) ; rappel : fil pilote
+  jamais relié à la terre, isolé en l'absence de gestionnaire ; export SVG et DXF ;
 - **Élévations des murs** (folios A3), pièce par pièce : chaque mur vu depuis la
   pièce (nord, est, sud, ouest), portes, fenêtres et plan de travail, chaque appareil
   mural à sa **hauteur de pose** (cotée en cm) et à sa distance de l'angle gauche,
@@ -787,7 +791,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-196 vérifications sans dépendance : valeurs numériques de chaque simulation
+197 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

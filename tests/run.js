@@ -1180,6 +1180,16 @@ r = run(`(function(){
 })()`);
 check('Différentiel type A-SI : conseillé pour le congélateur, accepté comme type A, compté au métré', r.info1 && r.info2 && r.mat && r.ck, JSON.stringify(r));
 
+// Chauffage électrique : raccordement fil pilote des radiateurs, circuit par circuit
+r = run(`(function(){
+  var h = buildHouse('t4'), d0 = designInstallation(h.components, h.wires), b = boardFromDesign(d0); b.supply.shed = true;
+  var d = designInstallation(h.components, h.wires, b), L = heatingCircuits(d, h.components), svg = heatingSVGs(d, {}, h.components).join('');
+  var rads = h.components.filter(function(c){ return c.type === 'radiator'; });
+  var T = technicalSet(d, {}, h.components, h.wires);
+  return { circ: L.length === d.circuits.filter(function(c){ return c.kind === 'heating'; }).length, all: rads.every(function(r){ return svg.indexOf('>' + r.label + '<') > 0; }), dl: svg.indexOf('Délesteur DL') > 0, set: T.entries.some(function(e){ return e.title === 'Chauffage (fil pilote)'; }), dxf: /EOF\\s*$/.test(heatingDXF(d, {}, h.components)) };
+})()`);
+check('Chauffage : folio fil pilote (chaque radiateur de chaque circuit, délesteur), dans le dossier technique ; DXF', r.circ && r.all && r.dl && r.set && r.dxf, JSON.stringify(r));
+
 // Nomenclature du matériel : folio A3 du dossier, lignes du métré par catégorie
 r = run(`(function(){
   var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), L = materialList(h.components, h.wires, d), svg = nomenclatureSVGs(d, { title: 'T5' }, h.components, h.wires).join('');

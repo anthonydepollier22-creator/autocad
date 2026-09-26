@@ -26,6 +26,7 @@ function initBoardUI(app) {
   const vdiPages = (d) => vdiSVGs(d, meta(), editor.components, editor.wires);
   const elevPages = (d) => elevationSVGs(d, meta(), editor.components, editor.wires);
   const nomenPages = (d) => nomenclatureSVGs(d, meta(), editor.components, editor.wires);
+  const heatPages = (d) => heatingSVGs(d, meta(), editor.components);
 
   function open() {
     modal.hidden = false;
@@ -170,7 +171,7 @@ function initBoardUI(app) {
   function renderPreview(d) {
     $('bd-folios').hidden = true;
     // vues sans objet : élévations sans plan, communication sans prise RJ45
-    const avail = { elev: hasPlan(), vdi: editor.components.some((c) => c.type === 'rj45') };
+    const avail = { elev: hasPlan(), vdi: editor.components.some((c) => c.type === 'rj45'), heat: !!(d && d.ok && d.circuits.some((c) => c.kind === 'heating')) };
     modal.querySelectorAll('[data-view]').forEach((b) => { b.hidden = avail[b.dataset.view] === false; });
     if (avail[st.view] === false) st.view = 'uni';
     if (!d || !d.ok) { sheet.innerHTML = '<p class="bd-empty">L’aperçu du schéma unifilaire apparaîtra ici.</p>'; return; }
@@ -181,8 +182,8 @@ function initBoardUI(app) {
       svg = pages[st.folio];
       $('bd-folios').hidden = pages.length < 2;
       $('bd-folio-lbl').textContent = `Folio ${st.folio + 1} / ${pages.length}`;
-    } else if (st.view === 'calc' || st.view === 'dev' || st.view === 'vdi' || st.view === 'elev' || st.view === 'wiring' || st.view === 'labels' || st.view === 'nomen') {
-      const pages = st.view === 'calc' ? calcNoteSVGs(d, meta()) : st.view === 'dev' ? devSVGs(d) : st.view === 'elev' ? elevPages(d) : st.view === 'wiring' ? boardWiringSVGs(d, meta()) : st.view === 'labels' ? boardLabelsSVGs(d, meta()) : st.view === 'nomen' ? nomenPages(d) : vdiPages(d);
+    } else if (st.view === 'calc' || st.view === 'dev' || st.view === 'vdi' || st.view === 'elev' || st.view === 'wiring' || st.view === 'labels' || st.view === 'nomen' || st.view === 'heat') {
+      const pages = st.view === 'calc' ? calcNoteSVGs(d, meta()) : st.view === 'dev' ? devSVGs(d) : st.view === 'elev' ? elevPages(d) : st.view === 'wiring' ? boardWiringSVGs(d, meta()) : st.view === 'labels' ? boardLabelsSVGs(d, meta()) : st.view === 'nomen' ? nomenPages(d) : st.view === 'heat' ? heatPages(d) : vdiPages(d);
       st.folio = Math.min(st.folio, pages.length - 1);
       svg = pages[st.folio];
       $('bd-folios').hidden = pages.length < 2;
@@ -308,8 +309,8 @@ function initBoardUI(app) {
     const k = b.dataset.bx;
     if (k === 'svg') {
       const folio = (pages) => pages[st.folio] || pages[0];
-      const svg = st.view === 'uni' ? unifilarSVG(d, meta()) : st.view === 'calc' ? folio(calcNoteSVGs(d, meta())) : st.view === 'dev' ? folio(devSVGs(d)) : st.view === 'vdi' ? folio(vdiPages(d)) : st.view === 'elev' ? folio(elevPages(d)) : st.view === 'wiring' ? folio(boardWiringSVGs(d, meta())) : st.view === 'front' ? boardFrontSVG(d, meta()) : st.view === 'nomen' ? folio(nomenPages(d)) : folio(boardLabelsSVGs(d, meta()));
-      const what = { uni: 'unifilaire', calc: 'note de calcul', dev: 'schémas développés', vdi: 'communication', elev: 'élévations', wiring: 'câblage du tableau', front: 'face avant', labels: 'étiquettes', nomen: 'nomenclature' }[st.view];
+      const svg = st.view === 'uni' ? unifilarSVG(d, meta()) : st.view === 'calc' ? folio(calcNoteSVGs(d, meta())) : st.view === 'dev' ? folio(devSVGs(d)) : st.view === 'vdi' ? folio(vdiPages(d)) : st.view === 'elev' ? folio(elevPages(d)) : st.view === 'wiring' ? folio(boardWiringSVGs(d, meta())) : st.view === 'front' ? boardFrontSVG(d, meta()) : st.view === 'nomen' ? folio(nomenPages(d)) : st.view === 'heat' ? folio(heatPages(d)) : folio(boardLabelsSVGs(d, meta()));
+      const what = { uni: 'unifilaire', calc: 'note de calcul', dev: 'schémas développés', vdi: 'communication', elev: 'élévations', wiring: 'câblage du tableau', front: 'face avant', labels: 'étiquettes', nomen: 'nomenclature', heat: 'chauffage fil pilote' }[st.view];
       download(new Blob([svg], { type: 'image/svg+xml' }), fileName(base() + ' - ' + what + '.svg'));
     } else if (k === 'dxf') {
       if (st.view === 'calc') {
@@ -324,6 +325,9 @@ function initBoardUI(app) {
       } else if (st.view === 'vdi') {
         download(new Blob([vdiDXF(d, meta(), editor.components, editor.wires)], { type: 'application/dxf' }), fileName(base() + ' - communication.dxf'));
         showToast('Schéma de communication exporté en <b>DXF</b> (millimètres, calques SCHEMA, TEXTES, CARTOUCHE).', 3500);
+      } else if (st.view === 'heat') {
+        download(new Blob([heatingDXF(d, meta(), editor.components)], { type: 'application/dxf' }), fileName(base() + ' - chauffage fil pilote.dxf'));
+        showToast('Raccordement du chauffage exporté en <b>DXF</b> (millimètres, calques SCHEMA, TEXTES, CARTOUCHE).', 3500);
       } else if (st.view === 'nomen') {
         download(new Blob([nomenclatureDXF(d, meta(), editor.components, editor.wires)], { type: 'application/dxf' }), fileName(base() + ' - nomenclature.dxf'));
         showToast('Nomenclature du matériel exportée en <b>DXF</b> (millimètres, calques TEXTES et CARTOUCHE).', 3500);
