@@ -1064,6 +1064,8 @@ body.light .day-sec { --dc7: #4a3aa7; }
 .v3-matlegend[hidden] { display: none; }
 .v3-matlegend span { display: inline-flex; align-items: center; gap: 5px; }
 .v3-matlegend i { width: 18px; height: 11px; border-radius: 2px; border: 1px solid rgba(255, 255, 255, 0.35); }
+/* visite : la légende se range à droite de la mini-carte */
+.view3d.walking .v3-matlegend { left: 246px; bottom: 58px; max-width: min(440px, calc(100% - 430px)); }
 /* écran étroit : la légende passe au-dessus du compteur de puissance */
 @media (max-width: 720px) {
   .v3-matlegend { left: 10px; right: 10px; bottom: 58px; max-width: none; font-size: 10.5px; gap: 4px 10px; }

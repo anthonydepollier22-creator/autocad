@@ -1407,7 +1407,7 @@ function initHouseUI(app) {
     const hc = id && byId(id);
     v3.hoverDev = hc && WALL_H.has(hc.type) ? hc.id : null; v3.hoverP = p;
     if (v3.hoverDev && k !== 'del' && !(k === 'move' && v3.moving)) {
-      h = `<b>${esc(SYMBOLS[hc.type].name)}</b> ${esc(hc.label || '')}<span>à ${Math.round(mountH(hc) * 100)} cm${hc.h ? '' : ' (hauteur NF)'}</span><span>↑ ↓ : hauteur ± 5 cm</span>`;
+      h = `<b>${esc(SYMBOLS[hc.type].name)}</b> ${esc(hc.label || '')}<span>à ${Math.round(mountH(hc) * 100)} cm${hc.h ? '' : ' (hauteur NF)'}</span><span>${viz && viz.mode === 'walk' ? '+ −' : '↑ ↓'} : hauteur ± 5 cm</span>`;
     } else if (k === 'del' || (k === 'move' && !v3.moving)) {
       const c = id && byId(id);
       h = c && IMPLANTED.has(c.type) ? `<b>${k === 'del' ? 'Retirer' : 'Déplacer'}</b> ${esc(SYMBOLS[c.type].name)} ${esc(c.label || '')}` : '';
@@ -1625,10 +1625,13 @@ function initHouseUI(app) {
       return;
     }
     // implantation : ↑ / ↓ sur l'appareil survolé règle sa hauteur de pose par pas de 5 cm
-    if (v3.implant && v3.hoverDev && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    // (en visite, les flèches font marcher : + / − ou Page haut / bas)
+    const hUp = ['+', 'PageUp'].includes(e.key) || (e.key === 'ArrowUp' && viz.mode !== 'walk');
+    const hDown = ['-', 'PageDown'].includes(e.key) || (e.key === 'ArrowDown' && viz.mode !== 'walk');
+    if (v3.implant && v3.hoverDev && (hUp || hDown)) {
       const c = byId(v3.hoverDev);
       if (c) {
-        const nh = Math.max(5, Math.min(250, Math.round(mountH(c) * 100 / 5) * 5 + (e.key === 'ArrowUp' ? 5 : -5)));
+        const nh = Math.max(5, Math.min(250, Math.round(mountH(c) * 100 / 5) * 5 + (hUp ? 5 : -5)));
         c.h = nh;
         implantChanged();
         if (v3.hoverP) implantHover(c.id, v3.hoverP);
