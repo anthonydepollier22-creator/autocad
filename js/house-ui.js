@@ -1535,7 +1535,8 @@ function initHouseUI(app) {
       } else {
         const tg = implantTarget(hit);
         if (tg) h = `<b>${esc(IMPLANT[k].label)}</b>${tg.room ? ' · ' + esc(tg.room) : ''}` +
-          (IMPLANT[k].ceil ? '<span>au plafond, à l’aplomb</span>' : IMPLANT[k].furn ? `<span>${tg.mat ? esc(tg.mat.label) : ''}</span><span>sortie de câble à 30 cm, ${tg.mat && tg.mat.hollow ? 'fixation cloison sèche' : 'chevilles maçonnerie'}</span>`
+          (IMPLANT[k].ceil ? '<span>au plafond, à l’aplomb</span>' : k === 'panel_sub' ? `<span>${tg.mat ? esc(tg.mat.label) : ''}</span><span>coffret à 1,50 m, ${tg.mat && tg.mat.hollow ? 'fixé sur rail ou platine (cloison sèche)' : 'chevilles maçonnerie'} — les appareils de la pièce en partiront</span>`
+            : IMPLANT[k].furn ? `<span>${tg.mat ? esc(tg.mat.label) : ''}</span><span>sortie de câble à 30 cm, ${tg.mat && tg.mat.hollow ? 'fixation cloison sèche' : 'chevilles maçonnerie'}</span>`
             : `<span>à ${implantH() || Math.round((MOUNT_H[k] || 0.3) * 100)} cm · ${tg.mat ? esc(tg.mat.label) : ''}</span><span>${tg.mat && tg.mat.doublage ? 'boîte étanche à l’air (doublage)' : tg.mat && tg.mat.hollow ? 'boîte cloison sèche' : 'boîte maçonnerie'}</span>`);
       }
     }
