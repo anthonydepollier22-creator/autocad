@@ -1266,11 +1266,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Nouveautés : une fois par version (pas quand on arrive par un lien de démo)
   try {
-    const NEWS = '1.9';
+    const NEWS = '1.10';
     if (localStorage.getItem('electricad-news') !== NEWS) {
       localStorage.setItem('electricad-news', NEWS);
       if (!location.search) {
-        setTimeout(() => showToast('<b>Nouveau</b> : folios <b>câblage du tableau</b>, <b>élévations</b> des murs (hauteurs cotées), <b>communication</b> (VDI, grade 2TV, câbles en rayons X), <b>autocontrôle</b> avant le Consuel dans le dossier ; en 3D, radiateur, VMC et hauteur aux flèches ↑ ↓.', 9000), 1200);
+        setTimeout(() => showToast('<b>Nouveau</b> : <b>dossier technique</b> numéroté (sommaire, plan d’implantation, <b>plan de câblage</b>, unifilaire, câblage du tableau — aussi en triphasé —, note de calcul…), bouton <b>Câbles</b> sur le plan, murs placo / maçonnerie visibles en 2D, <b>boîtes d’encastrement</b> en rayons X.', 9000), 1200);
       }
     }
   } catch (_) { /* stockage indisponible */ }
