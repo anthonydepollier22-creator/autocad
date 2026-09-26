@@ -926,12 +926,14 @@ function developedDXF(design, meta, components, wires) {
 // ---------------------------------------------------------------------------
 function technicalSet(design, meta, components, wires) {
   const hasPlan = wires.some((w) => w.kind === 'wall'), rj = components.some((c) => c.type === 'rj45');
-  const sets = [
+  const sets = [];
+  if (hasPlan && typeof buildSVG === 'function') sets.push(['Plan d’implantation', 'Appareillage, goulottes, cotes, légende et repères de circuits', (m) => [planFolioSVG(design, m, components, wires)]]);
+  sets.push(
     ['Schéma unifilaire', 'Arrivée, AGCP, différentiels, disjoncteurs, nomenclature des départs', (m) => unifilarSVGs(design, m)],
     ['Câblage du tableau', 'Liaison AGCP, peignes, départs, bornier de terre', (m) => boardWiringSVGs(design, m)],
     ['Note de calcul', 'Ib, In, Iz, ΔU, Icc mini, longueur maximale protégée, bilan de puissance', (m) => calcNoteSVGs(design, m)],
     ['Schémas développés', 'Commandes d’éclairage pièce par pièce', (m) => developedSVGs(design, m, components, wires)],
-  ];
+  );
   if (hasPlan && typeof elevationSVGs === 'function') sets.push(['Élévations des murs', 'Hauteurs de pose de l’appareillage, pièce par pièce', (m) => elevationSVGs(design, m, components, wires)]);
   if (rj && typeof vdiSVGs === 'function') sets.push(['Communication (VDI)', 'Coffret grade 2TV, câblage en étoile catégorie 6', (m) => vdiSVGs(design, m, components, wires)]);
   // premier passage : nombre de folios de chaque série ; second : numérotation continue
@@ -948,6 +950,17 @@ function technicalSet(design, meta, components, wires) {
   drawSommaire(ctx, design, { ...meta, sheet: 1, sheets: total }, entries, hasPlan);
   const cover = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${UNI.W} ${UNI.H}" width="420mm" height="297mm" font-family="sans-serif"><rect width="${UNI.W}" height="${UNI.H}" fill="#fff"/>${ctx.out.join('')}</svg>`;
   return { pages: [cover, ...pages], entries, total };
+}
+// Plan d'implantation dans un folio A3 : le plan (légende, repères) mis à l'échelle
+// de la zone utile, sous le cartouche du dossier
+function planFolioSVG(design, meta, components, wires) {
+  const plan = buildSVG(components, wires, SYMBOLS, { ...meta, legend: true, tags: circuitTags(design), noCartouche: true });
+  const vb = /viewBox="([^"]+)"/.exec(plan)[1], inner = plan.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
+  const ctx = new SVGContext();
+  _uCartouche(ctx, design, meta, 'Plan d’implantation', 0, 1);
+  const H = UNI.H - 15 - 62 - 20;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${UNI.W} ${UNI.H}" width="420mm" height="297mm" font-family="sans-serif"><rect width="${UNI.W}" height="${UNI.H}" fill="#fff"/>` +
+    `<svg x="22" y="22" width="${UNI.W - 44}" height="${H}" viewBox="${vb}" preserveAspectRatio="xMidYMid meet">${inner}</svg>${ctx.out.join('')}</svg>`;
 }
 function drawSommaire(ctx, design, meta, entries, hasPlan) {
   const ink = '#1a2230', mute = '#5b6b82';
@@ -978,7 +991,7 @@ function drawSommaire(ctx, design, meta, entries, hasPlan) {
   _uLine(ctx, x0, y0 + rh * (rows.length + 1), x1, y0 + rh * (rows.length + 1), 1.2);
   const yn = y0 + rh * (rows.length + 1) + 34;
   text('Documents joints (format A4 ou à l’échelle)', x0, yn, { bold: true, size: 11 });
-  const docs = [hasPlan && 'Plan d’implantation coté, légende et repères de circuits (SVG, DXF, PDF)', 'Face avant du tableau et étiquettes de repérage à l’échelle 1', 'Dossier du projet : contrôle NF pièce par pièce, autocontrôle, matériel et budget'].filter(Boolean);
+  const docs = [hasPlan && 'Plan d’implantation à l’échelle (SVG, DXF pour AutoCAD)', 'Face avant du tableau et étiquettes de repérage à l’échelle 1', 'Dossier du projet : contrôle NF pièce par pièce, autocontrôle, matériel et budget'].filter(Boolean);
   docs.forEach((d, i) => text('•  ' + d, x0 + 8, yn + 22 + i * 18, { size: 10 }));
   ctx.restore();
 }

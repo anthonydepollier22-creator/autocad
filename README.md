@@ -247,7 +247,7 @@ l'éditeur du tableau, **avec ou sans plan** :
   droite ;
 - **Exports** : SVG, **DXF** (en millimètres, calques UNIFILAIRE / TEXTES / CARTOUCHE,
   validé par ezdxf) et **Imprimer / PDF** : le **dossier technique** A3 — sommaire,
-  puis unifilaire, câblage, note de calcul, schémas développés, élévations et
+  plan d'implantation (légende, repères de circuits), unifilaire, câblage, note de calcul, schémas développés, élévations et
   communication, **numérotés à la suite** (folio 3 / 11) — suivi de la face avant et
   des étiquettes A4 ; le
   dossier du projet et le métré (coffret, parafoudre, contacteurs, ID 63 A…) suivent.

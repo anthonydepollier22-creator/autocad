@@ -305,7 +305,7 @@ function initBoardUI(app) {
     const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>' + esc(base()) + ' — tableau électrique</title><style>' +
       '@page a3{size:A3 landscape;margin:0}@page a4p{size:A4 portrait;margin:8mm}@page a4l{size:A4 landscape;margin:0}' +
       'body{margin:0;font-family:sans-serif;background:#888}section{background:#fff;margin:0 auto 10px;break-after:page}' +
-      '.a3{page:a3;width:420mm;height:297mm}.a3 svg{width:420mm;height:297mm;display:block}' +
+      '.a3{page:a3;width:420mm;height:297mm}.a3>svg{width:420mm;height:297mm;display:block}' +
       `.a4p{page:a4p;width:194mm}.a4p svg{width:${Math.min(194, fw)}mm;height:auto;display:block}` +
       '.a4l{page:a4l;width:297mm;height:210mm}.a4l svg{width:297mm;height:auto;display:block}' +
       '@media print{body{background:#fff}section{margin:0}}</style></head><body>' + pages +

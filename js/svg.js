@@ -101,7 +101,8 @@ function buildSVG(components, wires, symbols, meta) {
   const legend = isPlan && meta && meta.legend && typeof planLegend === 'function' ? planLegend(components, symbols) : null;
   const tags = meta && meta.tags;
   const LW = 320, planRight = maxX + pad;
-  minX -= pad; minY -= pad; maxX += pad; maxY += pad + 60; // marge basse pour le cartouche
+  const bare = !!(meta && meta.noCartouche); // plan inséré dans un folio qui a son propre cartouche
+  minX -= pad; minY -= pad; maxX += pad; maxY += pad + (bare ? 0 : 60); // marge basse pour le cartouche
   if (legend && legend.length) {
     maxX += LW;
     const need = minY + 40 + legend.length * 34 + (tags ? 30 + tags.list.length * 20 : 0) + 80;
@@ -230,5 +231,5 @@ function buildSVG(components, wires, symbols, meta) {
   return `<?xml version="1.0" encoding="UTF-8"?>\n` +
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${minX} ${minY} ${W} ${H}" width="${W}" height="${H}">` +
     `<rect x="${minX}" y="${minY}" width="${W}" height="${H}" fill="#ffffff"/>` +
-    ctx.out.join('') + cartouche + `</svg>`;
+    ctx.out.join('') + (bare ? '' : cartouche) + `</svg>`;
 }
