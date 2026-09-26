@@ -1383,10 +1383,15 @@ function initHouseUI(app) {
       (IMPLANT[k].ceil ? ' (plafond)' : IMPLANT[k].furn ? `, contre ${tg.mat ? esc(tg.mat.label.toLowerCase()) : 'le mur'} (sortie de câble à 30 cm)`
         : ` à ${h}, ${tg.mat ? esc(tg.mat.label.toLowerCase()) + (tg.mat.hollow ? ' → boîte cloison sèche' : ' → boîte maçonnerie') : ''}`) + '. Annulable (Ctrl+Z dans le plan).');
   }
+  const WALL_H = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light']); // hauteur réglable
   function implantHover(id, p) {
     const k = v3.implant;
     let h = '';
-    if (k === 'del' || (k === 'move' && !v3.moving)) {
+    const hc = id && byId(id);
+    v3.hoverDev = hc && WALL_H.has(hc.type) ? hc.id : null; v3.hoverP = p;
+    if (v3.hoverDev && k !== 'del' && !(k === 'move' && v3.moving)) {
+      h = `<b>${esc(SYMBOLS[hc.type].name)}</b> ${esc(hc.label || '')}<span>à ${Math.round(mountH(hc) * 100)} cm${hc.h ? '' : ' (hauteur NF)'}</span><span>↑ ↓ : hauteur ± 5 cm</span>`;
+    } else if (k === 'del' || (k === 'move' && !v3.moving)) {
       const c = id && byId(id);
       h = c && IMPLANTED.has(c.type) ? `<b>${k === 'del' ? 'Retirer' : 'Déplacer'}</b> ${esc(SYMBOLS[c.type].name)} ${esc(c.label || '')}` : '';
     } else if (k === 'move') {
@@ -1406,7 +1411,7 @@ function initHouseUI(app) {
     }
     cv3.style.cursor = h ? 'crosshair' : '';
     if (!h) { tip.hidden = true; return; }
-    tip.innerHTML = h + '<em>Clic : ' + (k === 'del' ? 'retirer' : k === 'move' ? (v3.moving ? 'poser ici' : 'choisir l’appareil') : k.startsWith('mat:') ? 'changer le matériau' : 'poser') + '</em>';
+    tip.innerHTML = h + '<em>Clic : ' + (k === 'del' ? 'retirer' : k === 'move' ? (v3.moving ? 'poser ici' : 'choisir l’appareil') : k.startsWith('mat:') ? 'changer le matériau' : v3.hoverDev ? 'poser un appareil sur le mur derrière' : 'poser') + '</em>';
     tip.hidden = false;
     const r = view3d.getBoundingClientRect();
     tip.style.left = Math.min(p.x + 16, r.width - 260) + 'px';
@@ -1414,7 +1419,7 @@ function initHouseUI(app) {
   }
   function setImplant(k) {
     v3.implant = k || null;
-    v3.moving = null;
+    v3.moving = null; v3.hoverDev = null;
     const on = !!v3.implant;
     setChip('v3-implant', on);
     $('v3-implant-kind').hidden = !on;
@@ -1591,6 +1596,18 @@ function initHouseUI(app) {
       return;
     }
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    // implantation : ↑ / ↓ sur l'appareil survolé règle sa hauteur de pose par pas de 5 cm
+    if (v3.implant && v3.hoverDev && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      const c = byId(v3.hoverDev);
+      if (c) {
+        const nh = Math.max(5, Math.min(250, Math.round(mountH(c) * 100 / 5) * 5 + (e.key === 'ArrowUp' ? 5 : -5)));
+        c.h = nh;
+        implantChanged();
+        if (v3.hoverP) implantHover(c.id, v3.hoverP);
+        e.preventDefault(); e.stopPropagation();
+        return;
+      }
+    }
     if (viz.keyDown(e)) e.preventDefault();
     else if (!e.ctrlKey && !e.metaKey && !e.altKey && shortcut3D(e.key)) e.preventDefault();
     // le plan est masqué : ses raccourcis (supprimer, pivoter, outils…) ne doivent pas agir
