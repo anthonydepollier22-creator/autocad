@@ -3,6 +3,51 @@
  * réunit le plan coté, le contrôle NF C 15-100, le schéma unifilaire et les
  * circuits, le matériel et le budget, la vue 3D et la journée type.
  */
+// Autocontrôle avant la visite du Consuel : ce que le logiciel vérifie sur le
+// plan et le tableau, puis ce qui se contrôle sur place (liste indicative).
+function selfCheckList(report, design) {
+  const auto = [];
+  const add = (label, st, note) => auto.push({ label, st, note: note || '' });
+  const g = (re) => (report && report.global ? report.global.filter((x) => re.test(x.msg)) : []);
+  const chk = (re) => (design && design.checks ? design.checks.filter((x) => re.test(x.msg)) : []);
+  const worst = (l) => (l.some((x) => x.level === 'err') ? 'err' : l.some((x) => x.level === 'warn') ? 'warn' : 'ok');
+  if (report && report.hasPlan) {
+    const bad = report.rooms.filter((r) => r.status === 'err');
+    add('Prises, points lumineux et commandes de chaque pièce', bad.length ? 'err' : report.rooms.some((r) => r.status === 'warn') ? 'warn' : 'ok', bad.map((r) => r.name).join(', '));
+    const daaf = g(/DAAF|détecteur de fumée/i);
+    add('Détecteur de fumée (DAAF)', worst(daaf) === 'ok' && daaf.length ? 'ok' : 'err');
+    add('Pièces d’eau : ni prise ni commande dans le volume 2', g(/volume 2/).length ? 'err' : 'ok');
+    const h = g(/axe à|commandes se posent/);
+    add('Hauteurs de pose (axe des prises à 5 cm au moins, commandes entre 0,90 et 1,30 m)', worst(h), h.length ? `${h.length} appareil(s)` : '');
+    add('GTL et tableau intégré', worst(g(/GTL|tableau/i)));
+    add('Cuisine : 4 prises au-dessus du plan de travail', g(/plan de travail/).length ? 'err' : 'ok');
+  }
+  if (design && design.ok) {
+    add('Calibre de chaque disjoncteur adapté à la section', chk(/n’est pas protégé|au plus/).some((x) => x.level === 'err') ? 'err' : 'ok');
+    add('Tous les circuits sous interrupteur différentiel 30 mA', design.circuits.every((c) => c.rcd) ? 'ok' : 'err');
+    add('Différentiel type A pour la plaque de cuisson et le lave-linge', chk(/type A/).some((x) => x.level === 'err') ? 'err' : 'ok');
+    add('Chute de tension (3 % éclairage, 5 % autres usages)', design.circuits.every((c) => c.ok !== false) ? 'ok' : 'warn');
+    add('Longueur protégée contre les courts-circuits (note de calcul)', chk(/protégés — un court-circuit/).length ? 'err' : 'ok');
+    const M = typeof boardModules === 'function' ? boardModules(design) : null;
+    if (M) add('20 % de modules libres dans le tableau', M.reservePct >= 20 ? 'ok' : 'warn', `${M.reservePct} %`);
+    const ra = design.supply && design.supply.ra;
+    add('Prise de terre de 100 Ω au plus', ra ? (ra <= 100 ? 'ok' : 'err') : 'todo', ra ? `${ra} Ω mesurés` : 'à mesurer (champ « Terre » du tableau)');
+  }
+  const manual = [
+    'Conducteur de terre (16 mm² cuivre) et barrette de mesure accessible près du tableau',
+    'Liaison équipotentielle principale : canalisations métalliques d’eau et de gaz reliées à la borne principale de terre',
+    'Conducteur de protection vert / jaune jusqu’à chaque prise, point lumineux (DCL) et appareil',
+    'Couleurs des conducteurs : vert / jaune réservé à la terre, bleu clair au neutre',
+    'Conducteurs sous conduit ou gaine (ICTA) de bout en bout, aucun conducteur isolé apparent',
+    'Connexions uniquement dans des boîtes accessibles, bornes serrées, couvercles en place',
+    'Socles de prise à obturateurs (éclips), boîtes d’encastrement adaptées au mur (placo, étanches à l’air, maçonnerie)',
+    'Repérage des circuits sur le tableau (étiquettes) et schéma unifilaire rangé à proximité',
+    'Pièces d’eau : appareillage et luminaires à l’indice de protection des volumes',
+    'Coffret de communication dans la GTL, alimenté par deux socles 2P+T',
+  ];
+  return { auto, manual };
+}
+
 function buildDossier(o) {
   const esc = (s) => String(s === undefined || s === null ? '' : s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
   const num = (v, d) => Number(v).toLocaleString('fr-FR', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
@@ -78,6 +123,17 @@ function buildDossier(o) {
     if (o.calcNoteSVGs && o.calcNoteSVGs.length) h += o.calcNoteSVGs.map((svg, k) => `<section class="page"><h2>Note de calcul${o.calcNoteSVGs.length > 1 ? ` (${k + 1}/${o.calcNoteSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
   }
 
+  // Autocontrôle avant le Consuel
+  if ((rep && rep.hasPlan) || (d && d.ok)) {
+    const L = selfCheckList(rep, d), lab = { ok: '✓', warn: '!', err: '✗', todo: '☐' }, txt = { ok: 'conforme', warn: 'à vérifier', err: 'à corriger', todo: 'à faire' };
+    h += '<section class="page"><h2>Autocontrôle avant la visite du Consuel</h2>' +
+      '<p class="small">Vérifié par ÉlectriCAD sur le plan et le tableau (contrôle simplifié, sans valeur d’attestation) :</p><table class="checklist"><tbody>' +
+      L.auto.map((x) => `<tr><td class="st ${x.st}">${lab[x.st]}</td><td>${esc(x.label)}${x.note ? ` <span class="small">— ${esc(x.note)}</span>` : ''}</td><td class="st ${x.st}">${txt[x.st]}</td></tr>`).join('') +
+      '</tbody></table><h3>À contrôler sur place</h3><table class="checklist"><tbody>' +
+      L.manual.map((m) => `<tr><td>☐</td><td>${esc(m)}</td><td></td></tr>`).join('') + '</tbody></table>' +
+      '<p class="small">L’attestation de conformité est délivrée par le Consuel après sa visite ; faire vérifier l’installation par un électricien qualifié.</p></section>';
+  }
+
   // Matériel et budget
   if (o.materials && o.materials.lines.length) {
     const m = o.materials;
@@ -132,7 +188,7 @@ h3{font-size:12pt;margin:14px 0 4px}h2{font-size:15pt;margin:0 0 10px;padding-bo
 .shots{display:grid;grid-template-columns:1fr 1fr;gap:10px}.shots figure{margin:0}.shots img{width:100%;border:1px solid #ccc;border-radius:4px}.shots figcaption{font-size:9pt;color:#555}
 .svg svg{width:100%;height:auto;max-height:230mm}table{width:100%;border-collapse:collapse;font-size:9.5pt;margin:8px 0}th,td{padding:4px 6px;border-bottom:1px solid #ddd;text-align:left;vertical-align:top}
 th{font-size:8pt;text-transform:uppercase;letter-spacing:.06em;color:#555;border-bottom:1.5px solid #17202c}.n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-.small{font-size:8.5pt;color:#555}.st.ok{color:#2b7a37}.st.warn{color:#9a5a00}.st.err,.bad{color:#b3261e}tr.cat td{font-weight:700;color:#1d5dbd;padding-top:10px}
+.small{font-size:8.5pt;color:#555}.st.ok{color:#2b7a37}.st.warn{color:#9a5a00}.st.err,.bad{color:#b3261e}.st.todo{color:#555}table.checklist td:first-child{width:22px;text-align:center;font-weight:700}table.checklist td:last-child{width:90px;text-align:right}tr.cat td{font-weight:700;color:#1d5dbd;padding-top:10px}
 tr.tot td{font-weight:700;border-top:1.5px solid #17202c}.checks{margin:8px 0;padding-left:18px;font-size:9.5pt}.checks .err{color:#b3261e}.checks .warn{color:#9a5a00}
 table.half{width:60%}.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}.sw.line{height:2px;background:#4a3aa7;vertical-align:3px}
 footer{margin-top:24px;padding-top:8px;border-top:1px solid #ccc;font-size:8.5pt;color:#666}@media screen{body{max-width:190mm;margin:20px auto;padding:0 10px}}`;

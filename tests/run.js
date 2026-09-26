@@ -541,9 +541,12 @@ r = run(`(function(){
   });
   var h2 = (html.match(/<h2>/g) || []).length, svgs = (html.match(/<svg/g) || []).length;
   return [html.indexOf('<!DOCTYPE html>') === 0, h2, svgs, html.indexOf('T3 &lt;test&gt;') > 0, html.indexOf('C1') > 0, html.indexOf('Production solaire') > 0, html.indexOf('Bilan annuel') > 0,
-    html.indexOf('<h2>Éclairement</h2>') > 0 && (html.match(/class="st err">Insuffisant/g) || []).length === 1 && (html.match(/class="st warn">Un peu juste/g) || []).length === 1];
+    html.indexOf('<h2>Éclairement</h2>') > 0 && (html.match(/class="st err">Insuffisant/g) || []).length === 1 && (html.match(/class="st warn">Un peu juste/g) || []).length === 1,
+    // autocontrôle : tout conforme sauf la prise de terre, à mesurer
+    html.indexOf('Autocontrôle avant la visite du Consuel') > 0 && (html.match(/class="st ok">✓/g) || []).length >= 10 && html.indexOf('class="st err">✗') < 0 && (html.match(/class="st todo">☐/g) || []).length === 1];
 })()`);
-check('Dossier : plan, norme, éclairement, tableau, matériel, journée, bilan annuel ; titre échappé', r[0] && r[1] === 7 && r[2] === 3 && r[3] && r[4] && r[5] && r[6] && r[7], `${r[1]} sections, ${r[2]} SVG`);
+check('Dossier : plan, norme, éclairement, tableau, autocontrôle, matériel, journée, bilan annuel ; titre échappé', r[0] && r[1] === 8 && r[2] === 3 && r[3] && r[4] && r[5] && r[6] && r[7], `${r[1]} sections, ${r[2]} SVG`);
+check('Autocontrôle avant le Consuel : points vérifiés sur le plan et le tableau (T3 conforme), prise de terre à mesurer', r[8]);
 
 // ---------------------------------------------------------------------------
 group('Maison à étage (R+1)');
