@@ -292,6 +292,15 @@ r = run(`(function(){
 })()`);
 check('Rayons X : câbles de communication (catégorie 6) en étoile depuis la GTL, isolables comme un circuit', r.n0 > 30 && r.teal > 30 && r.bright && r.dim, `${r.n0} faces`);
 r = run(`(function(){
+  var d = buildHouse('t3'), viz = new Viz3D(__cv, { interactive: false });
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { xray: true, sim: { design: designInstallation(d.components, d.wires) } });
+  var boxes = {}; viz.faces.forEach(function(f){ if (f.obj && String(f.obj).indexOf('box:') === 0) boxes[f.obj] = f.color; });
+  var ids = Object.keys(boxes), n = d.components.filter(function(c){ return ['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light'].indexOf(c.type) >= 0; }).length;
+  var key = function(c){ return c.join(','); }, cols = {}; ids.forEach(function(k){ cols[key(boxes[k])] = (cols[key(boxes[k])] || 0) + 1; });
+  return { n: n, ids: ids.length, orange: cols['245,158,11'] || 0, blue: cols['59,130,246'] || 0 };
+})()`);
+check('Rayons X : une boîte d’encastrement derrière chaque appareil mural — cloison sèche (orange) ou étanche à l’air dans le doublage (bleu)', r.ids === r.n && r.orange > 0 && r.blue > 0 && r.orange + r.blue === r.ids, `${r.orange} placo · ${r.blue} doublage`);
+r = run(`(function(){
   // défaut provoqué en 3D : le simulateur déclenche la bonne protection, la 3D reçoit une gerbe d'étincelles
   var d = buildHouse('t3'), des = designInstallation(d.components, d.wires), sim = new InstallSim(); sim.setDesign(des);
   var oven = d.components.find(function(c){ return c.type === 'oven'; }), ct = des.circuits.find(function(c){ return c.devices.indexOf(oven.id) >= 0; });

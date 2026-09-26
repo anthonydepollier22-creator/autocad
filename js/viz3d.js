@@ -1471,6 +1471,27 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
     if (vdi.ok) _buildVDICables(viz, components, vdi, nearWall, { place: (x) => { at(x); return shown(x); }, dim: !!opts.circuit && opts.circuit !== 'vdi', pick: opts.circuit === 'vdi' });
     viz.off = null;
   }
+  // Rayons X : boîtes d'encastrement derrière l'appareillage mural, selon le mur :
+  // cloison sèche (orange), étanche à l'air dans un doublage (bleu), maçonnerie (gris)
+  if (opts.xray && typeof mountH === 'function') {
+    const BOXT = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light']);
+    const a0 = viz.alpha, e0 = viz.em, o0 = viz.obj;
+    viz.alpha = 1; viz.em = 0.25;
+    for (const c of components) {
+      if (!BOXT.has(c.type) || !shown(c.x)) continue;
+      let best = null;
+      for (const w of scene.walls) { const d = _dSeg(c.x, c.y, w.a, w.b); if (d < 40 && (!best || d < best.d)) best = { w, d }; }
+      if (!best) continue;
+      at(c.x);
+      const w = best.w, dx = w.b.x - w.a.x, dz = w.b.y - w.a.y, L = Math.hypot(dx, dz) || 1, ux = dx / L, uz = dz / L;
+      const t = (c.x - w.a.x) * ux + (c.y - w.a.y) * uz, px = w.a.x + ux * t, pz = w.a.y + uz * t;
+      const side = Math.sign((c.x - px) * -uz + (c.y - pz) * ux) || 1, nx = -uz * side, nz = ux * side, f = w.t / 2 - 2.2;
+      const M = w.m, col = M && M.doublage ? '#3b82f6' : M && M.hollow ? '#f59e0b' : '#9aa3ad';
+      viz.obj = 'box:' + c.id;
+      viz.box(px + nx * f, mountH(c) * 100 - 3.5, pz + nz * f, 7, 7, 4.2, col, (Math.atan2(dz, dx) * 180) / Math.PI);
+    }
+    viz.off = null; viz.alpha = a0; viz.em = e0; viz.obj = o0;
+  }
   // Rayons X : prise de terre (conducteur vert/jaune jusqu'au piquet, regard, barrette)
   if (opts.xray && design && design.ok && info) {
     const tb = components.find((c) => c.id === design.panel);
