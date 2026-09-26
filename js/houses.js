@@ -1296,7 +1296,11 @@ function addShutters(doc) {
     _addComp(doc, 'shutter', win.x + nx * 15, win.y + ny * 15, win.rot || 0);
     // commande à 70 cm de l'axe de la fenêtre (sinon 100 cm, de l'autre côté), à l'écart des autres appareils muraux
     const at = (t) => ({ x: nw.a.x + nw.ux * t + nx * 20, y: nw.a.y + nw.uy * t + ny * 20 });
-    const free = (p) => !doc.components.some((c) => (STUD_BOXED.has(c.type) || c.type === 'radiator') && Math.hypot(c.x - p.x, c.y - p.y) < 35);
+    // ni contre un autre appareil mural, ni derrière un meuble haut ou encombrant (meuble TV, armoire…)
+    const hides = doc.components.filter((c) => (FURN[c.type] && FURN[c.type].tall) || (BLOCKS_OUTLET.has(c.type) && c.type !== 'radiator'));
+    const free = (p) => !doc.components.some((c) => (STUD_BOXED.has(c.type) || c.type === 'radiator') && Math.hypot(c.x - p.x, c.y - p.y) < 35) &&
+      !hides.some((c) => _inPoly(_footprint(c, 12), p.x, p.y)) &&
+      !doc.components.some((c) => OPENING_HALF[c.type] && c.type !== 'window_a' && Math.hypot(c.x - p.x, c.y - p.y) < OPENING_HALF[c.type] + 30);
     const cand = [70, -70, 100, -100, 130, -130].map((d) => nw.t + d).filter((tt) => tt >= 15 && tt <= L - 15);
     const t = cand.find((tt) => free(at(tt))) !== undefined ? cand.find((tt) => free(at(tt))) : cand[0]; // à défaut : la première place sur le mur
     if (t !== undefined) { const p = at(t); _addDevice(ctx, 'switch_shutter', p.x, p.y, _rotDevice(nx, ny)); }
