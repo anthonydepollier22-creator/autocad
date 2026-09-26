@@ -551,18 +551,31 @@ function drawUnifilar(ctx, design, meta, folio) {
   const d0 = design.agcp;
   const tri = design.supply && design.supply.phases === 3;
 
-  // Légende des symboles (premier folio)
+  // Légende des symboles (premier folio) : ceux de l'installation, trois par rangée
   if (k === 0) {
+    const cs = design.circuits, sup = design.supply || {};
+    const L = [
+      ['Disjoncteur', 'courbe C, calibre en A', (x, y) => _uBreaker(ctx, x, y, 34)],
+      ['Interrupteur', 'différentiel 30 mA', (x, y) => { _uSwitch(ctx, x, y, 34); _uTorus(ctx, x, y + 26, y + 16); }],
+    ];
+    if (cs.some((c) => c.ddr)) L.push(['Disjoncteur', 'différentiel 30 mA', (x, y) => { _uBreaker(ctx, x, y, 34); _uTorus(ctx, x, y + 26, y + 16); }]);
+    L.push(['Contacteur HC,', 'horloge IH, télér. TL', (x, y) => _uContactor(ctx, x, y, 34, 'KM'), 26]);
+    if ((design.panels || []).length) L.push(['Interrupteur-', 'sectionneur (TD)', (x, y) => _uSwitch(ctx, x, y, 34)]);
+    if (sup.surge) L.push(['Parafoudre', 'type 2', (x, y) => { ctx.lineWidth = 1.2; ctx.strokeRect(x - 6, y + 4, 12, 24); _uLine(ctx, x, y + 9, x - 3, y + 16, 1); _uLine(ctx, x - 3, y + 16, x + 3, y + 16, 1); _uLine(ctx, x + 3, y + 16, x, y + 24, 1); }]);
+    if (sup.shed) L.push(['Délesteur', 'fil pilote', (x, y) => { ctx.lineWidth = 1.2; ctx.strokeRect(x - 10, y + 6, 20, 18); text('DL', x, y + 19, { size: 7, bold: true, align: 'center' }); }]);
+    if (cs.some((c) => c.kind === 'pv')) L.push(['Onduleur', 'photovoltaïque', (x, y) => _uInverter(ctx, x, y + 6)]);
+    L.push(['Terre', '', (x, y) => _uEarth(ctx, x, y + 6)], ['Départ', 'vers les récepteurs', (x, y) => { _uLine(ctx, x, y + 4, x, y + 16, 1.3); _uArrow(ctx, x, y + 16); }]);
+    const lx = W - 330, ly = 28, rows = Math.ceil(L.length / 3);
     layer('TEXTES');
-    const lx = W - 330, ly = 28;
-    ctx.lineWidth = 0.8; ctx.strokeRect(lx, ly, 305, 100);
+    ctx.lineWidth = 0.8; ctx.strokeRect(lx, ly, 305, 22 + rows * 40);
     text('Légende', lx + 8, ly + 13, { bold: true, size: 8.5 });
-    layer('UNIFILAIRE');
-    _uBreaker(ctx, lx + 22, ly + 20, 34); text('Disjoncteur', lx + 40, ly + 34, { size: 7.5 }); text('courbe C, calibre en A', lx + 40, ly + 44, { size: 7, color: mute });
-    _uSwitch(ctx, lx + 22, ly + 60, 34); _uTorus(ctx, lx + 22, ly + 86, ly + 76); text('Interrupteur', lx + 40, ly + 74, { size: 7.5 }); text('différentiel 30 mA', lx + 40, ly + 84, { size: 7, color: mute });
-    _uContactor(ctx, lx + 165, ly + 20, 34, 'KM'); text('Contacteur (HC) /', lx + 192, ly + 34, { size: 7.5 }); text('télérupteur (TL)', lx + 192, ly + 44, { size: 7.5 });
-    _uEarth(ctx, lx + 175, ly + 66); text('Terre', lx + 192, ly + 80, { size: 7.5 });
-    _uArrow(ctx, lx + 250, ly + 70); text('Départ', lx + 260, ly + 76, { size: 7.5 });
+    L.forEach(([t1, t2, draw, off], i) => {
+      const x = lx + 20 + (i % 3) * 100, y = ly + 18 + Math.floor(i / 3) * 40;
+      layer('UNIFILAIRE'); ctx.strokeStyle = ink; ctx.fillStyle = ink; draw(x, y);
+      layer('TEXTES');
+      const tx = x + (off || 16); // le contacteur a sa bobine à droite
+      text(t1, tx, y + 16, { size: 7.5 }); if (t2) text(t2, tx, y + 26, { size: 6.5, color: mute });
+    });
   }
 
   // Titre du tableau quand l'installation en compte plusieurs
