@@ -987,7 +987,7 @@ r = run(`(function(){
     wir: wir.length === 2 && wir[1].indexOf('Câblage du tableau divisionnaire TD1') > 0 && wir[0].indexOf('→ TD1') > 0,
     front: front.indexOf('Tableau divisionnaire TD1 — Garage') > 0 && front.split('>QS<').length === 2, lab: lab.indexOf('TD1 · Rangée 1') > 0 && lab.indexOf('Principal · Rangée 1') > 0,
     mat: mat.some(function(l){ return /Interrupteur-sectionneur 2P 40 A \\(tête TD1\\)/.test(l.name); }) && mat.some(function(l){ return /3G10 mm² \\(ligne TD1\\)/.test(l.name) && l.qty === 33; }) && !mat.some(function(l){ return /ICTA préfilée 3G10/.test(l.name); }),
-    sch: sch.components.some(function(c){ return c.type === 'switch' && c.label === 'QS'; }) && sch.wires.some(function(w){ return w.points.length === 6; }),
+    sch: sch.components.some(function(c){ return c.type === 'isolator' && c.label === 'QS'; }) && sch.wires.some(function(w){ return w.points.length === 6; }),
     inst: d.installed === d.circuits.filter(function(c){ return c.kind !== 'sub'; }).reduce(function(s, c){ return s + c.power; }, 0), dxf: /EOF\\s*$/.test(unifilarDXF(d, {})) };
 })()`);
 check('Tableau divisionnaire : départ en tête (AGCP), ID du TD, ΔU cumulée et Lmax réduite par la ligne ; unifilaire, câblage, face avant, étiquettes, métré, schéma éditable', r.ref && r.dU && r.lmax && !r.errs.length && r.uni && r.wir && r.front && r.lab && r.mat && r.sch && r.inst && r.dxf, r.errs.join(' | ') || JSON.stringify(r).slice(0, 200));

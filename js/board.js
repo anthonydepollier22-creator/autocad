@@ -1668,7 +1668,7 @@ function boardToSchematic(design, meta) {
     comps.push({ id: id(), type: 'ground', x, y: 640, rot: 0, label: '', value: '' }); wire(x, 600, x, 620);
     x += 120;
   }
-  const loadType = (c) => (c.kind === 'pv' ? 'ac_source' : c.kind === 'light' ? 'lamp' : c.kind === 'socket' ? 'socket' : ['vmc', 'hvac'].includes(c.appliance) || /pompe|clim|vmc/i.test(c.name) ? 'motor' : 'resistor_iec');
+  const loadType = (c) => (c.kind === 'pv' ? 'inverter' : c.kind === 'light' ? 'lamp' : c.kind === 'socket' ? 'socket' : ['vmc', 'hvac'].includes(c.appliance) || /pompe|clim|vmc/i.test(c.name) ? 'motor' : 'resistor_iec');
   const cut = (t) => (t.length > 20 ? t.slice(0, 19) + '…' : t);
   const feeds = []; // départs vers les TD : [{ c, x }]
   // Groupes d'un tableau (ID + disjoncteurs + récepteurs) à partir de x ; renvoie l'abscisse du dernier départ
@@ -1676,8 +1676,9 @@ function boardToSchematic(design, meta) {
     const groups = [];
     const fd = V.circuits.filter((c) => c.kind === 'sub' && !V.rcds.some((r) => r.id === c.rcd));
     if (fd.length) groups.push({ r: null, cs: fd, feed: true });
-    // disjoncteur différentiel : un différentiel et un disjoncteur en série dans sa colonne
-    groups.push(...V.circuits.filter((c) => c.ddr && !V.rcds.some((r) => r.id === c.rcd)).map((c) => ({ r: { id: 'DDR ' + c.id, In: c.In, type: c.ddr }, cs: [c] })));
+    // disjoncteurs différentiels : en tête, sous l'AGCP (symbole « ddr » à la place du disjoncteur)
+    const dd = V.circuits.filter((c) => c.ddr && !V.rcds.some((r) => r.id === c.rcd));
+    if (dd.length) groups.push({ r: null, cs: dd, ddr: true });
     groups.push(...V.rcds.map((r) => ({ r, cs: V.circuits.filter((c) => c.rcd === r.id) })).filter((g) => g.cs.length));
     const loose = V.circuits.filter((c) => c.kind !== 'sub' && !c.ddr && !V.rcds.some((r) => r.id === c.rcd));
     if (loose.length) groups.push({ r: null, cs: loose });
@@ -1690,12 +1691,12 @@ function boardToSchematic(design, meta) {
       if (xs.length > 1) wire(xs[0], SUB, xs[xs.length - 1], SUB);
       g.cs.forEach((c, i) => {
         const cx = xs[i];
-        put('breaker', cx, 640, c.id, `${c.curve || 'C'}${c.In}${tri && c.phase ? ' ' + (c.phase === '3P' ? '3P+N' : c.phase) : ''}`, { closed: true });
+        put(c.ddr ? 'ddr' : 'breaker', cx, 640, c.id, `${c.curve || 'C'}${c.In}${c.ddr ? ' 30 mA ' + c.ddr : ''}${tri && c.phase ? ' ' + (c.phase === '3P' ? '3P+N' : c.phase) : ''}`, { closed: true });
         wire(cx, SUB, cx, 600);
         if (c.kind === 'sub') { feeds.push({ c, x: cx }); return; }
         let y = 680;
         if (c.contactor || c.teleruptor) {
-          put(c.contactor ? 'contactor' : 'teleruptor', cx, 760, c.contactor ? (c.contactor === 'ih' ? 'IH' : 'KM') : 'KL', c.contactor ? (c.contactor === 'ih' ? 'horaire' : 'HC') : '');
+          put(c.contactor === 'ih' ? 'timer_switch' : c.contactor ? 'contactor' : 'teleruptor', cx, 760, c.contactor ? (c.contactor === 'ih' ? 'IH' : 'KM') : 'KL', c.contactor ? (c.contactor === 'ih' ? 'horaire' : 'HC') : '', c.contactor === 'ih' ? { closed: true } : undefined);
           wire(cx, 680, cx, 720); y = 800;
         }
         put(loadType(c), cx, y + 120, '', cut(c.name));
@@ -1714,7 +1715,7 @@ function boardToSchematic(design, meta) {
     const fd = feeds.find((q) => q.c.id === P.id);
     const yL = 1080 + i * 40, xr = xt - 60;
     if (fd) wires.push({ id: id(), points: [{ x: fd.x, y: 680 }, { x: fd.x, y: yL }, { x: xr, y: yL }, { x: xr, y: 160 }, { x: xt, y: 160 }, { x: xt, y: 200 }] });
-    put('switch', xt, 240, 'QS', `${P.ref} ${boardSubSwitch(P.feeder.In)} A`, { closed: true });
+    put('isolator', xt, 240, 'QS', `${P.ref} ${boardSubSwitch(P.feeder.In)} A`, { closed: true });
     wire(xt, 280, xt, BUS);
     const xe = drawGroups(boardPanelView(design, P.id), xt);
     wire(xt, BUS, Math.max(xe, xt + 40), BUS);

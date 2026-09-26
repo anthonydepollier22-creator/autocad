@@ -630,6 +630,68 @@ const SYMBOLS = {
       line(ctx, -8, -4, 0, 3); line(ctx, 0, 3, 2, -3); line(ctx, 2, -3, 9, 5); // éclair (varistance)
     },
   },
+  ddr: {
+    name: 'Disjoncteur différentiel 30 mA', category: 'Domestique (NF)', prefix: 'QD',
+    terminals: T2, bbox: { x: -40, y: -24, w: 80, h: 42 },
+    draw(ctx, c) {
+      const closed = !c || c.closed !== false;
+      line(ctx, -40, 0, -20, 0);
+      dot(ctx, -20, 0, 2.5); dot(ctx, 20, 0, 2.5);
+      const ex = closed ? 20 : 14, ey = closed ? -3 : -16;
+      line(ctx, -20, 0, ex, ey);
+      const mx = (-20 + ex) / 2, my = ey / 2;
+      line(ctx, mx - 4, my - 4, mx + 4, my + 4); line(ctx, mx - 4, my + 4, mx + 4, my - 4); // coupure (disjoncteur)
+      circle(ctx, 0, 10, 7); // tore différentiel
+      ctx.save(); ctx.fillStyle = ctx.strokeStyle; ctx.font = '8px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText('30mA', 0, 19); ctx.restore();
+      line(ctx, 20, 0, 40, 0);
+    },
+  },
+  isolator: {
+    name: 'Interrupteur-sectionneur', category: 'Domestique (NF)', prefix: 'QS',
+    terminals: T2, bbox: { x: -40, y: -24, w: 80, h: 30 },
+    draw(ctx, c) {
+      const closed = !c || c.closed !== false;
+      line(ctx, -40, 0, -20, 0);
+      dot(ctx, -20, 0, 2.5);
+      line(ctx, -20, 0, closed ? 20 : 14, closed ? -3 : -16);
+      line(ctx, 20, -6, 20, 6); // trait de sectionnement
+      line(ctx, 20, 0, 40, 0);
+    },
+  },
+  timer_switch: {
+    name: 'Interrupteur horaire', category: 'Domestique (NF)', prefix: 'IH',
+    terminals: T2, bbox: { x: -40, y: -34, w: 80, h: 40 },
+    draw(ctx, c) {
+      const closed = c && c.closed;
+      line(ctx, -40, 0, -20, 0); line(ctx, 20, 0, 40, 0);
+      dot(ctx, -20, 0, 2.5); dot(ctx, 20, 0, 2.5);
+      line(ctx, -20, 0, closed ? 20 : 14, closed ? -3 : -16);
+      circle(ctx, 0, -26, 7); line(ctx, 0, -26, 0, -31); line(ctx, 0, -26, 4, -24); // horloge
+      ctx.save(); ctx.setLineDash([3, 3]); line(ctx, 0, -19, 0, -8); ctx.restore();
+    },
+  },
+  inverter: {
+    name: 'Onduleur photovoltaïque', category: 'Domestique (NF)', prefix: 'OND',
+    terminals: T2, bbox: { x: -40, y: -18, w: 80, h: 36 },
+    draw(ctx) {
+      line(ctx, -40, 0, -16, 0); line(ctx, 16, 0, 40, 0);
+      ctx.strokeRect(-16, -16, 32, 32);
+      line(ctx, -16, 16, 16, -16);
+      line(ctx, -11, -8, -3, -8); line(ctx, -11, -4, -3, -4); // courant continu
+      ctx.beginPath(); ctx.moveTo(2, 8); ctx.quadraticCurveTo(5, 3, 7.5, 7.5); ctx.quadraticCurveTo(10, 12, 13, 6); ctx.stroke(); // alternatif
+    },
+  },
+  load_shed: {
+    name: 'Délesteur', category: 'Domestique (NF)', prefix: 'DL',
+    terminals: T2, bbox: { x: -40, y: -16, w: 80, h: 32 },
+    draw(ctx) {
+      line(ctx, -40, 0, -18, 0); line(ctx, 18, 0, 40, 0);
+      ctx.strokeRect(-18, -13, 36, 26);
+      ctx.save(); ctx.fillStyle = ctx.strokeStyle; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('DL', 0, 1); ctx.restore();
+    },
+  },
   socket: {
     name: 'Prise 2P+T', category: 'Domestique (NF)', prefix: 'PC',
     terminals: T2, bbox: { x: -40, y: -26, w: 80, h: 30 },

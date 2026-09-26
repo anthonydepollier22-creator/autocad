@@ -738,6 +738,11 @@ const BUILDERS3D = {
   contactor: (v, c) => { v.box(c.x, 0, c.y, 30, 34, 24, C3D.module, c.rot || 0); v.box(c.x, 34, c.y, 12, 3, 8, c.closed ? C3D.lever : '#8a97ab', c.rot || 0); },
   teleruptor: (v, c) => BUILDERS3D.contactor(v, c),
   surge: (v, c) => { v.box(c.x, 0, c.y, 36, 34, 24, '#e9d9b5', c.rot || 0); },
+  ddr: (v, c) => { BUILDERS3D.breaker(v, c); v.box(c.x, 34, c.y + 8, 6, 3, 5, '#2f6fd1', c.rot || 0); }, // bouton test
+  isolator: (v, c) => BUILDERS3D.breaker(v, c),
+  timer_switch: (v, c) => { v.box(c.x, 0, c.y, 36, 34, 24, C3D.module, c.rot || 0); v.cyl(c.x, 34, c.y, 9, 2, '#e8ebf0'); },
+  inverter: (v, c) => { v.box(c.x, 0, c.y, 40, 46, 18, '#d9dde3', c.rot || 0); v.box(c.x, 32, c.y, 16, 8, 19, '#2b3342', c.rot || 0); },
+  load_shed: (v, c) => { v.box(c.x, 0, c.y, 36, 34, 24, '#e9d9b5', c.rot || 0); },
   meter_kwh: (v, c) => { v.box(c.x, 0, c.y, 40, 20, 30, '#e8ebf0', c.rot || 0); v.box(c.x, 20, c.y, 26, 2, 12, '#3b8f5a', c.rot || 0); },
   socket: (v, c) => {
     v.box(c.x, 0, c.y, 36, 12, 36, C3D.module, c.rot || 0);

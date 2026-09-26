@@ -6,7 +6,7 @@
 const GRID = 20; // pas de grille (unités monde)
 
 // Composants basculables au double-clic (ouvert / fermé)
-const SWITCHABLE = new Set(['switch', 'push_button', 'breaker', 'rcd', 'agcp', 'contactor', 'teleruptor', 'sw_vv', 'switch_sa', 'switch_vv_wall']);
+const SWITCHABLE = new Set(['switch', 'push_button', 'breaker', 'rcd', 'agcp', 'contactor', 'teleruptor', 'sw_vv', 'switch_sa', 'switch_vv_wall', 'ddr', 'isolator', 'timer_switch']);
 // Appareils du plan de maison qu'on met en marche au double-clic
 const APPLIANCES = new Set(['oven', 'cooktop', 'washer', 'dishwasher', 'dryer', 'water_heater', 'radiator', 'ev_charger', 'tv_unit', 'desk']);
 
@@ -184,7 +184,7 @@ class Editor {
   addComponent(type, wx, wy) {
     const p = this.snapPt({ x: wx, y: wy });
     const c = { id: this.uid(), type, x: p.x, y: p.y, rot: this.placeRot, label: this.nextRef(type), value: '' };
-    if (type === 'breaker' || type === 'rcd' || type === 'agcp') c.closed = true; // conduisent par défaut
+    if (type === 'breaker' || type === 'rcd' || type === 'agcp' || type === 'ddr' || type === 'isolator') c.closed = true; // conduisent par défaut
     if (type === 'room') c.value = 'Pièce'; // à renommer : Chambre, Séjour, Cuisine…
     this.components.push(c);
     // tableau divisionnaire : les goulottes repartent aussi de lui vers les appareils de sa pièce

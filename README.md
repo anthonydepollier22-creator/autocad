@@ -206,6 +206,10 @@ l'éditeur du tableau, **avec ou sans plan** :
   (F pour la borne, A pour la plaque et le lave-linge), il figure à l'unifilaire
   (disjoncteur + tore), sur la face avant, au câblage, au métré, et en simulation un
   défaut d'isolement ne coupe que ce circuit ;
+- **Palette « Domestique (NF) »** complétée pour dessiner un unifilaire à la main :
+  disjoncteur différentiel 30 mA, interrupteur-sectionneur, interrupteur horaire
+  (manœuvrables au double-clic et simulés comme des interrupteurs), onduleur
+  photovoltaïque, délesteur ; « Dans l'éditeur » les emploie pour le tableau ;
 - **Interrupteur horaire** par circuit (bouton « IH » à côté de « HC » et « TL ») :
   éclairage extérieur, chauffe-eau programmé… — module IH à la face avant, organe de
   commande à l'unifilaire, compté au métré à part des contacteurs heures creuses ;
