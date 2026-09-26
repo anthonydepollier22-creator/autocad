@@ -223,7 +223,9 @@ l'éditeur du tableau, **avec ou sans plan** :
   (arrivée opérateur et DTIo, box, switch, répartiteur TV, panneau de brassage),
   câblage **en étoile** en catégorie 6 jusqu'à chaque prise RJ45, longueurs mesurées
   sur les goulottes du plan (remontées et lovage compris), lien de 90 m au plus ;
-  le métré compte le coffret, le câble et les cordons. Export SVG et DXF ;
+  le métré compte le coffret, le câble et les cordons ; en 3D, les **rayons X**
+  montrent ces câbles (turquoise) et le menu des circuits les isole
+  (« VDI · Communication »). Export SVG et DXF ;
 - **Face avant** du coffret (rangées de 13 modules de 18 mm, réserve, GTL) et
   **étiquettes** de repérage à imprimer à l'échelle 1 ;
 - **Dans l'éditeur** : le tableau devient un schéma ordinaire (réseau, compteur, AGCP,
@@ -695,7 +697,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-168 vérifications sans dépendance : valeurs numériques de chaque simulation
+169 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

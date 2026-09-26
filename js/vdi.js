@@ -21,14 +21,18 @@ function vdiDesign(components, wires) {
     return out;
   }
   const net = _buildNetwork(wires, [origin, ...outlets]);
+  out.net = net; out.originNode = net.anchorNode[0] ? net.anchorNode[0].node : undefined;
   const oA = net.anchorNode[0];
   const sp = net.edges.length && oA ? _shortest(net, oA.node) : null;
   outlets.forEach((c, k) => {
     const A = net.anchorNode[k + 1], rise = Math.max(0, mountH(c) - 0.1) + VDI_COFFRET_H - 0.1;
     let len, off = false;
-    if (sp && A && A.stub < 150 && sp.dist[A.node] < Infinity) len = (sp.dist[A.node] + oA.stub + A.stub) / PLAN_UNITS_PER_M;
-    else { off = true; len = (Math.abs(c.x - origin.x) + Math.abs(c.y - origin.y)) / PLAN_UNITS_PER_M; }
-    out.links.push({ id: c.id, label: c.label || c.id, room: roomName(c), len: len + rise + VDI_SLACK, off });
+    const edges = [];
+    if (sp && A && A.stub < 150 && sp.dist[A.node] < Infinity) {
+      len = (sp.dist[A.node] + oA.stub + A.stub) / PLAN_UNITS_PER_M;
+      for (let v = A.node; sp.via[v] >= 0;) { const e = net.edges[sp.via[v]]; edges.push(sp.via[v]); v = e.a === v ? e.b : e.a; }
+    } else { off = true; len = (Math.abs(c.x - origin.x) + Math.abs(c.y - origin.y)) / PLAN_UNITS_PER_M; }
+    out.links.push({ id: c.id, label: c.label || c.id, room: roomName(c), len: len + rise + VDI_SLACK, off, edges, node: A ? A.node : undefined });
   });
   const num = (s) => { const m = /(\d+)$/.exec(s); return m ? +m[1] : 0; };
   out.links.sort((a, b) => num(a.label) - num(b.label) || a.label.localeCompare(b.label));

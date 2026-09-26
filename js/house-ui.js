@@ -976,12 +976,14 @@ function initHouseUI(app) {
     const sel = $('v3-circuit'), d = v3.xray ? ensureDesign() : null;
     sel.hidden = !(d && d.ok);
     if (sel.hidden) return;
-    if (v3.circuit && !d.circuits.some((c) => c.id === v3.circuit)) v3.circuit = null;
-    const sig = d.circuits.map((c) => c.id + c.name).join('|');
+    const rj = editor.components.some((c) => c.type === 'rj45');
+    if (v3.circuit && !d.circuits.some((c) => c.id === v3.circuit) && !(rj && v3.circuit === 'vdi')) v3.circuit = null;
+    const sig = d.circuits.map((c) => c.id + c.name).join('|') + (rj ? '|vdi' : '');
     if (sel.dataset.sig !== sig) { // seulement si les circuits ont changé (liste ouverte préservée)
       sel.dataset.sig = sig;
       sel.innerHTML = '<option value="">Tous les circuits</option>' +
-        d.circuits.map((c) => `<option value="${c.id}">${c.id} · ${esc(c.name)}</option>`).join('');
+        d.circuits.map((c) => `<option value="${c.id}">${c.id} · ${esc(c.name)}</option>`).join('') +
+        (rj ? '<option value="vdi">VDI · Communication (RJ45)</option>' : '');
     }
     sel.value = v3.circuit || '';
   }
@@ -1241,7 +1243,10 @@ function initHouseUI(app) {
     v3.circuit = e.target.value || null;
     build3D(false);
     const d = ensureDesign(), c = v3.circuit && d && d.ok && d.circuits.find((x) => x.id === v3.circuit);
-    if (c) {
+    if (v3.circuit === 'vdi') {
+      const v = vdiDesign(editor.components, editor.wires);
+      showToast(`<b>Communication</b> — ${v.ports} prise${v.ports > 1 ? 's' : ''} RJ45 en étoile depuis le coffret de la GTL, ${String(Math.round(v.total))} m de câble catégorie 6, lien le plus long ${Math.max(0, ...v.links.map((l) => l.len)).toFixed(1).replace('.', ',')} m.`, 5200);
+    } else if (c) {
       const n = (v) => String(v).replace('.', ',');
       showToast(`${c.id} · ${esc(c.name)} — ${c.In} A, ${n(c.S)} mm², ${n(c.length.toFixed(1))} m, ΔU ${n(c.dUpct.toFixed(1))} % · ${c.points} point${c.points > 1 ? 's' : ''} : ${esc(c.rooms || '')}`, 5200);
     }

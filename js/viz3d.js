@@ -1465,6 +1465,12 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
 
   // Rayons X : câbles de chaque circuit, échauffement et courant animé
   if (opts.xray && design && design.ok) _buildCables(viz, components, design, snap, sim, nearWall, { place: (x) => { at(x); return shown(x); }, offOf, shown, only: opts.circuit || null });
+  // Rayons X : câbles de communication (catégorie 6, en étoile depuis la GTL)
+  if (opts.xray && typeof vdiDesign === 'function' && components.some((c) => c.type === 'rj45')) {
+    const vdi = vdiDesign(components, walls.concat(conduits));
+    if (vdi.ok) _buildVDICables(viz, components, vdi, nearWall, { place: (x) => { at(x); return shown(x); }, dim: !!opts.circuit && opts.circuit !== 'vdi', pick: opts.circuit === 'vdi' });
+    viz.off = null;
+  }
   // Rayons X : prise de terre (conducteur vert/jaune jusqu'au piquet, regard, barrette)
   if (opts.xray && design && design.ok && info) {
     const tb = components.find((c) => c.id === design.panel);
@@ -1910,6 +1916,49 @@ function _buildCables(viz, components, design, snap, sim, nearWall, lvl) {
     }
   });
 }
+// Câbles de communication : chaque tronçon de goulotte emprunté une fois, un peu
+// au-dessus des câbles d'énergie (séparation des courants faibles), puis la
+// descente vers chaque prise RJ45 et la remontée au coffret de la GTL
+const VDI_COLOR = '#12b3a6';
+function _buildVDICables(viz, components, vdi, nearWall, lvl) {
+  const place = (lvl && lvl.place) || (() => true), net = vdi.net, H = HOUSE3D.H, byId = {};
+  for (const c of components) byId[c.id] = c;
+  const pick = !!(lvl && lvl.pick), lift = 9, th = pick ? 3.6 : 2, used = new Set();
+  const o0 = viz.obj, a0 = viz.alpha, e0 = viz.em;
+  viz.obj = 'cable:vdi'; viz.alpha = lvl && lvl.dim ? 0.14 : 1; viz.em = lvl && lvl.dim ? 0 : pick ? 0.9 : 0.45;
+  const col = lvl && lvl.dim ? '#8b939e' : VDI_COLOR;
+  const seg = (p, q, y) => {
+    const len = Math.hypot(q.x - p.x, q.y - p.y);
+    if (len >= 0.5) viz.box((p.x + q.x) / 2, y, (p.y + q.y) / 2, len + th, th, th, col, (Math.atan2(q.y - p.y, q.x - p.x) * 180) / Math.PI);
+  };
+  const riser = (p, y0, y1) => { if (Math.abs(y1 - y0) > 1) viz.box(p.x, Math.min(y0, y1), p.y, th, Math.abs(y1 - y0), th, col); };
+  for (const l of vdi.links) for (const ei of l.edges) used.add(ei);
+  for (const ei of used) {
+    const e = net.edges[ei];
+    if (e.riser) continue;
+    const p = net.pos[e.a], q = net.pos[e.b];
+    if (!place((p.x + q.x) / 2)) continue;
+    const y = nearWall({ x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 }) ? 3 + lift : H - 14 - lift;
+    seg(p, q, y);
+    if (y > 50) for (const v of [e.a, e.b]) if (nearWall(net.pos[v])) riser(net.pos[v], 3 + lift, y);
+  }
+  for (const l of vdi.links) {
+    const c = byId[l.id];
+    if (!c || l.off || l.node === undefined || !place(c.x)) continue;
+    const p = net.pos[l.node];
+    seg(p, { x: c.x, y: c.y }, 3 + lift);
+    riser({ x: c.x, y: c.y }, 3 + lift, Math.min(mountH(c) * 100, H - 4));
+  }
+  const o = vdi.origin;
+  if (o && vdi.originNode !== undefined && place(o.x)) {
+    const p = net.pos[vdi.originNode];
+    seg(p, { x: o.x, y: o.y }, 3 + lift);
+    riser({ x: o.x, y: o.y }, 3 + lift, VDI_COFFRET_H * 100);
+    viz.em = lvl && lvl.dim ? 0 : 0.2; viz.box(o.x, VDI_COFFRET_H * 100 - 10, o.y, 26, 34, 10, '#dfe6ee'); // coffret de communication
+  }
+  viz.obj = o0; viz.alpha = a0; viz.em = e0;
+}
+
 // Prise de terre : du tableau (barrette de coupure au pied de la GTL), le
 // conducteur de terre vert/jaune traverse le mur extérieur le plus proche
 // jusqu'au piquet, enfoncé à 1,50 m sous un regard de visite à 1,60 m du mur.

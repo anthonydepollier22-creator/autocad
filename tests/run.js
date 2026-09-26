@@ -282,6 +282,16 @@ r = run(`(function(){
 })()`);
 check('Rayons X : un circuit isolé ressort (repère sur chaque point), les autres s’estompent', r.every(Boolean), r.join(' / '));
 r = run(`(function(){
+  var d = buildHouse('t3'), des = designInstallation(d.components, d.wires), viz = new Viz3D(__cv, { interactive: false });
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { xray: true, sim: { design: des } });
+  var vdi = viz.faces.filter(function(f){ return f.obj === 'cable:vdi'; }), n0 = vdi.length;
+  var teal = vdi.filter(function(f){ return f.color[0] === 0x12 && f.color[1] === 0xb3 && f.color[2] === 0xa6; }).length;
+  buildBoard(viz, d.components, d.wires, SYMBOLS, { xray: true, circuit: 'vdi', sim: { design: des } });
+  var mine = viz.faces.filter(function(f){ return f.obj === 'cable:vdi'; }), others = viz.faces.filter(function(f){ return f.obj && String(f.obj).indexOf('cable:C') === 0; });
+  return { n0: n0, teal: teal, bright: mine.every(function(f){ return f.alpha === 1; }), dim: others.length > 0 && others.every(function(f){ return f.alpha < 0.2; }) };
+})()`);
+check('Rayons X : câbles de communication (catégorie 6) en étoile depuis la GTL, isolables comme un circuit', r.n0 > 30 && r.teal > 30 && r.bright && r.dim, `${r.n0} faces`);
+r = run(`(function(){
   // défaut provoqué en 3D : le simulateur déclenche la bonne protection, la 3D reçoit une gerbe d'étincelles
   var d = buildHouse('t3'), des = designInstallation(d.components, d.wires), sim = new InstallSim(); sim.setDesign(des);
   var oven = d.components.find(function(c){ return c.type === 'oven'; }), ct = des.circuits.find(function(c){ return c.devices.indexOf(oven.id) >= 0; });
