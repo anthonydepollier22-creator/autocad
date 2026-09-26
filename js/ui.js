@@ -1298,11 +1298,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Nouveautés : une fois par version (pas quand on arrive par un lien de démo)
   try {
-    const NEWS = '1.14';
+    const NEWS = '1.15';
     if (localStorage.getItem('electricad-news') !== NEWS) {
       localStorage.setItem('electricad-news', NEWS);
       if (!location.search) {
-        setTimeout(() => showToast('<b>Nouveau</b> (bouton Tableau) : <b>délesteur</b>, <b>interrupteur horaire</b> (IH), liaison <b>enterrée</b> (⛏), différentiel <b>A-SI</b>, légende complète de l’unifilaire ; montants de placo sur les <b>élévations</b>, boîtes décalées en un clic (onglet Norme).', 9000), 1200);
+        setTimeout(() => showToast('<b>Nouveau</b> (bouton Tableau) : folios <b>Chauffage</b> (fil pilote), <b>Volets roulants</b>, <b>Mise à la terre</b> (LEP, LES) et <b>Salles d’eau</b> (volumes 1 et 2) ; bouton <b>Volets</b> de l’onglet Installation.', 9000), 1200);
       }
     }
   } catch (_) { /* stockage indisponible */ }
