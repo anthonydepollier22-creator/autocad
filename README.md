@@ -218,7 +218,8 @@ l'éditeur du tableau, **avec ou sans plan** :
   « Tableau div. » dans Implanter en 3D) : les appareils de sa pièce en partent, les
   goulottes sont retracées depuis lui, la ligne est mesurée dans les goulottes depuis
   le tableau principal, le départ est dimensionné (32 A en 6 mm², section augmentée
-  si la ligne est longue) et le TD reçoit ses ID (AC, A ou F selon ses appareils) ;
+  si la ligne est longue) et le TD reçoit ses ID (AC, A ou F selon ses appareils) —
+  exemple « Maison T5 + garage — tableau divisionnaire » (`app.html?ex=maison-t5-td`) ;
 - **Folio unifilaire normalisé** (A3 paysage, symboles CEI 60617) : réseau, compteur,
   disjoncteur de branchement 500 mA, parafoudre, borne principale et prise de terre,
   jeu de barres, différentiels, disjoncteurs, contacteurs, désignations verticales,
@@ -761,7 +762,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-188 vérifications sans dépendance : valeurs numériques de chaque simulation
+189 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

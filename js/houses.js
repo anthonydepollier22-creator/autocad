@@ -1272,6 +1272,25 @@ function autoConduits(doc) {
   return { conduits: count, length: length / PLAN_UNITS_PER_M };
 }
 
+// Tableau divisionnaire dans la pièce dont le nom correspond (garage) : sur le mur de sa
+// commande d'éclairage, à 70 cm de celle-ci, puis goulottes retracées depuis lui
+function addSubPanel(doc, re) {
+  const info = computeRooms(doc.components, doc.wires);
+  const r = info.rooms.findIndex((x) => re.test(x.name));
+  if (r < 0) return null;
+  const inR = (c) => roomAt(info, c.x, c.y) === r;
+  const ref = doc.components.find((c) => inR(c) && (c.type === 'switch_sa' || c.type === 'switch_vv_wall')) || doc.components.find((c) => inR(c) && c.type === 'socket_wall');
+  if (!ref) return null;
+  const nw = nearestWall(doc.wires, ref.x, ref.y, 60);
+  if (!nw) return null;
+  const L = Math.hypot(nw.b.x - nw.a.x, nw.b.y - nw.a.y);
+  const t = nw.t + 70 <= L - 30 ? nw.t + 70 : Math.max(30, nw.t - 70);
+  const x = nw.a.x + nw.ux * t + nw.nx * nw.d, y = nw.a.y + nw.uy * t + nw.ny * nw.d;
+  const td = _addComp(doc, 'panel_sub', x, y, ref.rot || 0);
+  autoConduits(doc);
+  return td;
+}
+
 // Ajoute les maisons générées à la bibliothèque d'exemples
 if (typeof EXAMPLES !== 'undefined') {
   for (const [key, level] of [['t3', 'Avancé'], ['t5', 'Expert'], ['r1', 'Expert']]) {
@@ -1283,4 +1302,10 @@ if (typeof EXAMPLES !== 'undefined') {
       get data() { return cache || (cache = buildHouse(key)); },
     });
   }
+  let cacheTD = null;
+  EXAMPLES.push({
+    id: 'maison-t5-td', name: 'Maison T5 + garage — tableau divisionnaire', level: 'Expert', sim: 'plan', simLabel: 'Plan 2D / 3D',
+    desc: 'Le garage a son tableau divisionnaire : départ en tête du tableau principal (sous l’AGCP), ses propres ID 30 mA (type F pour la borne de recharge), goulottes depuis le TD. Bouton Tableau : unifilaire et câblage de chaque tableau.',
+    get data() { if (!cacheTD) { cacheTD = buildHouse('t5'); addSubPanel(cacheTD, /garage/i); } return cacheTD; },
+  });
 }

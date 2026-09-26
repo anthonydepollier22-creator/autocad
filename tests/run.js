@@ -1029,6 +1029,15 @@ r = run(`(function(){
 })()`);
 check('Dossier technique : sommaire (folio 1), plan d’implantation, plan de câblage (un tracé par circuit), unifilaire, câblage, note, développés, élévations, communication numérotés à la suite', r.n === r.total && r.seq && r.cover && r.plan && r.last, r.nums.join(' '));
 
+// Exemple « Maison T5 + garage — tableau divisionnaire »
+r = run(`(function(){
+  var d = getExampleData('maison-t5-td'), des = designInstallation(d.components, d.wires), td = d.components.find(function(c){ return c.type === 'panel_sub'; });
+  var nf = checkNFC15100(d.components, d.wires);
+  var errs = des.checks.filter(function(c){ return c.level === 'err' || c.level === 'warn'; }).map(function(c){ return c.msg; });
+  return { td: !!td && td.label === 'TD1', panels: des.panels.length, name: des.panels[0] && des.panels[0].name, n: des.circuits.filter(function(c){ return c.panel; }).length, errs: errs, nf: nf.errors, wall: !!nearestWall(d.wires, td.x, td.y, 30) };
+})()`);
+check('Exemple T5 + garage avec tableau divisionnaire : TD1 au mur du garage, ses circuits, installation conforme', r.td && r.panels === 1 && r.name === 'Garage' && r.n >= 3 && !r.errs.length && r.nf === 0 && r.wall, r.errs.join(' | ') || JSON.stringify(r));
+
 // Cloison sèche : une boîte d'encastrement ne tombe pas sur un montant (tous les 60 cm)
 r = run(`(function(){
   var a = studShift(62, 300), b = studShift(57, 300), c = studShift(90, 300), d = studShift(2, 300), e = studShift(298, 300);
