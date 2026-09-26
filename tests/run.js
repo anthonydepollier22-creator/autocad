@@ -1097,6 +1097,17 @@ r = run(`(function(){
 })()`);
 check('Simulation : un défaut d’isolement sous disjoncteur différentiel ne coupe que son circuit', r.own && r.others && r.rcds, JSON.stringify(r));
 
+// Production photovoltaïque (autoconsommation) : circuit de l'onduleur sous disjoncteur différentiel
+r = run(`(function(){
+  var b = boardTemplate(100), pv = boardAddCircuit(b, 'pv'), d = designInstallation([], [], b), P = d.circuits.find(function(c){ return c.id === pv.id; });
+  var uni = unifilarSVGs(d, {}).join(''), mat = materialList([], [], d).lines;
+  var d0 = designInstallation([], [], boardTemplate(100));
+  return { pv: P.kind === 'pv' && P.ddr === 'A' && !P.rcd && P.limit === 1, info: d.checks.some(function(c){ return c.level === 'info' && /deux sources de tension/.test(c.msg); }),
+    errs: d.checks.filter(function(c){ return c.level === 'err'; }).length, prob: d.probable === d0.probable && d.installed === d0.installed && d.production === 3000,
+    uni: uni.indexOf('3,0 kWc') > 0 && uni.indexOf('DDR A') > 0, mat: mat.some(function(l){ return /Interrupteur-sectionneur AC 2P 20 A/.test(l.name); }) && mat.some(function(l){ return /deux sources/.test(l.name); }) && mat.some(function(l){ return l.name === 'Disjoncteur différentiel 1P+N 16 A 30 mA type A'; }) };
+})()`);
+check('Photovoltaïque : onduleur sous disjoncteur différentiel type A, ΔU 1 %, hors puissance probable, deux sources signalées, sectionneur AC au métré', r.pv && r.info && !r.errs && r.prob && r.uni && r.mat, JSON.stringify(r));
+
 // Nomenclature du matériel : folio A3 du dossier, lignes du métré par catégorie
 r = run(`(function(){
   var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), L = materialList(h.components, h.wires, d), svg = nomenclatureSVGs(d, { title: 'T5' }, h.components, h.wires).join('');

@@ -22,7 +22,7 @@ const BOARD_S = [1.5, 2.5, 4, 6, 10, 16];
 const BOARD_S_MAX_IN = { 1.5: 16, 2.5: 20, 4: 25, 6: 32, 10: 40, 16: 63 }; // disjoncteur maximal par section (cuivre)
 const BOARD_RCD_IN = [25, 40, 63];
 const BOARD_RCD_TYPES = ['AC', 'A', 'F', 'B'];
-const BOARD_KINDS = { light: 'Éclairage', socket: 'Prises', heating: 'Chauffage', dedicated: 'Spécialisé', other: 'Autre', sub: 'Tableau divisionnaire' };
+const BOARD_KINDS = { light: 'Éclairage', socket: 'Prises', heating: 'Chauffage', dedicated: 'Spécialisé', other: 'Autre', sub: 'Tableau divisionnaire', pv: 'Production PV' };
 
 // Circuits types (NF C 15-100) : ajout en un clic dans le tableau
 const BOARD_PRESETS = [
@@ -48,6 +48,10 @@ const BOARD_PRESETS = [
   { key: 'outdoor', name: 'Extérieur (prises, éclairage)', kind: 'socket', In: 16, S: 2.5, points: 2, P: 500 },
   { key: 'comms', name: 'Tableau de communication', kind: 'dedicated', In: 16, S: 1.5, points: 1, P: 50 },
   { key: 'other', name: 'Autre circuit', kind: 'other', In: 16, S: 1.5, points: 1, P: 1000 },
+  // production photovoltaïque en autoconsommation : circuit de l'onduleur, disjoncteur différentiel dédié
+  { key: 'pv', name: 'Photovoltaïque 3 kWc (onduleur)', kind: 'pv', In: 16, S: 4, points: 1, P: 3000, ddr: 'A' },
+  { key: 'pv6', name: 'Photovoltaïque 6 kWc (onduleur)', kind: 'pv', In: 32, S: 10, points: 1, P: 6000, ddr: 'A' },
+  { key: 'pv_tri', name: 'Photovoltaïque 9 kWc (onduleur tri)', kind: 'pv', In: 16, S: 2.5, points: 1, P: 9000, ddr: 'A', phase: '3P', tri: true },
   // départ en tête du tableau (sous l'AGCP 500 mA) vers un tableau divisionnaire et ses propres ID 30 mA
   { key: 'sub', name: 'Tableau divisionnaire', kind: 'sub', In: 32, S: 10, points: 0, P: 0 },
 ];
@@ -128,7 +132,7 @@ function boardAddCircuit(board, key, over) {
   const c = {
     id: boardNextId(board, 'C'), name: pr.name, kind: pr.kind, In: pr.In, S: pr.S, curve: 'C', rcd: null,
     devices: [], points: pr.points || 1, length: 15, P: pr.P || 0, appliance: pr.appliance || null,
-    typeA: !!pr.typeA, typeF: !!pr.typeF, contactor: pr.contactor || null, teleruptor: false,
+    typeA: !!pr.typeA, typeF: !!pr.typeF, contactor: pr.contactor || null, teleruptor: false, ddr: pr.ddr || null,
     phase: pr.phase && +(board.supply && board.supply.phases) === 3 ? pr.phase : null, ...(over || {}),
   };
   if (pr.kind === 'sub') {
@@ -143,7 +147,7 @@ function boardAddCircuit(board, key, over) {
     boardAddCircuit(board, 'socket', { name: 'Prises ' + td, points: 3, rcd: r.id });
     return c;
   }
-  c.rcd = c.rcd || boardPickRcd(board, c);
+  if (!c.ddr) c.rcd = c.rcd || boardPickRcd(board, c);
   board.circuits.push(c);
   return c;
 }
@@ -207,6 +211,10 @@ function checkBoard(design) {
     const max = BOARD_S_MAX_IN[c.S];
     if (max === undefined) push('warn', `${c.id} : section ${_bS(c.S)} mm² inhabituelle.`, c.id);
     else if (c.In > max) push('err', `${c.id} ${c.name} : ${c.In} A sur ${_bS(c.S)} mm² — le câble n’est pas protégé (${max} A au plus).`, c.id);
+    if (c.kind === 'pv') {
+      // NF C 15-100 partie 7-712 et guide UTE C 15-712-1 (côté alternatif)
+      if (!c.ddr && c.rcd && cs.filter((x) => x.rcd === c.rcd).length > 1) push('info', `${c.id} ${c.name} : l’onduleur partage ${c.rcd} avec d’autres circuits — un disjoncteur différentiel dédié (type selon la notice de l’onduleur) évite qu’un défaut coupe aussi la production.`, c.id);
+    }
     if (c.kind === 'sub') {
       // départ de tableau divisionnaire : en tête (AGCP 500 mA sélectif), les ID 30 mA sont dans le TD
       if (!rcds.some((r) => r.panel === c.id)) push('err', `${c.panelRef || c.id} ${c.name} : aucun interrupteur différentiel 30 mA dans le tableau divisionnaire.`, c.id);
@@ -271,6 +279,7 @@ function checkBoard(design) {
   const mods = boardModules(design);
   if (mods.reservePct < 20) push('warn', `Réserve de ${mods.reservePct} % : 20 % de modules libres au moins (prévoir ${mods.rowsCount + 1} rangées).`);
   if (!(design.supply && design.supply.surge)) push('info', 'Parafoudre : obligatoire en zone foudroyée AQ2 ou avec une alimentation aérienne, conseillé ailleurs.');
+  if (cs.some((c) => c.kind === 'pv')) push('info', 'Production photovoltaïque : étiquette « Attention — présence de deux sources de tension » sur le tableau et au compteur, interrupteur-sectionneur côté alternatif à proximité de l’onduleur, onduleur conforme (découplage).');
   if (!out.some((o) => o.level === 'err' || o.level === 'warn')) push('ok', `Tableau conforme : ${cs.length} circuits, ${rcds.length} différentiels 30 mA, réserve ${mods.reservePct} %.`);
   return out;
 }
@@ -466,6 +475,13 @@ function _uContactor(ctx, x, y, h, tag) { // contacteur / télérupteur : contac
 function _uEarth(ctx, x, y) {
   _uLine(ctx, x, y, x, y + 8);
   _uLine(ctx, x - 9, y + 8, x + 9, y + 8); _uLine(ctx, x - 6, y + 12, x + 6, y + 12); _uLine(ctx, x - 3, y + 16, x + 3, y + 16);
+}
+// Onduleur (CEI 60617) : carré barré, courant continu « = » d'un côté, alternatif « ~ » de l'autre
+function _uInverter(ctx, x, y) {
+  ctx.lineWidth = 1.2; ctx.strokeRect(x - 9, y, 18, 18);
+  _uLine(ctx, x - 9, y + 18, x + 9, y, 0.9);
+  _uLine(ctx, x - 6, y + 4.5, x - 1.5, y + 4.5, 0.8); _uLine(ctx, x - 6, y + 6.5, x - 1.5, y + 6.5, 0.8); // =
+  ctx.beginPath(); ctx.moveTo(x + 1.5, y + 13.5); ctx.quadraticCurveTo(x + 3.2, y + 10.5, x + 4.5, y + 13); ctx.quadraticCurveTo(x + 5.8, y + 15.5, x + 7.2, y + 12.5); ctx.stroke(); // ~
 }
 function _uArrow(ctx, x, y) { ctx.beginPath(); ctx.moveTo(x - 3.5, y); ctx.lineTo(x + 3.5, y); ctx.lineTo(x, y + 6); ctx.closePath(); ctx.fill(); }
 
@@ -664,7 +680,8 @@ function drawUnifilar(ctx, design, meta, folio) {
       let y = sub + 64;
       if (c.contactor || c.teleruptor) { _uContactor(ctx, x, y + 4, 38, c.contactor ? (c.contactor === 'hc' ? 'HC' : 'KM') : 'TL'); _uLine(ctx, x, y, x, y + 4, 1.3); y += 42; }
       else { _uLine(ctx, x, y, x, y + 42, 1.3); y += 42; }
-      _uLine(ctx, x, y, x, y + 10, 1.3); _uArrow(ctx, x, y + 10);
+      if (c.kind === 'pv') { _uLine(ctx, x, y, x, y + 4, 1.3); _uInverter(ctx, x, y + 4); } // production : l'onduleur au bout du circuit
+      else { _uLine(ctx, x, y, x, y + 10, 1.3); _uArrow(ctx, x, y + 10); }
       if (c.phase === '3P') for (let i = 0; i < 4; i++) _uLine(ctx, x - 5, y - 26 + i * 4, x + 5, y - 30 + i * 4, 0.9); // 3 phases + neutre
       layer('TEXTES');
       const detail = `${boardCable(c.S, c.phase)} · ${f1(c.length)} m` + (c.kind === 'sub' ? ` · vers ${c.panelRef || 'TD'}, folio ${fno(lay.panelFolio[c.id] || 0)}` : c.rooms ? ' · ' + c.rooms : '');
@@ -676,7 +693,7 @@ function drawUnifilar(ctx, design, meta, folio) {
   // Nomenclature des départs
   layer('CARTOUCHE');
   const rowsT = [['Repère', (c) => c.id], ['Protection', (c) => `${c.curve || 'C'}${c.In} A`], ['Différentiel', (c) => c.rcd || (c.kind === 'sub' ? 'AGCP' : c.ddr ? 'DDR ' + c.ddr : '—')], ['Câble', (c) => boardCable(c.S, c.phase)],
-    ['Longueur', (c) => f1(c.length) + ' m'], ['Charge', (c) => (c.kind === 'light' ? c.points + ' pts' : c.kind === 'socket' ? c.points + ' PC' : c.kind === 'sub' ? c.panelRef || 'TD' : c.power >= 1000 ? f1(c.power / 1000) + ' kW' : Math.round(c.power) + ' W')],
+    ['Longueur', (c) => f1(c.length) + ' m'], ['Charge', (c) => (c.kind === 'light' ? c.points + ' pts' : c.kind === 'socket' ? c.points + ' PC' : c.kind === 'sub' ? c.panelRef || 'TD' : c.kind === 'pv' ? f1(c.power / 1000) + ' kWc' : c.power >= 1000 ? f1(c.power / 1000) + ' kW' : Math.round(c.power) + ' W')],
     ['ΔU', (c) => f1(c.dUpct) + ' %']];
   if (tri) rowsT.splice(3, 0, ['Phase', (c) => (c.phase === '3P' ? '3P+N' : c.phase || '—')]);
   const t0 = UNI.table, rh = UNI.row, tx0 = 22, tx1 = F.xEnd + colW / 2;
@@ -1620,7 +1637,7 @@ function boardToSchematic(design, meta) {
     comps.push({ id: id(), type: 'ground', x, y: 640, rot: 0, label: '', value: '' }); wire(x, 600, x, 620);
     x += 120;
   }
-  const loadType = (c) => (c.kind === 'light' ? 'lamp' : c.kind === 'socket' ? 'socket' : ['vmc', 'hvac'].includes(c.appliance) || /pompe|clim|vmc/i.test(c.name) ? 'motor' : 'resistor_iec');
+  const loadType = (c) => (c.kind === 'pv' ? 'ac_source' : c.kind === 'light' ? 'lamp' : c.kind === 'socket' ? 'socket' : ['vmc', 'hvac'].includes(c.appliance) || /pompe|clim|vmc/i.test(c.name) ? 'motor' : 'resistor_iec');
   const cut = (t) => (t.length > 20 ? t.slice(0, 19) + '…' : t);
   const feeds = []; // départs vers les TD : [{ c, x }]
   // Groupes d'un tableau (ID + disjoncteurs + récepteurs) à partir de x ; renvoie l'abscisse du dernier départ

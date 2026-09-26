@@ -472,7 +472,7 @@ function designInstallation(components, wires, board) {
 
   // Longueur de câble (arbre du circuit) et chute de tension au pire
   for (const ct of circuits) {
-    ct.limit = ct.kind === 'light' ? 3 : 5;
+    ct.limit = ct.kind === 'light' ? 3 : ct.kind === 'pv' ? 1 : 5; // onduleur : 1 % recommandé (guide UTE C 15-712-1)
     if (!ct.devices.length) {
       // circuit sans appareil du plan : longueur et puissance saisies
       ct.length = ct.lengthIn || 15; ct.edges = []; ct.power = ct.Pin || 0; ct.far = ct.length;
@@ -666,7 +666,8 @@ function designInstallation(components, wires, board) {
 
   // Puissance installée / probable → abonnement et réglage du disjoncteur de branchement
   const sum = (f) => circuits.filter(f).reduce((s, c) => s + c.power, 0);
-  design.installed = circuits.reduce((s, c) => s + (c.kind === 'sub' ? 0 : c.power), 0); // un départ de TD compte par ses circuits
+  design.installed = circuits.reduce((s, c) => s + (c.kind === 'sub' || c.kind === 'pv' ? 0 : c.power), 0); // un départ de TD compte par ses circuits ; l'onduleur produit
+  design.production = circuits.filter((c) => c.kind === 'pv').reduce((s, c) => s + c.power, 0);
   const cook = sum((c) => c.appliance === 'cooktop' || c.appliance === 'oven');
   const laundry = sum((c) => ['washer', 'dishwasher', 'dryer'].includes(c.appliance));
   design.probable = 0.65 * sum((c) => c.kind === 'heating') + 0.5 * sum((c) => c.appliance === 'water_heater')

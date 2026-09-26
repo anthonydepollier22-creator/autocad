@@ -206,6 +206,12 @@ l'éditeur du tableau, **avec ou sans plan** :
   (F pour la borne, A pour la plaque et le lave-linge), il figure à l'unifilaire
   (disjoncteur + tore), sur la face avant, au câblage, au métré, et en simulation un
   défaut d'isolement ne coupe que ce circuit ;
+- **Production photovoltaïque** en autoconsommation (« + Circuit » → Photovoltaïque 3 / 6 kWc
+  ou 9 kWc triphasé) : circuit de l'onduleur sous son propre disjoncteur différentiel
+  30 mA (type A par défaut, à adapter à la notice), chute de tension limitée à 1 %
+  (guide UTE C 15-712-1), onduleur dessiné au bout du départ sur l'unifilaire, hors
+  puissance probable ; rappel des étiquettes « présence de deux sources de tension »
+  et de l'interrupteur-sectionneur côté alternatif, comptés au métré ;
 - **Tableaux divisionnaires** (garage, atelier, annexe) : un départ « Tableau
   divisionnaire » en tête du tableau principal, sous l'AGCP 500 mA sélectif (pas sous un
   ID 30 mA : aucune sélectivité), alimente un TD avec son interrupteur-sectionneur de
@@ -762,7 +768,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-189 vérifications sans dépendance : valeurs numériques de chaque simulation
+190 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

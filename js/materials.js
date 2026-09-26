@@ -14,7 +14,8 @@ const MAT_PRICES = {
   surge: 69, contactor: 22, teleruptor: 18,
   tri: { rcd: 2.6, breaker3P: 45, surge: 145 }, // triphasé : ID 4P (≈ 2,6 × le prix 2P), disjoncteurs 3P+N
   isolator: { 40: 18, 63: 24, 80: 45, 100: 55 },
-  ddr: { AC: 48, A: 68, F: 125, B: 320 },  // disjoncteur différentiel 1P+N 30 mA (3P+N : × 2,5) // interrupteur-sectionneur de tête d'un tableau divisionnaire (2P)
+  ddr: { AC: 48, A: 68, F: 125, B: 320 },
+  pvIsolator: 38, pvLabel: 6, // interrupteur-sectionneur AC près de l'onduleur, étiquettes « deux sources »  // disjoncteur différentiel 1P+N 30 mA (3P+N : × 2,5) // interrupteur-sectionneur de tête d'un tableau divisionnaire (2P)
   comb: 8.5,            // peigne d'alimentation, par rangée
   link: { 10: 2.9, 16: 4.4, 25: 6.8 }, // conducteur de liaison AGCP → tableau, €/m
   earthBar: 14,         // bornier de terre / répartiteur
@@ -84,6 +85,10 @@ function materialList(components, wires, design) {
       add('Tableau', `Conducteurs de liaison AGCP → tableau ${S} mm² (H07V-R)`, n * 1.5, 'm', P.link[S] || 4, `${n} conducteurs de 1,5 m`);
     }
     add('Tableau', 'Bornier de terre et répartiteur', 1, 'u', P.earthBar);
+    // Production photovoltaïque (côté alternatif) : sectionnement près de l'onduleur, signalisation des deux sources
+    const pv = design.circuits.filter((c) => c.kind === 'pv');
+    for (const c of pv) add('Tableau', `Interrupteur-sectionneur AC ${c.phase === '3P' ? '4P' : '2P'} ${Math.max(c.In, 20)} A (près de l’onduleur ${c.id})`, 1, 'u', c.phase === '3P' ? P.pvIsolator * 2 : P.pvIsolator);
+    if (pv.length) add('Tableau', 'Étiquettes « Attention — présence de deux sources de tension »', 2, 'u', P.pvLabel, 'tableau et coffret de comptage');
     // Tableaux divisionnaires : coffret, interrupteur-sectionneur de tête, peignes, bornier de terre
     for (const T of design.panels || []) {
       const MP = typeof boardModules === 'function' ? boardModules(design, T.id) : null;

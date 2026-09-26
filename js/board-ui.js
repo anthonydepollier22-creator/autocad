@@ -129,7 +129,7 @@ function initBoardUI(app) {
           `<td class="bd-load">${load}</td><td class="bd-load">${len}</td>` +
           (tri ? `<td><select data-cf="phase" aria-label="Phase" class="${c.phaseAuto ? 'bd-auto' : ''}" title="${c.phaseAuto ? 'Phase choisie pour équilibrer' : 'Phase'}">${['L1', 'L2', 'L3', '3P'].map((p) => `<option value="${p}"${c.phase === p ? ' selected' : ''}>${p === '3P' ? '3P+N' : p}</option>`).join('')}</select></td>` : '') +
           `<td><select data-cf="rcd" aria-label="Différentiel">${rcdOpts(c.rcd, c.ddr, c.kind === 'sub')}</select></td>` +
-          `<td class="bd-acts">` + (c.kind === 'sub' ? `<span class="bd-tdref">→ ${esc(c.panelRef || 'TD')}</span>` : `<button type="button" data-cact="hc" aria-pressed="${c.contactor ? 'true' : 'false'}" title="Contacteur jour / nuit (heures creuses)">HC</button>` +
+          `<td class="bd-acts">` + (c.kind === 'sub' ? `<span class="bd-tdref">→ ${esc(c.panelRef || 'TD')}</span>` : c.kind === 'pv' ? '<span class="bd-tdref" title="Circuit de production : onduleur photovoltaïque">☀ onduleur</span>' : `<button type="button" data-cact="hc" aria-pressed="${c.contactor ? 'true' : 'false'}" title="Contacteur jour / nuit (heures creuses)">HC</button>` +
           `<button type="button" data-cact="tl" aria-pressed="${c.teleruptor ? 'true' : 'false'}" title="Télérupteur">TL</button>`) +
           '<button type="button" data-cact="del" class="bd-x" title="Supprimer le circuit">✕</button></td></tr>';
       }
