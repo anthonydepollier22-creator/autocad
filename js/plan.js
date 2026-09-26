@@ -65,8 +65,6 @@ function wallMaterial(w) {
   const doublage = !!(w && w.ext) && !WALL_MATS[mat].hollow && w.doublage !== false;
   return { mat, doublage, hollow: WALL_MATS[mat].hollow || doublage, label: WALL_MATS[mat].label + (doublage ? ' + doublage placo' : '') };
 }
-// Repères du matériau sur le trait d'un mur (plan 2D) : montants tous les 60 cm
-// pour une cloison sèche (placo, ossature bois), hachures à 45° pour la maçonnerie
 // Cloison sèche : montants de 48 mm tous les 60 cm depuis le début du mur (comme en 3D).
 // Une boîte d'encastrement Ø 67 mm ne se pose pas sur un montant : son axe reste à
 // 6 cm au moins de celui du montant (3,35 cm de rayon + 2,4 cm de demi-montant).
@@ -82,6 +80,8 @@ function studShift(t, L) {
   const dir = near === 0 ? 1 : near === L ? -1 : t >= near ? 1 : -1;
   return { t: near + dir * STUD_CLEAR, by: Math.abs(near + dir * STUD_CLEAR - t) };
 }
+// Repères du matériau sur le trait d'un mur (plan 2D) : montants tous les 60 cm
+// pour une cloison sèche (placo, ossature bois), hachures à 45° pour la maçonnerie
 function wallMarks(w) {
   const m = WALL_MATS[wallMaterial(w).mat], out = [];
   for (let i = 0; i < w.points.length - 1; i++) {

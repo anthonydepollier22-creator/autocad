@@ -53,6 +53,11 @@ function elevations(components, wires) {
     f.x = (t) => (f.flip ? f.t1 - t : t - f.t0);
     f.dir = _elevSide(f.nx, f.ny);
     f.devs = []; f.opens = [];
+    // cloison sèche : montants tous les 60 cm depuis le début du mur (abscisses vues depuis la pièce)
+    const M = typeof wallMaterial === 'function' ? wallMaterial(f.seg.w) : null;
+    f.hollow = !!(M && M.hollow);
+    f.studs = [];
+    if (f.hollow) for (let t = STUD_STEP; t < f.seg.L - 10; t += STUD_STEP) if (t >= f.t0 && t <= f.t1) f.studs.push(f.x(t));
   }
   const faceOf = (c, maxD) => {
     const nw = nearestWall(wires, c.x, c.y, maxD);
@@ -125,7 +130,7 @@ function drawElevations(ctx, design, meta, rooms, folio) {
   _uCartouche(ctx, design, meta, 'Élévations des murs — hauteurs de pose', k, nF);
   layer('TEXTES');
   text('Élévations — hauteurs de pose', 30, 46, { bold: true, size: 17 });
-  text('Chaque mur vu depuis la pièce · hauteur de l’axe des boîtes en cm au-dessus du sol fini · distance en cm depuis l’angle gauche · échelle 1:50 au plus', 30, 62, { size: 8, color: mute });
+  text('Chaque mur vu depuis la pièce · hauteur de l’axe des boîtes en cm au-dessus du sol fini · distance en cm depuis l’angle gauche · échelle 1:50 au plus · pointillés gris : montants de placo (60 cm)', 30, 62, { size: 8, color: mute });
   for (const { r, s, y, scale } of pages[k] || []) {
     const H = (ELEV_H / 100) * s, y0 = y + 16, floor = y0 + H;
     layer('TEXTES');
@@ -137,6 +142,7 @@ function drawElevations(ctx, design, meta, rooms, folio) {
       layer('SCHEMA');
       ln(x, y0, x + w, y0, 0.6, mute); ln(x, y0, x, floor, 0.8); ln(x + w, y0, x + w, floor, 0.8);
       ln(x - 4, floor, x + w + 4, floor, 1.8); // sol fini
+      for (const sx of f.studs) ln(X(sx), y0 + 2, X(sx), floor - 1, 0.35, '#9aa4b2', [3, 2]); // montants de placo
       for (const o of f.opens) {
         const a = Math.max(0, o.x0), b = Math.min(f.len, o.x1);
         if (b - a < 5) continue;

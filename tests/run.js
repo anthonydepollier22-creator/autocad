@@ -1029,6 +1029,16 @@ r = run(`(function(){
 })()`);
 check('Dossier technique : sommaire (folio 1), plan d’implantation, plan de câblage (un tracé par circuit), unifilaire, câblage, note, développés, élévations, communication numérotés à la suite', r.n === r.total && r.seq && r.cover && r.plan && r.last, r.nums.join(' '));
 
+// Élévations : montants des cloisons placo, aucune boîte dessus
+r = run(`(function(){
+  var h = buildHouse('t3'), rooms = elevations(h.components, h.wires), faces = [].concat.apply([], rooms.map(function(r){ return r.faces; }));
+  var hollow = faces.filter(function(f){ return f.hollow; }), studs = hollow.reduce(function(s, f){ return s + f.studs.length; }, 0);
+  var clash = faces.some(function(f){ return f.devs.some(function(d){ return ['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45'].indexOf(d.c.type) >= 0 && f.studs.some(function(x){ return Math.abs(x - d.x) < STUD_CLEAR - 0.6; }); }); });
+  var svg = elevationSVGs(designInstallation(h.components, h.wires), {}, h.components, h.wires).join('');
+  return { hollow: hollow.length, studs: studs, clash: clash, dash: svg.indexOf('stroke-dasharray="3,2"') > 0 || svg.indexOf('stroke-dasharray="3 2"') > 0 };
+})()`);
+check('Élévations : montants des cloisons placo en pointillés, aucune boîte d’encastrement sur un montant', r.hollow > 3 && r.studs > 10 && !r.clash && r.dash, JSON.stringify(r));
+
 // Exemple « Maison T5 + garage — tableau divisionnaire »
 r = run(`(function(){
   var d = getExampleData('maison-t5-td'), des = designInstallation(d.components, d.wires), td = d.components.find(function(c){ return c.type === 'panel_sub'; });
