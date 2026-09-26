@@ -18,7 +18,10 @@ function initBoardUI(app) {
   const num = (v, d) => Number(v).toLocaleString('fr-FR', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
   const hasPlan = () => editor.wires.some((w) => w.kind === 'wall');
   const design = () => houseUI.design();
-  const meta = () => ({ ...editor.meta, date: new Date().toISOString().slice(0, 10) });
+  const meta = () => {
+    const rj = editor.components.some((c) => c.type === 'rj45'), v = rj && typeof vdiDesign === 'function' ? vdiDesign(editor.components, editor.wires) : null;
+    return { ...editor.meta, date: new Date().toISOString().slice(0, 10), vdi: v && v.ok ? { ports: v.ports, panel: v.panel } : null };
+  };
   const devSVGs = (d) => developedSVGs(d, meta(), editor.components, editor.wires);
   const vdiPages = (d) => vdiSVGs(d, meta(), editor.components, editor.wires);
   const elevPages = (d) => elevationSVGs(d, meta(), editor.components, editor.wires);

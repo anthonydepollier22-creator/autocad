@@ -1713,7 +1713,7 @@ function initHouseUI(app) {
         planSVG: buildSVG(editor.components, editor.wires, SYMBOLS, { ...editor.meta, date: new Date().toISOString().slice(0, 10), legend: true, tags: d && d.ok ? circuitTags(d) : null }),
         routesPlanSVG: d && d.ok && d.net && d.net.edges.length ? buildSVG(editor.components, editor.wires, SYMBOLS, { ...editor.meta, date: new Date().toISOString().slice(0, 10), legend: true, tags: circuitTags(d), routesSVG: routesSVG(d, editor.components) }) : '',
         unifilarSVG: d && d.ok ? unifilarSVG(d, editor.meta) : '',
-        boardFrontSVG: d && d.ok ? boardFrontSVG(d, editor.meta) : '',
+        boardFrontSVG: d && d.ok ? boardFrontSVG(d, { ...editor.meta, vdi: (() => { const v = editor.components.some((c) => c.type === 'rj45') ? vdiDesign(editor.components, editor.wires) : null; return v && v.ok ? { ports: v.ports, panel: v.panel } : null; })() }) : '',
         wiringSVGs: d && d.ok ? boardWiringSVGs(d, editor.meta) : [],
         calcNoteSVGs: d && d.ok ? calcNoteSVGs(d, editor.meta) : [],
         developedSVGs: d && d.ok ? developedSVGs(d, editor.meta, editor.components, editor.wires) : [],

@@ -241,7 +241,8 @@ l'éditeur du tableau, **avec ou sans plan** :
   le métré compte le coffret, le câble et les cordons ; en 3D, les **rayons X**
   montrent ces câbles (turquoise) et le menu des circuits les isole
   (« VDI · Communication »). Export SVG et DXF ;
-- **Face avant** du coffret (rangées de 13 modules de 18 mm, réserve, GTL) et
+- **Face avant** du coffret (rangées de 13 modules de 18 mm, réserve, GTL — avec le
+  coffret de communication quand le plan a des prises RJ45) et
   **étiquettes** de repérage à imprimer à l'échelle 1 ;
 - **Dans l'éditeur** : le tableau devient un schéma ordinaire (réseau, compteur, AGCP,
   jeu de barres, ID, disjoncteurs, contacteurs, récepteurs, reliés par des fils) à

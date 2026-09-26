@@ -1120,8 +1120,21 @@ function drawBoardFront(ctx, design, meta) {
       x += mw;
     }
   });
+  // Coffret de communication, sous le tableau dans la GTL (plan avec prises RJ45)
+  let Hn = top + M.rows.length * pitch + 4;
+  const V = meta && meta.vdi;
+  if (V && V.ports) {
+    const y = top + (M.rows.length - 1) * pitch + 80, w = BOARD_ROW * mw; // sous la dernière rangée
+    box(left, y, w, 46, '#f1f8f7', ink, 0.5);
+    text('Coffret de communication — grade 2TV', left + 4, y + 7, { size: 3.2, bold: true, align: 'left' });
+    const parts = [['Box opérateur', 56], ['Switch', 36], [`Brassage ${V.panel} ports`, 62], ['2 socles 2P+T', 50]];
+    let x = left + 4;
+    for (const [t, bw] of parts) { box(x, y + 12, bw, 22, '#ffffff', '#0f766e', 0.4); text(t, x + bw / 2, y + 25, { size: 2.8 }); x += bw + 6; }
+    text(`${V.ports} prise${V.ports > 1 ? 's' : ''} RJ45 en étoile (catégorie 6) · DTIo de l’opérateur à proximité`, left + 4, y + 41, { size: 2.6, color: mute, align: 'left' });
+    Hn = y + 52;
+  }
   ctx.restore();
-  return { W, H: top + M.rows.length * pitch + 4 };
+  return { W, H: Hn };
 }
 function boardFrontSVG(design, meta) {
   const ctx = new SVGContext();
