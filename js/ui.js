@@ -1287,7 +1287,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (localStorage.getItem('electricad-news') !== NEWS) {
       localStorage.setItem('electricad-news', NEWS);
       if (!location.search) {
-        setTimeout(() => showToast('<b>Nouveau</b> : <b>tableaux divisionnaires</b> (garage, atelier) — bouton Tableau, « + Circuit » → Tableau divisionnaire : ses ID, son unifilaire, son câblage, sa face avant, ΔU et Icc depuis l’origine. En 3D : <b>cloison placo</b>, <b>porte</b>, <b>Compléter NF</b>.', 9000), 1200);
+        setTimeout(() => showToast('<b>Nouveau</b> (bouton Tableau) : <b>tableaux divisionnaires</b> (garage, atelier : ses ID, son unifilaire, son câblage, ΔU et Icc depuis l’origine), <b>disjoncteur différentiel</b> 30 mA par circuit (colonne ID → DDR), folio <b>Nomenclature du matériel</b>.', 9000), 1200);
       }
     }
   } catch (_) { /* stockage indisponible */ }
