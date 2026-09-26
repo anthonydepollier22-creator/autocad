@@ -399,7 +399,7 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   pose*) et s'inscrit sur le plan d'implantation (« PC4 h110 »), en SVG et en DXF. Les murs se teintent selon leur **matériau** : **cloison placo
   72/48** (montants de l'ossature tous les 60 cm), carreau de plâtre, brique,
   parpaing, béton, ossature bois, et **doublage placo** côté pièce des façades ; « Mur
-  placo / maçonné » change le mur visé (aussi dans les propriétés d'un mur en 2D, où
+  placo / maçonné » change le mur visé, « Doublage » ajoute ou retire celui d'une façade (aussi dans les propriétés d'un mur en 2D, où
   le plan marque les montants de placo tous les 60 cm et hachure la maçonnerie). Le
   métré en déduit les **boîtes d'encastrement** : cloison sèche (placo), **étanches à
   l'air** dans le doublage (RE 2020) ou maçonnerie. Tout reste annulable et le tableau

@@ -1369,7 +1369,11 @@ function initHouseUI(app) {
     if (k.startsWith('mat:')) {
       const wire = hit && hit.kind === 'wall' && editor.wires.find((q) => q.id === hit.w.wid);
       if (!wire) { showToast('Clique un mur pour changer son matériau.'); return; }
-      wire.mat = k.slice(4);
+      if (k === 'mat:doublage') { // doublage placo (isolant + plaque) d'un mur extérieur maçonné
+        const m = wallMaterial(wire);
+        if (!wire.ext || WALL_MATS[m.mat].hollow) { showToast('Le doublage concerne les murs extérieurs maçonnés.'); return; }
+        wire.doublage = !m.doublage;
+      } else wire.mat = k.slice(4);
       implantChanged(`Mur : <b>${esc(wallMaterial(wire).label)}</b>.`);
       return;
     }
@@ -1401,7 +1405,10 @@ function initHouseUI(app) {
       const hit = implantHit(p);
       if (k.startsWith('mat:')) {
         const wire = hit && hit.kind === 'wall' && editor.wires.find((q) => q.id === hit.w.wid);
-        if (wire) h = `<b>${esc(wallMaterial(wire).label)}</b><span>Clic : ${k === 'mat:placo' ? 'cloison placo 72/48' : 'mur maçonné (parpaing)'}</span>`;
+        if (wire) {
+          const m = wallMaterial(wire);
+          h = `<b>${esc(m.label)}</b><span>→ ${k === 'mat:placo' ? 'cloison placo 72/48' : k === 'mat:doublage' ? (wire.ext && !WALL_MATS[m.mat].hollow ? (m.doublage ? 'retirer le doublage' : 'doublage placo côté pièce') : 'mur extérieur maçonné seulement') : 'mur maçonné (parpaing)'}</span>`;
+        }
       } else {
         const tg = implantTarget(hit);
         if (tg) h = `<b>${esc(IMPLANT[k].label)}</b>${tg.room ? ' · ' + esc(tg.room) : ''}` +
