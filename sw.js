@@ -4,7 +4,7 @@
  * toujours quand on est en ligne, et l'application reste utilisable hors-ligne.
  */
 
-const CACHE = 'electricad-v44';
+const CACHE = 'electricad-v45';
 const ASSETS = [
   'index.html', 'app.html',
   'css/styles.css', 'css/landing.css',

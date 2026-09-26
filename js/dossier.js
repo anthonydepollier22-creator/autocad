@@ -80,6 +80,7 @@ function buildDossier(o) {
 
   // Plan
   if (o.planSVG) h += `<section class="page"><h2>Plan</h2><div class="svg">${o.planSVG}</div></section>`;
+  if (o.routesPlanSVG) h += `<section class="page"><h2>Plan de câblage</h2><div class="svg">${o.routesPlanSVG}</div><p class="small">Cheminement de chaque circuit dans les goulottes, à la couleur de son repère.</p></section>`;
 
   // Norme
   if (rep && rep.hasPlan) {
