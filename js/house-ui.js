@@ -1310,6 +1310,7 @@ function initHouseUI(app) {
     rj45: { label: 'RJ45', wall: true }, dcl: { label: 'Point lumineux', ceil: true }, smoke_detector: { label: 'DAAF', ceil: true },
     radiator: { label: 'Radiateur', wall: true, furn: true, value: '1000 W' }, vmc: { label: 'Bouche VMC', ceil: true },
     panel_sub: { label: 'Tableau divisionnaire', wall: true, furn: true },
+    ev_charger: { label: 'Borne de recharge', wall: true, furn: true },
   };
   const IMPLANTED = new Set([...Object.keys(IMPLANT), 'radiator', 'jbox', 'vmc']);
   const isCeil = (t) => t === 'dcl' || t === 'smoke_detector' || t === 'vmc';
@@ -1360,7 +1361,7 @@ function initHouseUI(app) {
     if (isCeil(k)) return hit.kind === 'floor' ? { x: Math.round(hit.x), y: Math.round(hit.y), rot: 0, room: hit.room.name } : null;
     if (hit.kind !== 'wall') return null;
     // appareil mural : boîte à 20 cm de l'axe ; radiateur : dos contre la face du mur
-    const furn = k === 'radiator', off = furn ? Math.max(WALL_BACK, hit.w.t / 2 + 2) - SYMBOLS.radiator.bbox.y : 20;
+    const furn = k === 'radiator' || k === 'ev_charger', off = furn ? Math.max(WALL_BACK, hit.w.t / 2 + 2) - SYMBOLS[k].bbox.y : 20; // dos contre le mur
     const w = hit.w, wire = editor.wires.find((q) => q.id === w.wid), mat = wire ? wallMaterial(wire) : null;
     // cloison sèche : la boîte d'encastrement ne tombe pas sur un montant (décalée de quelques cm)
     let t = hit.t, stud = null;
@@ -1508,7 +1509,7 @@ function initHouseUI(app) {
       return;
     }
     implantChanged(`Pose : <b>${esc(SYMBOLS[k].name)}</b> ${esc(c.label)}${tg.room ? ' — ' + esc(tg.room) : ''}` +
-      (IMPLANT[k].ceil ? ' (plafond)' : IMPLANT[k].furn ? `, contre ${tg.mat ? esc(tg.mat.label.toLowerCase()) : 'le mur'} (sortie de câble à 30 cm)`
+      (IMPLANT[k].ceil ? ' (plafond)' : k === 'ev_charger' ? `, contre ${tg.mat ? esc(tg.mat.label.toLowerCase()) : 'le mur'} (circuit dédié 40 A en 10 mm², différentiel type F)` : IMPLANT[k].furn ? `, contre ${tg.mat ? esc(tg.mat.label.toLowerCase()) : 'le mur'} (sortie de câble à 30 cm)`
         : ` à ${h}, ${tg.mat ? esc(tg.mat.label.toLowerCase()) + (tg.mat.hollow ? ' → boîte cloison sèche' : ' → boîte maçonnerie') : ''}`) +
       (tg.stud ? ` ; décalée de ${Math.max(1, Math.round(tg.stud.by))} cm pour ne pas tomber sur un montant` : '') + '. Annulable (Ctrl+Z).');
   }
@@ -1548,6 +1549,7 @@ function initHouseUI(app) {
         const tg = implantTarget(hit);
         if (tg) h = `<b>${esc(IMPLANT[k].label)}</b>${tg.room ? ' · ' + esc(tg.room) : ''}` +
           (IMPLANT[k].ceil ? '<span>au plafond, à l’aplomb</span>' : k === 'panel_sub' ? `<span>${tg.mat ? esc(tg.mat.label) : ''}</span><span>coffret à 1,50 m, ${tg.mat && tg.mat.hollow ? 'fixé sur rail ou platine (cloison sèche)' : 'chevilles maçonnerie'} — les appareils de la pièce en partiront</span>`
+            : k === 'ev_charger' ? `<span>${tg.mat ? esc(tg.mat.label) : ''}</span><span>borne à 1,20 m, circuit dédié 40 A en 10 mm² sous différentiel type F</span>`
             : IMPLANT[k].furn ? `<span>${tg.mat ? esc(tg.mat.label) : ''}</span><span>sortie de câble à 30 cm, ${tg.mat && tg.mat.hollow ? 'fixation cloison sèche' : 'chevilles maçonnerie'}</span>`
             : `<span>à ${implantH() || Math.round((MOUNT_H[k] || 0.3) * 100)} cm · ${tg.mat ? esc(tg.mat.label) : ''}</span><span>${tg.mat && tg.mat.doublage ? 'boîte étanche à l’air (doublage)' : tg.mat && tg.mat.hollow ? 'boîte cloison sèche' : 'boîte maçonnerie'}${tg.stud ? ` — montant : décalée de ${Math.max(1, Math.round(tg.stud.by))} cm` : ''}</span>`);
       }
