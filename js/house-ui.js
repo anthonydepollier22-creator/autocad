@@ -1209,7 +1209,10 @@ function initHouseUI(app) {
     setImplant(v3.implant ? null : 'socket_wall');
     if (v3.implant) showToast('<b>Implanter</b> : choisis un appareil puis clique un mur (ou le sol pour un point au plafond). Murs teintés selon leur matériau : placo (montants tous les 60 cm), maçonnerie, doublage.', 7000);
   });
-  document.querySelectorAll('#v3-implant-kind button').forEach((b) => b.addEventListener('click', () => setImplant(b.dataset.k)));
+  document.querySelectorAll('#v3-implant-kind button[data-k]').forEach((b) => b.addEventListener('click', () => setImplant(b.dataset.k)));
+  $('v3-undo').addEventListener('click', () => { // tactile : pas de Ctrl+Z
+    editor.undo(); ensureDesign(true); structKey = null; tick(0, true); build3D(false); showToast('Annulé.', 1200);
+  });
   $('v3-energy').addEventListener('click', () => {
     v3.energy = !v3.energy;
     if (v3.energy && v3.lux) { v3.lux = false; setChip('v3-lux', false); }
@@ -1441,7 +1444,7 @@ function initHouseUI(app) {
     setChip('v3-implant', on);
     $('v3-implant-kind').hidden = !on;
     $('v3-matlegend').hidden = !on;
-    document.querySelectorAll('#v3-implant-kind button').forEach((b) => b.classList.toggle('on', b.dataset.k === v3.implant));
+    document.querySelectorAll('#v3-implant-kind button[data-k]').forEach((b) => b.classList.toggle('on', b.dataset.k === v3.implant));
     if (on && v3.walls === 'full' && viz.mode !== 'walk') { // murs coupés : on voit l'intérieur des pièces
       v3.walls = 'cut';
       document.querySelectorAll('#v3-walls button').forEach((x) => x.classList.toggle('on', x.dataset.w === 'cut'));
