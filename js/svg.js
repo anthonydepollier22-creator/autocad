@@ -205,7 +205,7 @@ function buildSVG(components, wires, symbols, meta) {
       y += 26;
       for (const t of tags.list) {
         ctx.out.push(`<rect x="${lx}" y="${y - 10}" width="22" height="12" fill="${t.color}" stroke="#1a2230" stroke-width="0.8"/>`);
-        ctx.out.push(`<text x="${lx + 30}" y="${y}" font-family="sans-serif" font-size="11" fill="#1a2230"><tspan font-weight="bold">${_esc(t.id)}</tspan> ${_esc(t.name)} — ${t.In} A</text>`);
+        ctx.out.push(`<text x="${lx + 30}" y="${y}" font-family="sans-serif" font-size="11" fill="#1a2230"><tspan font-weight="bold">${_esc(t.id)}</tspan> ${_esc(t.name)} — ${t.In} A${t.cable ? ' · ' + _esc(t.cable) : ''}</text>`);
         y += 20;
       }
     }

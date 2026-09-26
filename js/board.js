@@ -1392,7 +1392,7 @@ function circuitTags(design) {
   const map = {}, list = [];
   design.circuits.forEach((ct, k) => {
     const color = colors[k % colors.length];
-    list.push({ id: ct.id, name: ct.name, In: ct.In, color });
+    list.push({ id: ct.id, name: ct.name, In: ct.In, color, cable: boardCable(ct.S, ct.phase) });
     for (const id of ct.devices || []) map[id] = { id: ct.id, color };
   });
   return { map, list };
