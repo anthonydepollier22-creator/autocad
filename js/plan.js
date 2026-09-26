@@ -442,6 +442,15 @@ function checkNFC15100(components, wires) {
       if ((c.type === 'socket_wall' || c.type === 'rj45') && h < 5) push('err', `${c.label || 'Prise'} : axe à ${h} cm du sol, 5 cm au moins exigés.`, c.id);
       else if (NF_SWITCHES.has(c.type) && (h < 90 || h > 130)) push('warn', `${c.label || 'Interrupteur'} à ${h} cm : les commandes se posent entre 0,90 et 1,30 m (accessibilité PMR).`, c.id);
     }
+    // Cloison sèche ou doublage : une boîte d'encastrement ne se pose pas sur un montant (tous les 60 cm)
+    for (const c of components) {
+      if (!['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light'].includes(c.type)) continue;
+      const nw = nearestWall(wires, c.x, c.y, 45);
+      if (!nw || !wallMaterial(nw.w).hollow) continue;
+      const sh = studShift(nw.t, Math.hypot(nw.b.x - nw.a.x, nw.b.y - nw.a.y));
+      const M = wallMaterial(nw.w);
+      if (sh) push('warn', `${c.label || 'Boîte'} : ${M.doublage ? 'sur une fourrure du doublage' : `sur un montant de la cloison (${M.label.toLowerCase()})`} — décaler de ${Math.max(1, Math.round(sh.by))} cm.`, c.id);
+    }
     // Cuisine de plus de 4 m² : 4 des 6 prises au-dessus du plan de travail (posées sur
     // l'emprise d'un plan de travail, ou à 90 cm et plus)
     info.rooms.forEach((room, i) => {
