@@ -246,8 +246,10 @@ l'éditeur du tableau, **avec ou sans plan** :
   simulés comme les disjoncteurs) ; les étiquettes des symboles verticaux passent à
   droite ;
 - **Exports** : SVG, **DXF** (en millimètres, calques UNIFILAIRE / TEXTES / CARTOUCHE,
-  validé par ezdxf) et **Imprimer / PDF** (folios A3 unifilaire, câblage, note de calcul,
-  schémas développés, élévations et communication, face avant, étiquettes A4) ; le
+  validé par ezdxf) et **Imprimer / PDF** : le **dossier technique** A3 — sommaire,
+  puis unifilaire, câblage, note de calcul, schémas développés, élévations et
+  communication, **numérotés à la suite** (folio 3 / 11) — suivi de la face avant et
+  des étiquettes A4 ; le
   dossier du projet et le métré (coffret, parafoudre, contacteurs, ID 63 A…) suivent.
 
 ![Éditeur du tableau : circuits modifiables et aperçu du folio](docs/screenshot-tableau-editeur.png)
@@ -718,7 +720,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-173 vérifications sans dépendance : valeurs numériques de chaque simulation
+174 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

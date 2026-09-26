@@ -420,7 +420,9 @@ function _uCartouche(ctx, design, meta, subtitle, k, nF) {
   text('Auteur', 710, cy + 46, { size: 7.5, color: mute }); text(fit((meta && meta.author) || '—', 26), 710, cy + 57, { size: 9 });
   text('Norme', 910, cy + 20, { size: 7.5, color: mute }); text('NF C 15-100', 910, cy + 34, { size: 10, bold: true });
   text('contrôle simplifié — à faire valider', 910, cy + 48, { size: 7, color: mute }); text('par un professionnel (Consuel)', 910, cy + 57, { size: 7, color: mute });
-  text('Folio', 1070, cy + 20, { size: 7.5, color: mute }); text(`${k + 1} / ${nF}`, 1117, cy + 48, { size: 22, bold: true, align: 'center' });
+  // numérotation du dossier complet (meta.sheet : premier folio de la série) ou de la série seule
+  const num = meta && meta.sheets ? `${meta.sheet + k} / ${meta.sheets}` : `${k + 1} / ${nF}`;
+  text('Folio', 1070, cy + 20, { size: 7.5, color: mute }); text(num, 1117, cy + 48, { size: num.length > 6 ? 18 : 22, bold: true, align: 'center' });
   ctx.restore();
 }
 
@@ -916,6 +918,69 @@ function developedDXF(design, meta, components, wires) {
   const list = lightingControls(design, components, wires), ctx = new DXFContext(), n = devFolios(list);
   for (let k = 0; k < n; k++) { ctx.save(); ctx.translate(0, k * (UNI.H + 60)); drawDeveloped(ctx, design, meta, list, k); ctx.restore(); }
   return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: n * (UNI.H + 60) }, { U: 1 / 0.3528, insunits: 4, layers: [['SCHEMA', 7], ['TEXTES', 2], ['CARTOUCHE', 8]] });
+}
+
+// ---------------------------------------------------------------------------
+// Dossier technique : les folios A3 dans l'ordre, numérotés à la suite, et
+// leur sommaire (folio 1)
+// ---------------------------------------------------------------------------
+function technicalSet(design, meta, components, wires) {
+  const hasPlan = wires.some((w) => w.kind === 'wall'), rj = components.some((c) => c.type === 'rj45');
+  const sets = [
+    ['Schéma unifilaire', 'Arrivée, AGCP, différentiels, disjoncteurs, nomenclature des départs', (m) => unifilarSVGs(design, m)],
+    ['Câblage du tableau', 'Liaison AGCP, peignes, départs, bornier de terre', (m) => boardWiringSVGs(design, m)],
+    ['Note de calcul', 'Ib, In, Iz, ΔU, Icc mini, longueur maximale protégée, bilan de puissance', (m) => calcNoteSVGs(design, m)],
+    ['Schémas développés', 'Commandes d’éclairage pièce par pièce', (m) => developedSVGs(design, m, components, wires)],
+  ];
+  if (hasPlan && typeof elevationSVGs === 'function') sets.push(['Élévations des murs', 'Hauteurs de pose de l’appareillage, pièce par pièce', (m) => elevationSVGs(design, m, components, wires)]);
+  if (rj && typeof vdiSVGs === 'function') sets.push(['Communication (VDI)', 'Coffret grade 2TV, câblage en étoile catégorie 6', (m) => vdiSVGs(design, m, components, wires)]);
+  // premier passage : nombre de folios de chaque série ; second : numérotation continue
+  const counts = sets.map(([, , f]) => f(meta).length);
+  const total = 1 + counts.reduce((a, b) => a + b, 0);
+  let sheet = 2;
+  const entries = [], pages = [];
+  sets.forEach(([title, what, f], i) => {
+    entries.push({ title, what, from: sheet, to: sheet + counts[i] - 1 });
+    pages.push(...f({ ...meta, sheet, sheets: total }));
+    sheet += counts[i];
+  });
+  const ctx = new SVGContext();
+  drawSommaire(ctx, design, { ...meta, sheet: 1, sheets: total }, entries, hasPlan);
+  const cover = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${UNI.W} ${UNI.H}" width="420mm" height="297mm" font-family="sans-serif"><rect width="${UNI.W}" height="${UNI.H}" fill="#fff"/>${ctx.out.join('')}</svg>`;
+  return { pages: [cover, ...pages], entries, total };
+}
+function drawSommaire(ctx, design, meta, entries, hasPlan) {
+  const ink = '#1a2230', mute = '#5b6b82';
+  const text = (t, x, y, o) => {
+    o = o || {};
+    ctx.save(); ctx.fillStyle = o.color || ink; ctx.font = `${o.bold ? 'bold ' : ''}${o.size || 10}px sans-serif`;
+    ctx.textAlign = o.align || 'left'; ctx.fillText(t, x, y); ctx.restore();
+  };
+  ctx.save(); ctx.strokeStyle = ink;
+  _uCartouche(ctx, design, meta, 'Sommaire du dossier technique', 0, 1);
+  text('Dossier technique de l’installation électrique', 60, 110, { bold: true, size: 26 });
+  text((meta && meta.title) || 'Installation électrique', 60, 146, { size: 17 });
+  const tri = design.supply && design.supply.phases === 3;
+  text(`${tri ? 'Triphasé 400 V' : 'Monophasé 230 V'} · abonnement ${design.agcp.kva} kVA · ${design.rcds.length} interrupteurs différentiels 30 mA · ${design.circuits.length} circuits · ${_bNum(design.cableTotal)} m de câble`, 60, 172, { size: 11, color: mute });
+  text('Norme NF C 15-100 — contrôle simplifié, à faire valider par un professionnel avant la visite du Consuel.', 60, 190, { size: 9.5, color: mute });
+  // tableau des folios
+  const x0 = 60, x1 = UNI.W - 60, y0 = 230, rh = 30;
+  ctx.lineWidth = 1.1; _uLine(ctx, x0, y0, x1, y0, 1.2);
+  text('Folio', x0 + 6, y0 + 20, { bold: true, size: 10 }); text('Titre', x0 + 110, y0 + 20, { bold: true, size: 10 }); text('Contenu', x0 + 380, y0 + 20, { bold: true, size: 10 });
+  const rows = [{ title: 'Sommaire', what: 'Liste des folios du dossier', from: 1, to: 1 }, ...entries];
+  rows.forEach((r, i) => {
+    const y = y0 + rh * (i + 1);
+    _uLine(ctx, x0, y, x1, y, i ? 0.5 : 1);
+    text(r.from === r.to ? String(r.from) : `${r.from} à ${r.to}`, x0 + 6, y + 20, { size: 11, bold: true });
+    text(r.title, x0 + 110, y + 20, { size: 11 });
+    text(r.what, x0 + 380, y + 20, { size: 10, color: mute });
+  });
+  _uLine(ctx, x0, y0 + rh * (rows.length + 1), x1, y0 + rh * (rows.length + 1), 1.2);
+  const yn = y0 + rh * (rows.length + 1) + 34;
+  text('Documents joints (format A4 ou à l’échelle)', x0, yn, { bold: true, size: 11 });
+  const docs = [hasPlan && 'Plan d’implantation coté, légende et repères de circuits (SVG, DXF, PDF)', 'Face avant du tableau et étiquettes de repérage à l’échelle 1', 'Dossier du projet : contrôle NF pièce par pièce, autocontrôle, matériel et budget'].filter(Boolean);
+  docs.forEach((d, i) => text('•  ' + d, x0 + 8, yn + 22 + i * 18, { size: 10 }));
+  ctx.restore();
 }
 
 // ---------------------------------------------------------------------------

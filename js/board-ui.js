@@ -297,7 +297,8 @@ function initBoardUI(app) {
     const win = window.open('', '_blank');
     if (!win) { showToast('Autorise les fenêtres surgissantes pour imprimer.'); return; }
     const strip = (s) => s.replace(/width="[^"]*mm" height="[^"]*mm"/, '');
-    const pages = unifilarSVGs(d, meta()).concat(boardWiringSVGs(d, meta()), calcNoteSVGs(d, meta()), devSVGs(d), editor.wires.some((w) => w.kind === 'wall') ? elevPages(d) : [], editor.components.some((c) => c.type === 'rj45') ? vdiPages(d) : []).map((s) => `<section class="a3">${strip(s)}</section>`).join('');
+    // dossier technique : sommaire puis folios numérotés à la suite
+    const pages = technicalSet(d, meta(), editor.components, editor.wires).pages.map((s) => `<section class="a3">${strip(s)}</section>`).join('');
     const front = boardFrontSVG(d, meta()), labels = boardLabelsSVG(d, meta());
     const mm = (s) => { const m = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(s); return m ? [+m[1], +m[2]] : [210, 297]; };
     const [fw, fh] = mm(front);

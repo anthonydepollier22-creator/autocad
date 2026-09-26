@@ -951,6 +951,15 @@ r = run(`(function(){
 })()`);
 check('Câblage du tableau : liaison AGCP en 10 / 16 / 25 mm² selon le réglage, chaque ID et chaque départ, bornier de terre ; métré ; SVG et DXF', r.sec.join() === '10,16,25' && r.ids && r.rcds && r.pe && r.link && r.dxf, `${r.n} folio(s)`);
 
+// Dossier technique : sommaire et folios numérotés à la suite
+r = run(`(function(){
+  var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), T = technicalSet(d, { title: 'T5' }, h.components, h.wires);
+  var nums = T.pages.map(function(p){ var m = />(\\d+) \\/ (\\d+)</.exec(p); return m ? +m[1] + '/' + m[2] : '?'; });
+  var cover = T.pages[0], last = T.entries[T.entries.length - 1];
+  return { total: T.total, n: T.pages.length, nums: nums, seq: nums.every(function(x, i){ return x === (i + 1) + '/' + T.total; }), cover: cover.indexOf('Dossier technique') > 0 && cover.indexOf('Élévations des murs') > 0 && cover.indexOf('Communication (VDI)') > 0, last: last.to === T.total };
+})()`);
+check('Dossier technique : sommaire (folio 1), puis unifilaire, câblage, note, développés, élévations, communication numérotés à la suite', r.n === r.total && r.seq && r.cover && r.last, r.nums.join(' '));
+
 // Communication (VDI) : coffret en GTL, étoile catégorie 6 le long des goulottes
 r = run(`(function(){
   var h = buildHouse('t5'), v = vdiDesign(h.components, h.wires), rj = h.components.filter(function(c){ return c.type === 'rj45'; });
