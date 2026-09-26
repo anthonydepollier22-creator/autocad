@@ -1125,6 +1125,16 @@ r = run(`(function(){
 })()`);
 check('Délesteur : suggéré quand le chauffage pèse sur l’abonnement ; en simulation il coupe les radiateurs à la pointe et l’AGCP tient ; unifilaire, face avant, métré', r.sugg && r.shed && r.radsOff && r.agcp && r.uni && r.front && r.mat && r.noSugg, JSON.stringify(r));
 
+// Interrupteur horaire d'un circuit (éclairage extérieur, chauffe-eau programmé)
+r = run(`(function(){
+  var b = boardTemplate(80), o = boardAddCircuit(b, 'outdoor', { name: 'Éclairage jardin' }); o.contactor = 'ih';
+  var d = designInstallation([], [], b), M = boardModules(d), mods = [].concat.apply([], M.rows);
+  var ih = mods.find(function(m){ return m.kind === 'contactor' && m.ct.id === o.id; }), mat = materialList([], [], d).lines;
+  var uni = unifilarSVGs(d, {}).join(''), front = boardFrontSVG(d, {});
+  return { ih: !!ih && /^IH/.test(ih.ref) && ih.text === 'Interrupteur horaire', mat: mat.some(function(l){ return /Interrupteur horaire modulaire/.test(l.name) && l.qty === 1; }) && mat.some(function(l){ return /Contacteur jour/.test(l.name) && l.qty === 1; }), uni: uni.indexOf('>IH<') > 0, front: front.indexOf('>IH<') > 0 };
+})()`);
+check('Interrupteur horaire d’un circuit : module IH, unifilaire, face avant, métré (le contacteur HC du chauffe-eau reste compté à part)', r.ih && r.mat && r.uni && r.front, JSON.stringify(r));
+
 // Nomenclature du matériel : folio A3 du dossier, lignes du métré par catégorie
 r = run(`(function(){
   var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), L = materialList(h.components, h.wires, d), svg = nomenclatureSVGs(d, { title: 'T5' }, h.components, h.wires).join('');

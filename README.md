@@ -206,6 +206,9 @@ l'éditeur du tableau, **avec ou sans plan** :
   (F pour la borne, A pour la plaque et le lave-linge), il figure à l'unifilaire
   (disjoncteur + tore), sur la face avant, au câblage, au métré, et en simulation un
   défaut d'isolement ne coupe que ce circuit ;
+- **Interrupteur horaire** par circuit (bouton « IH » à côté de « HC » et « TL ») :
+  éclairage extérieur, chauffe-eau programmé… — module IH à la face avant, organe de
+  commande à l'unifilaire, compté au métré à part des contacteurs heures creuses ;
 - **Délesteur** (case du tableau, à côté du parafoudre) : il coupe le chauffage électrique
   (fil pilote) quand l'appel approche le réglage de l'AGCP ; suggéré quand le chauffage
   dépasse la moitié de l'abonnement, dessiné à l'unifilaire (circuits pilotés), sur la face
@@ -773,7 +776,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-191 vérifications sans dépendance : valeurs numériques de chaque simulation
+192 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

@@ -334,6 +334,8 @@ function calcNote(design) {
 }
 
 const BOARD_ROW = 13;
+// Organe de commande d'un circuit : contacteur heures creuses, ou interrupteur horaire (programmation)
+const _ctText = (k) => (k === 'hc' ? 'Contacteur HC' : k === 'ih' ? 'Interrupteur horaire' : 'Contacteur');
 // Tableaux : le principal (id null) puis les divisionnaires [{ id, ref, name, feeder }]
 function boardPanels(design) {
   return [{ id: null, ref: '', name: 'Tableau principal', feeder: null }].concat(design.panels || []);
@@ -373,7 +375,7 @@ function boardModules(design, pid) {
   // disjoncteurs différentiels 30 mA (un par circuit) : en tête, sous l'AGCP, avec leur contacteur
   for (const c of design.circuits.filter((x) => x.ddr && !design.rcds.some((r) => r.id === x.rcd))) {
     items.push({ kind: 'ddr', w: c.phase === '3P' ? 4 : 2, ref: c.id, text: c.name, In: c.In, ct: c, phase: design.supply && design.supply.phases === 3 ? c.phase : null, ddr: c.ddr });
-    if (c.contactor) items.push({ kind: 'contactor', w: 1, ref: 'KM' + c.id.replace(/^C/, ''), text: c.contactor === 'hc' ? 'Contacteur HC' : 'Contacteur', ct: c });
+    if (c.contactor) items.push({ kind: 'contactor', w: 1, ref: (c.contactor === 'ih' ? 'IH' : 'KM') + c.id.replace(/^C/, ''), text: _ctText(c.contactor), ct: c, tag: c.contactor === 'ih' ? 'IH' : 'HC' });
     if (c.teleruptor) items.push({ kind: 'teleruptor', w: 1, ref: 'KL' + c.id.replace(/^C/, ''), text: 'Télérupteur', ct: c });
   }
   const groups = design.rcds.map((r) => ({ r, cs: design.circuits.filter((c) => c.rcd === r.id) })).filter((g) => g.cs.length);
@@ -390,7 +392,7 @@ function boardModules(design, pid) {
     if (g.r) mods.push({ kind: 'rcd', w: tri ? 4 : 2, ref: g.r.id, text: `${g.r.In} A ${g.r.type}${tri ? ' 4P' : ''}`, rcd: g.r });
     for (const c of g.cs) {
       mods.push({ kind: 'breaker', w: c.phase === '3P' ? 4 : 1, ref: c.id, text: c.name, In: c.In, ct: c, phase: tri ? c.phase : null });
-      if (c.contactor) mods.push({ kind: 'contactor', w: 1, ref: 'KM' + c.id.replace(/^C/, ''), text: c.contactor === 'hc' ? 'Contacteur HC' : 'Contacteur', ct: c });
+      if (c.contactor) mods.push({ kind: 'contactor', w: 1, ref: (c.contactor === 'ih' ? 'IH' : 'KM') + c.id.replace(/^C/, ''), text: _ctText(c.contactor), ct: c, tag: c.contactor === 'ih' ? 'IH' : 'HC' });
       if (c.teleruptor) mods.push({ kind: 'teleruptor', w: 1, ref: 'KL' + c.id.replace(/^C/, ''), text: 'Télérupteur', ct: c });
     }
     // un différentiel et ses circuits sur la même rangée quand ils y tiennent
@@ -694,7 +696,7 @@ function drawUnifilar(ctx, design, meta, folio) {
       if (tri && c.phase) text(c.phase === '3P' ? '3P+N' : c.phase, x + 4, c.ddr ? sub + 22 : sub + 44, { size: 7, color: c.phase === '3P' ? ink : mute });
       layer('UNIFILAIRE');
       let y = sub + 64;
-      if (c.contactor || c.teleruptor) { _uContactor(ctx, x, y + 4, 38, c.contactor ? (c.contactor === 'hc' ? 'HC' : 'KM') : 'TL'); _uLine(ctx, x, y, x, y + 4, 1.3); y += 42; }
+      if (c.contactor || c.teleruptor) { _uContactor(ctx, x, y + 4, 38, c.contactor ? (c.contactor === 'hc' ? 'HC' : c.contactor === 'ih' ? 'IH' : 'KM') : 'TL'); _uLine(ctx, x, y, x, y + 4, 1.3); y += 42; }
       else { _uLine(ctx, x, y, x, y + 42, 1.3); y += 42; }
       if (c.kind === 'pv') { _uLine(ctx, x, y, x, y + 4, 1.3); _uInverter(ctx, x, y + 4); } // production : l'onduleur au bout du circuit
       else { _uLine(ctx, x, y, x, y + 10, 1.3); _uArrow(ctx, x, y + 10); }
@@ -1353,7 +1355,7 @@ function drawBoardFront(ctx, design, meta) {
       // manette
       box(x + w / 2 - 2.6 + 0.4, y + 14, 5.2, 12, m.kind === 'rcd' || m.kind === 'ddr' ? blue : '#2b3342', null, 0.2);
       text(m.ref, x + w / 2 + 0.4, y + 6.5, { size: 3, bold: true, color: m.kind === 'rcd' || m.kind === 'ddr' ? blue : ink });
-      const sub = m.kind === 'breaker' ? `C${m.In}${m.phase ? ' · ' + (m.phase === '3P' ? '3P+N' : m.phase) : ''}` : m.kind === 'ddr' ? `C${m.In} · 30 mA ${m.ddr}` : m.kind === 'rcd' ? m.text : m.kind === 'surge' ? 'Type 2' : m.kind === 'shed' ? 'Délest.' : m.kind === 'switch' ? `${m.In} A` : m.kind === 'contactor' ? 'HC' : 'TL';
+      const sub = m.kind === 'breaker' ? `C${m.In}${m.phase ? ' · ' + (m.phase === '3P' ? '3P+N' : m.phase) : ''}` : m.kind === 'ddr' ? `C${m.In} · 30 mA ${m.ddr}` : m.kind === 'rcd' ? m.text : m.kind === 'surge' ? 'Type 2' : m.kind === 'shed' ? 'Délest.' : m.kind === 'switch' ? `${m.In} A` : m.kind === 'contactor' ? m.tag || 'HC' : 'TL';
       text(sub, x + w / 2 + 0.4, y + 34, { size: 2.8 });
       if (m.kind === 'rcd' || m.kind === 'ddr') { ctx.beginPath(); ctx.arc(x + w - 4, y + 38.5, 1.6, 0, Math.PI * 2); ctx.strokeStyle = ink; ctx.lineWidth = 0.3; ctx.stroke(); text('T', x + w - 4, y + 39.5, { size: 2 }); }
       // étiquette sous l'appareil
@@ -1535,7 +1537,7 @@ function drawBoardWiring(ctx, design, meta, folio) {
       for (const [, tx] of tt) { dot(tx, yb); dot(tx, yB); }
       layer('TEXTES');
       text(m.ref, p.x + p.w / 2, yb + 15 * sc, { bold: true, size: fs(7), align: 'center', color: m.kind === 'rcd' || m.kind === 'ddr' ? N : ink });
-      const sub = m.kind === 'breaker' || m.kind === 'ddr' ? `C${m.In}` : m.kind === 'rcd' ? `${m.rcd.In} A` : m.kind === 'surge' ? 'type 2' : m.kind === 'shed' ? 'délest.' : m.kind === 'contactor' ? 'HC' : 'TL';
+      const sub = m.kind === 'breaker' || m.kind === 'ddr' ? `C${m.In}` : m.kind === 'rcd' ? `${m.rcd.In} A` : m.kind === 'surge' ? 'type 2' : m.kind === 'shed' ? 'délest.' : m.kind === 'contactor' ? m.tag || 'HC' : 'TL';
       text(sub, p.x + p.w / 2, yb + 27 * sc, { size: fs(6.5), align: 'center' });
       if (m.kind === 'rcd') text(`30 mA ${m.rcd.type}`, p.x + p.w / 2, yb + 39 * sc, { size: fs(6), align: 'center', color: mute });
       else if (m.kind === 'ddr') text(`30 mA ${m.ddr}${tri ? ' · ' + (m.ct.phase === '3P' ? '3P+N' : tt[0][0]) : ''}`, p.x + p.w / 2, yb + 39 * sc, { size: fs(6), align: 'center', color: mute });
@@ -1555,7 +1557,7 @@ function drawBoardWiring(ctx, design, meta, folio) {
         text(nm.length > 20 ? nm.slice(0, 19) + '…' : nm, tP - 5.5 * sc, yo + 5, { size: fs(6), rot: Math.PI / 2, color: mute });
       } else if (m.kind === 'contactor' || m.kind === 'teleruptor') {
         layer('TEXTES');
-        text(m.kind === 'contactor' ? 'cde HC' : 'bobine', p.x + p.w / 2, yb + 39 * sc, { size: fs(5.5), align: 'center', color: mute });
+        text(m.kind === 'contactor' ? (m.tag === 'IH' ? 'horloge' : 'cde HC') : 'bobine', p.x + p.w / 2, yb + 39 * sc, { size: fs(5.5), align: 'center', color: mute });
       } else if (m.kind === 'surge') {
         layer('SCHEMA'); wire(PE, [[p.x + p.w / 2, yB], [p.x + p.w / 2, yt]], 1.1);
       }
@@ -1680,7 +1682,7 @@ function boardToSchematic(design, meta) {
         if (c.kind === 'sub') { feeds.push({ c, x: cx }); return; }
         let y = 680;
         if (c.contactor || c.teleruptor) {
-          put(c.contactor ? 'contactor' : 'teleruptor', cx, 760, c.contactor ? 'KM' : 'KL', c.contactor ? 'HC' : '');
+          put(c.contactor ? 'contactor' : 'teleruptor', cx, 760, c.contactor ? (c.contactor === 'ih' ? 'IH' : 'KM') : 'KL', c.contactor ? (c.contactor === 'ih' ? 'horaire' : 'HC') : '');
           wire(cx, 680, cx, 720); y = 800;
         }
         put(loadType(c), cx, y + 120, '', cut(c.name));

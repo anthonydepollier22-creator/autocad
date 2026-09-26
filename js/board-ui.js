@@ -130,7 +130,8 @@ function initBoardUI(app) {
           `<td class="bd-load">${load}</td><td class="bd-load">${len}</td>` +
           (tri ? `<td><select data-cf="phase" aria-label="Phase" class="${c.phaseAuto ? 'bd-auto' : ''}" title="${c.phaseAuto ? 'Phase choisie pour équilibrer' : 'Phase'}">${['L1', 'L2', 'L3', '3P'].map((p) => `<option value="${p}"${c.phase === p ? ' selected' : ''}>${p === '3P' ? '3P+N' : p}</option>`).join('')}</select></td>` : '') +
           `<td><select data-cf="rcd" aria-label="Différentiel">${rcdOpts(c.rcd, c.ddr, c.kind === 'sub')}</select></td>` +
-          `<td class="bd-acts">` + (c.kind === 'sub' ? `<span class="bd-tdref">→ ${esc(c.panelRef || 'TD')}</span>` : c.kind === 'pv' ? '<span class="bd-tdref" title="Circuit de production : onduleur photovoltaïque">☀ onduleur</span>' : `<button type="button" data-cact="hc" aria-pressed="${c.contactor ? 'true' : 'false'}" title="Contacteur jour / nuit (heures creuses)">HC</button>` +
+          `<td class="bd-acts">` + (c.kind === 'sub' ? `<span class="bd-tdref">→ ${esc(c.panelRef || 'TD')}</span>` : c.kind === 'pv' ? '<span class="bd-tdref" title="Circuit de production : onduleur photovoltaïque">☀ onduleur</span>' : `<button type="button" data-cact="hc" aria-pressed="${c.contactor === 'hc' ? 'true' : 'false'}" title="Contacteur jour / nuit (heures creuses)">HC</button>` +
+          `<button type="button" data-cact="ih" aria-pressed="${c.contactor === 'ih' ? 'true' : 'false'}" title="Interrupteur horaire (programmation : éclairage extérieur, chauffe-eau sans contact heures creuses…)">IH</button>` +
           `<button type="button" data-cact="tl" aria-pressed="${c.teleruptor ? 'true' : 'false'}" title="Télérupteur">TL</button>`) +
           '<button type="button" data-cact="del" class="bd-x" title="Supprimer le circuit">✕</button></td></tr>';
       }
@@ -244,7 +245,8 @@ function initBoardUI(app) {
       mutate((b) => {
         const i = b.circuits.findIndex((c) => c.id === id), c = b.circuits[i];
         if (!c) return;
-        if (a === 'hc') c.contactor = c.contactor ? null : 'hc';
+        if (a === 'hc') c.contactor = c.contactor === 'hc' ? null : 'hc';
+        else if (a === 'ih') c.contactor = c.contactor === 'ih' ? null : 'ih';
         else if (a === 'tl') c.teleruptor = !c.teleruptor;
         else if (a === 'del') { b.circuits.splice(i, 1); if (c.kind === 'sub') b.rcds.forEach((r) => { if (r.panel === c.id) r.panel = null; }); } // ses ID reviennent au tableau principal
         else {
