@@ -1088,14 +1088,15 @@ r = run(`(function(){
   var errs = d.checks.filter(function(c){ return c.level === 'err' || c.level === 'warn'; }).map(function(c){ return c.msg; });
   var b = boardFromDesign(d), dB = designInstallation(doc.components, doc.wires, b), FB = dB.circuits.find(function(c){ return c.kind === 'sub'; });
   var b2 = boardFromDesign(d0), d2 = designInstallation(doc.components, doc.wires, b2);
-  return { panel: d.panels.length === 1 && F.name === 'Garage' && F.In === 32 && F.S >= 6 && F.edges.length > 0 && F.length > 5,
+  var maxDown = Math.max.apply(null, d.circuits.filter(function(c){ return c.panel === F.id; }).map(function(c){ return c.In; }));
+  return { panel: d.panels.length === 1 && F.name === 'Garage' && F.In > maxDown && F.In * 230 >= F.power && F.S >= BOARD_S.find(function(S){ return BOARD_S_MAX_IN[S] >= F.In; }) && F.edges.length > 0 && F.length > 5,
     garage: devIds.length === devsG.length && devIds.every(function(id){ return devsG.some(function(c){ return c.id === id; }); }),
     short: down.every(function(c){ return c.length < 12; }), ids: d.rcds.filter(function(r){ return r.panel === F.id; }).map(function(r){ return r.type; }).sort().join(),
     main: d0.circuits.length === d.circuits.length - 1 - down.length + d0.circuits.filter(function(c){ return c.devices.some(function(id){ return devsG.some(function(g){ return g.id === id; }); }) && c.devices.every(function(id){ return devsG.some(function(g){ return g.id === id; }); }); }).length,
     errs: errs, custom: FB && Math.abs(FB.length - F.length) < 0.2 && dB.circuits.filter(function(c){ return c.panel; }).length === down.length && !dB.orphans.length,
     warn: d2.issues.some(function(i){ return /TD1 posé sur le plan sans départ/.test(i.msg); }), b3d: typeof BUILDERS3D.panel_sub === 'function', sym: SYMBOLS.panel_sub.prefix === 'TD' };
 })()`);
-check('Tableau divisionnaire posé sur le plan : départ 32 A mesuré dans les goulottes, appareils de sa pièce sur ses circuits (câbles courts), ses ID AC et F ; repris par le tableau personnalisé', r.panel && r.garage && r.short && r.ids === 'AC,F' && !r.errs.length && r.custom && r.warn && r.b3d && r.sym, r.errs.join(' | ') || JSON.stringify(r));
+check('Tableau divisionnaire posé sur le plan : départ calibré au-dessus de chaque départ aval (borne comprise) et mesuré dans les goulottes, appareils de sa pièce sur ses circuits (câbles courts), ses ID AC et F ; repris par le tableau personnalisé', r.panel && r.garage && r.short && r.ids === 'AC,F' && !r.errs.length && r.custom && r.warn && r.b3d && r.sym, r.errs.join(' | ') || JSON.stringify(r));
 
 // Disjoncteur différentiel 30 mA propre à un circuit (borne de recharge, ajout dans un tableau existant)
 r = run(`(function(){
@@ -1278,6 +1279,16 @@ r = run(`(function(){
     type: /type F/.test(svg), set: T.entries.some(function(e){ return e.title === 'Borne de recharge (IRVE)'; }), none: /Aucune borne de recharge/.test(none), dxf: /EOF\\s*$/.test(evDXF(d, {})) };
 })()`);
 check('Borne de recharge (IRVE) : folio du point de charge (TD du garage, différentiel type F, mode 3, pilotage, règles), dossier, DXF', r.n === 1 && r.td && r.parts && r.type && r.set && r.none && r.dxf, JSON.stringify(r));
+
+// TD avec borne : départ automatique au-dessus de la borne (pleine puissance, sélectivité) ; forcé à 32 A → avertissement
+r = run(`(function(){
+  var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d = designInstallation(h.components, h.wires);
+  var F = d.circuits.find(function(c){ return c.kind === 'sub'; }), ev = evCircuits(d)[0];
+  var b = boardFromDesign(d), fb = b.circuits.find(function(c){ return c.kind === 'sub'; }); fb.In = 32; fb.S = 6;
+  var d2 = designInstallation(h.components, h.wires, b);
+  return { auto: F.In > ev.In && F.power >= ev.power, S: F.S, warn: checkBoard(d2).some(function(m){ return m.level === 'warn' && /pas de sélectivité/.test(m.msg); }) };
+})()`);
+check('TD du garage avec borne : départ dimensionné sur la pleine puissance de recharge et au-dessus de la borne ; départ trop petit signalé (sélectivité)', r.auto && r.S >= 16 && r.warn, JSON.stringify(r));
 
 // Sommaire : quel que soit le nombre de séries, le tableau et les documents joints restent au-dessus du cartouche
 r = run(`(function(){

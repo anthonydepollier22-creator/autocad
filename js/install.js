@@ -565,7 +565,7 @@ function designInstallation(components, wires, board) {
       const sum = (fn) => down.filter(fn).reduce((s, c) => s + (c.power || 0), 0);
       f.Pauto = Math.round(0.65 * sum((c) => c.kind === 'heating') + 0.5 * sum((c) => c.appliance === 'water_heater')
         + 0.3 * sum((c) => c.appliance === 'cooktop' || c.appliance === 'oven') + 0.2 * sum((c) => ['washer', 'dishwasher', 'dryer'].includes(c.appliance))
-        + 0.3 * sum((c) => c.appliance === 'ev_charger') + 0.5 * sum((c) => c.kind === 'light')
+        + 1.0 * sum((c) => c.appliance === 'ev_charger') + 0.5 * sum((c) => c.kind === 'light') // recharge : pleine puissance pendant des heures
         + 0.5 * sum((c) => (c.kind === 'dedicated' || c.kind === 'other') && !['water_heater', 'cooktop', 'oven', 'washer', 'dishwasher', 'dryer', 'ev_charger'].includes(c.appliance))
         + (down.some((c) => c.kind === 'socket') ? 800 : 0));
       f.power = f.Pin > 0 ? f.Pin : f.Pauto;
@@ -573,8 +573,9 @@ function designInstallation(components, wires, board) {
       if (f.auto) {
         // départ dimensionné : 32 A (40, 63 selon l'appel), section du calibre, augmentée si la ligne
         // est longue (ΔU ≤ 1,5 % sur le départ, court-circuit en bout de ligne)
-        const Ib = f.power / U_NOM;
-        f.In = Ib <= 32 ? 32 : Ib <= 40 ? 40 : 63;
+        // calibre au-dessus du courant d'emploi et de chaque départ aval (sélectivité ampèremétrique)
+        const Ib = f.power / U_NOM, maxDown = Math.max(0, ...down.map((c) => c.In || 0));
+        f.In = [32, 40, 63].find((x) => x >= Ib && x > maxDown) || 63;
         const Ss = [6, 10, 16].filter((S) => ({ 6: 32, 10: 40, 16: 63 })[S] >= f.In);
         f.S = Ss.find((S) => (2 * RHO_CU * f.length * Ib) / S / U_NOM * 100 <= 1.5 && (typeof calcLmax !== 'function' || f.length <= calcLmax(S, f.In, 'C'))) || 16;
       }

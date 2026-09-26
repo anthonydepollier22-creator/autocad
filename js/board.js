@@ -223,6 +223,8 @@ function checkBoard(design) {
       if (up && up.panel === c.id) push('err', `${c.id} ${c.name} : le départ ne peut pas être protégé par un ID de son propre tableau divisionnaire.`, c.id);
       else if (up) push('warn', `${c.id} ${c.name} : départ sous ${up.id} 30 mA — pas de sélectivité avec les ID du tableau divisionnaire ; raccorder en tête, sous l’AGCP.`, c.id);
       if (c.Ib > c.In + 1e-9) push('err', `${c.id} ${c.name} : ${_bNum(c.Ib, 1)} A appelés > ${c.In} A — calibre et section supérieurs.`, c.id);
+      const big = cs.filter((x) => x.panel === c.id).sort((a, b) => b.In - a.In)[0];
+      if (big && big.In >= c.In) push('warn', `${c.id} ${c.name} : départ ${c.In} A pour ${big.id} ${big.name} en ${big.In} A — pas de sélectivité, un défaut sur ${big.id} peut couper tout le tableau divisionnaire ; calibre du départ supérieur.`, c.id);
       for (const x of cs.filter((x) => x.panel === c.id && x.phase === '3P')) if (c.phase !== '3P') push('err', `${x.id} ${x.name} : départ triphasé dans un tableau divisionnaire alimenté en monophasé.`, x.id);
     } else if (!c.rcd && !c.ddr) push('err', `${c.id} ${c.name} : aucun interrupteur différentiel 30 mA en amont.`, c.id);
     if (c.kind === 'light') {
