@@ -403,6 +403,14 @@ function checkNFC15100(components, wires) {
       const w = wet.find((b) => roomAt(info, b.x, b.y) === r && _distToFootprint(c.x, c.y, b) < 60);
       if (w) push('err', `${c.label || 'Appareillage'} dans le volume 2 (à moins de 60 cm de la ${w.type === 'shower' ? 'douche' : 'baignoire'}).`, c.id);
     }
+    // Hauteurs de pose choisies (c.h, cm) : axe des prises à 5 cm au moins du sol
+    // fini ; commandes accessibles (PMR, logement neuf) entre 0,90 et 1,30 m
+    for (const c of components) {
+      const h = +c.h;
+      if (!(h > 0)) continue;
+      if ((c.type === 'socket_wall' || c.type === 'rj45') && h < 5) push('err', `${c.label || 'Prise'} : axe à ${h} cm du sol, 5 cm au moins exigés.`, c.id);
+      else if (NF_SWITCHES.has(c.type) && (h < 90 || h > 130)) push('warn', `${c.label || 'Interrupteur'} à ${h} cm : les commandes se posent entre 0,90 et 1,30 m (accessibilité PMR).`, c.id);
+    }
     // Cuisine : sortie de câble 32 A pour la plaque de cuisson
     info.rooms.forEach((room, i) => {
       if (!room.type || room.type.key !== 'cuisine' || room.leaked) return;

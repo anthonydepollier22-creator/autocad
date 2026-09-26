@@ -1024,19 +1024,19 @@ const BUILDERS3D = {
   },
   socket_wall: (v, c) => {
     const m = _mount(v, c, 45);
-    const y = _onWorktop(v, c) ? 106 : 24;
+    const y = +c.h > 0 ? c.h - 4.5 : _onWorktop(v, c) ? 106 : 24; // hauteur choisie (axe, cm)
     _mb(v, m, 0, 0, y, 9, 9, 1.6, C3D.plate);
     for (const s of [-1.9, 1.9]) _mb(v, m, s, 1.6, y + 4, 1.1, 1.1, 0.3, '#2a2e35');
   },
   rj45: (v, c) => {
-    const m = _mount(v, c, 45);
-    _mb(v, m, 0, 0, 24, 9, 9, 1.6, C3D.plate);
-    _mb(v, m, 0, 1.6, 27, 3, 2.5, 0.3, '#2a2e35');
+    const m = _mount(v, c, 45), y = +c.h > 0 ? c.h - 4.5 : 24;
+    _mb(v, m, 0, 0, y, 9, 9, 1.6, C3D.plate);
+    _mb(v, m, 0, 1.6, y + 3, 3, 2.5, 0.3, '#2a2e35');
   },
   switch_sa: (v, c) => {
-    const m = _mount(v, c, 45);
-    _mb(v, m, 0, 0, 106, 9, 9, 1.4, C3D.plate);
-    _mb(v, m, 0, 1.4, 107.5, 6, 6, c.closed ? 1.4 : 0.8, '#e9eaec');
+    const m = _mount(v, c, 45), y = +c.h > 0 ? c.h - 4.5 : 106;
+    _mb(v, m, 0, 0, y, 9, 9, 1.4, C3D.plate);
+    _mb(v, m, 0, 1.4, y + 1.5, 6, 6, c.closed ? 1.4 : 0.8, '#e9eaec');
   },
   switch_vv_wall: (v, c) => BUILDERS3D.switch_sa(v, c),
   dcl: (v, c) => {
@@ -1051,12 +1051,12 @@ const BUILDERS3D = {
     _light(v, c, c.x, top - 70, c.y, 1);
   },
   wall_light: (v, c) => {
-    const m = _mount(v, c, 45);
-    _mb(v, m, 0, 0, 176, 8, 22, 3, '#d9d4c7');
+    const m = _mount(v, c, 45), dy = +c.h > 0 ? c.h - 190 : 0;
+    _mb(v, m, 0, 0, 176 + dy, 8, 22, 3, '#d9d4c7');
     const e0 = v.em; v.em = c.__lit ? 1 : 0;
-    _mb(v, m, 0, 3, 178, 18, 16, 6, c.__lit ? '#fff1c4' : '#ece7da');
+    _mb(v, m, 0, 3, 178 + dy, 18, 16, 6, c.__lit ? '#fff1c4' : '#ece7da');
     v.em = e0;
-    _light(v, c, m.x + m.nx * 16, 186, m.z + m.nz * 16, 0.6);
+    _light(v, c, m.x + m.nx * 16, 186 + dy, m.z + m.nz * 16, 0.6);
   },
   jbox: (v, c) => {
     const m = _mount(v, c, 45);
@@ -1886,7 +1886,7 @@ function _buildCables(viz, components, design, snap, sim, nearWall, lvl) {
       const p = net.pos[r.node];
       const top = CEILING_OBJ.has(c.type) ? H - 14 - lift : 3 + lift;
       seg(p, { x: c.x, y: c.y }, top);
-      const h = (typeof MOUNT_H !== 'undefined' && MOUNT_H[c.type] ? MOUNT_H[c.type] * 100 : 30);
+      const h = typeof mountH === 'function' ? mountH(c) * 100 : 30;
       riser({ x: c.x, y: c.y }, top, Math.min(h, H - 4));
       if (pick) { // repère lumineux au-dessus de chaque point du circuit isolé
         const y0 = CEILING_OBJ.has(c.type) ? H - 60 : Math.min(h, H - 4) + 18;
@@ -1984,7 +1984,7 @@ function _flowPath(net, r, design, tb, c, nearWall, lift, offOf) {
   nodes.forEach((n, i) => { const p = net.pos[n]; to(O(p.x, yOf(i), p.y)); });
   const top = CEILING_OBJ.has(c.type) ? H - 14 - lift : 3 + lift;
   to(O(c.x, top, c.y));
-  const h = typeof MOUNT_H !== 'undefined' && MOUNT_H[c.type] ? MOUNT_H[c.type] * 100 : 30;
+  const h = typeof mountH === 'function' ? mountH(c) * 100 : 30;
   pts.push(O(c.x, Math.min(h, H - 4), c.y));
   return pts;
 }

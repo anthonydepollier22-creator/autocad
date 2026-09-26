@@ -157,7 +157,19 @@
               <button type="button" data-k="smoke_detector" title="Détecteur de fumée au plafond (vise le sol)">DAAF</button>
               <button type="button" data-k="mat:placo" title="Le mur visé devient une cloison placo 72/48">Mur placo</button>
               <button type="button" data-k="mat:parpaing" title="Le mur visé devient un mur maçonné (parpaing)">Mur maçonné</button>
+              <button type="button" data-k="move" title="Déplacer : clique l'appareil, puis son nouvel emplacement">Déplacer</button>
               <button type="button" data-k="del" title="Retirer l'appareil visé">Retirer</button>
+              <label class="v3-implant-h" title="Hauteur de pose des appareils muraux (axe de la boîte)">Hauteur
+                <select id="v3-implant-h">
+                  <option value="">NF (usuelle)</option>
+                  <option value="5">5 cm (plinthe)</option>
+                  <option value="30">30 cm</option>
+                  <option value="90">90 cm (PMR)</option>
+                  <option value="110">1,10 m (plan de travail)</option>
+                  <option value="130">1,30 m (PMR)</option>
+                  <option value="190">1,90 m</option>
+                </select>
+              </label>
             </div>
             <button id="v3-lux-fix" class="chip" hidden title="Poser des appliques dans les pièces sous l'éclairement conseillé (annulable)">＋ Appliques</button>
             <button id="v3-day" class="chip" aria-pressed="false" title="Journée type : 24 heures en 48 secondes — soleil, lumières, appareils, chauffage (J)">Journée</button>

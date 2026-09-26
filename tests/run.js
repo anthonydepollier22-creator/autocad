@@ -907,6 +907,26 @@ check('Matériaux par défaut : cloison placo 72/48 à l’intérieur, parpaing 
 check('Métré : boîtes cloison sèche, étanches à l’air (doublage RE 2020) et maçonnerie selon le mur', r.b0[0] > 0 && r.b0[1] > 0 && r.b0[2] === 0 && r.b1[0] === 0 && r.b1[2] === r.b0[0] && r.b1[1] === r.b0[1], `placo ${r.b0[0]} · étanches ${r.b0[1]} → maçonnerie ${r.b1[2]}`);
 check('3D (implantation) : murs teintés par matériau, doublage côté pièce, montants de placo tous les 60 cm', r.f1 > r.f0 && r.studs > 20 && r.nw, `${r.studs} faces de montants`);
 
+// Hauteurs de pose choisies (c.h en cm) : remontées de câble, 3D et contrôles NF
+r = run(`(function(){
+  var d = buildHouse('t3'), nf0 = checkNFC15100(d.components, d.wires);
+  var sock = d.components.find(function(c){ return c.type === 'socket_wall'; }), sw = d.components.find(function(c){ return c.type === 'switch_sa'; });
+  var len0 = designInstallation(d.components, d.wires).circuits.find(function(c){ return c.devices.indexOf(sock.id) >= 0; }).length;
+  sock.h = 110; // prise au-dessus d'un plan de travail
+  var len1 = designInstallation(d.components, d.wires).circuits.find(function(c){ return c.devices.indexOf(sock.id) >= 0; }).length;
+  var v = new Viz3D(__cv, { interactive: false }); buildBoard(v, d.components, d.wires, SYMBOLS, { walls: 'cut' });
+  var top = Math.max.apply(null, v.faces.filter(function(f){ return f.obj === sock.id; }).map(function(f){ return Math.max.apply(null, f.pts.map(function(p){ return p[1]; })); }));
+  sock.h = 3; sw.h = 150;
+  var nf1 = checkNFC15100(d.components, d.wires);
+  var eSock = nf1.global.find(function(g){ return g.compId === sock.id; }), wSw = nf1.global.find(function(g){ return g.compId === sw.id; });
+  sock.h = 5; sw.h = 90; var nf2 = checkNFC15100(d.components, d.wires);
+  return { h: [mountH({ type: 'switch_sa' }), mountH({ type: 'switch_sa', h: 90 }), mountH({ type: 'dcl' })], rise: len1 - len0, top: top,
+    e: nf1.errors - nf0.errors, w: nf1.warnings - nf0.warnings, eSock: eSock && eSock.level, wSw: wSw && wSw.level, back: nf2.errors === nf0.errors && nf2.warnings === nf0.warnings };
+})()`);
+check('Hauteur de pose : 1,10 m par défaut pour un interrupteur, celle choisie sinon ; remontée de câble allongée', r.h.join() === '1.1,0.9,2.5' && near(r.rise, 0.8, 0.02), `+${r.rise.toFixed(2)} m pour une prise passée de 30 à 110 cm`);
+check('3D : l’appareil est dessiné à la hauteur choisie', r.top > 100 && r.top < 125, `haut de la prise à ${r.top.toFixed(0)} cm`);
+check('NF C 15-100 : axe de prise sous 5 cm refusé, commande hors 0,90–1,30 m signalée (PMR), limites acceptées', r.e === 1 && r.w === 1 && r.eSock === 'err' && r.wSw === 'warn' && r.back);
+
 // Plan d'implantation : légende des symboles, repères de circuits (SVG, DXF)
 r = run(`(function(){
   var d = buildHouse('t3'), des = designInstallation(d.components, d.wires), tags = circuitTags(des);

@@ -43,6 +43,9 @@ const MOUNT_H = {
   ev_charger: 1.2, panel_house: 1.5,
 };
 
+// Hauteur de pose d'un appareil (m) : la sienne si elle a été choisie (c.h, en cm), sinon la hauteur usuelle
+function mountH(c) { return c && +c.h > 0 ? +c.h / 100 : (c && MOUNT_H[c.type]) || 0.3; }
+
 // Charges électriques (P en W). cls : light | socket | plug (branché sur une
 // prise voisine) | dedicated (circuit spécialisé) | heating
 const LOADS = {
@@ -224,7 +227,7 @@ function lightingStudy(components, wires) {
     if (!LUX_LAMPS.has(c.type)) continue;
     const i = roomAt(info, c.x, c.y);
     if (i < 0) continue;
-    const L = { x: c.x / 100, y: c.y / 100, wall: c.type === 'wall_light', h: (MOUNT_H[c.type] * 100 - LUX_PLANE) / 100, lm: loadPower(c) * LUX_EFFICACY };
+    const L = { x: c.x / 100, y: c.y / 100, wall: c.type === 'wall_light', h: (mountH(c) * 100 - LUX_PLANE) / 100, lm: loadPower(c) * LUX_EFFICACY };
     byRoom[i].push(L);
     rooms[i].lamps++; rooms[i].lm += L.lm;
   }
@@ -287,7 +290,7 @@ function designInstallation(components, wires, board) {
   let offNet = 0;
   devs.forEach((c, k) => {
     const A = net.anchorNode[k + 1];
-    const rise = Math.max(0, (MOUNT_H[c.type] || 0.3) - 0.1);
+    const rise = Math.max(0, mountH(c) - 0.1);
     if (sp && A && A.stub < 150 && sp.dist[A.node] < Infinity) {
       const edges = [];
       for (let v = A.node; sp.via[v] >= 0;) { const e = net.edges[sp.via[v]]; edges.push(sp.via[v]); v = e.a === v ? e.b : e.a; }

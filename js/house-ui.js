@@ -955,7 +955,7 @@ function initHouseUI(app) {
     touched();
     // gerbe d'étincelles (court-circuit) ou gouttes bleues (fuite) au point du défaut
     const L = levelAt(c.x), H = HOUSE3D.H;
-    const h = CEILING_OBJ.has(c.type) ? H - 20 : MOUNT_H[c.type] ? MOUNT_H[c.type] * 100 : 30;
+    const h = CEILING_OBJ.has(c.type) ? H - 20 : mountH(c) * 100;
     const room = roomAt(computeRooms(editor.components, editor.wires), c.x, c.y);
     if (viz.spark) viz.spark(c.x + L.dx, h + L.dy, c.y, k === 'short' ? { room } : { color: [0.3, 0.65, 1], n: 40, speed: 140, g: 260, size: 12, dur: 1.3, flash: null });
     const ev = sim.events[0];
@@ -1274,6 +1274,8 @@ function initHouseUI(app) {
     rj45: { label: 'RJ45', wall: true }, dcl: { label: 'Point lumineux', ceil: true }, smoke_detector: { label: 'DAAF', ceil: true },
   };
   const IMPLANTED = new Set([...Object.keys(IMPLANT), 'radiator', 'jbox', 'vmc']);
+  const isCeil = (t) => t === 'dcl' || t === 'smoke_detector' || t === 'vmc';
+  const implantH = () => { const v = +$('v3-implant-h').value; return v > 0 ? v : null; }; // hauteur choisie (cm) ou NF
   function implantHit(p) {
     const sc = viz.scene;
     if (!sc || !viz.ray) return null;
@@ -1314,10 +1316,10 @@ function initHouseUI(app) {
   }
   // Pièce du côté où l'appareil est posé
   const roomNameAt = (x, y) => { const info = computeRooms(editor.components, editor.wires), r = roomAt(info, x, y); return r >= 0 ? info.rooms[r].name : ''; };
-  function implantTarget(hit) {
-    const k = v3.implant, spec = IMPLANT[k];
-    if (!hit || !spec) return null;
-    if (spec.ceil) return hit.kind === 'floor' ? { x: Math.round(hit.x), y: Math.round(hit.y), rot: 0, room: hit.room.name } : null;
+  function implantTarget(hit, type) {
+    const k = type || v3.implant;
+    if (!hit || !(IMPLANT[k] || IMPLANTED.has(k))) return null;
+    if (isCeil(k)) return hit.kind === 'floor' ? { x: Math.round(hit.x), y: Math.round(hit.y), rot: 0, room: hit.room.name } : null;
     if (hit.kind !== 'wall') return null;
     const w = hit.w, x = w.a.x + hit.ux * hit.t + hit.nx * 20, y = w.a.y + hit.uz * hit.t + hit.nz * 20;
     const wire = editor.wires.find((q) => q.id === w.wid);
@@ -1335,10 +1337,27 @@ function initHouseUI(app) {
       const c = id && byId(id);
       if (!c || !IMPLANTED.has(c.type)) { showToast('« Retirer » : clique une prise, un interrupteur ou un point lumineux.'); return; }
       editor.components = editor.components.filter((x) => x.id !== c.id);
-      implantChanged(`<b>${esc(SYMBOLS[c.type].name)}</b> ${esc(c.label || '')} retiré.`);
+      implantChanged(`Retrait : <b>${esc(SYMBOLS[c.type].name)}</b> ${esc(c.label || '')}.`);
       return;
     }
     const hit = implantHit(p);
+    if (k === 'move') {
+      if (!v3.moving) {
+        const c = id && byId(id);
+        if (!c || !IMPLANTED.has(c.type)) { showToast('« Déplacer » : clique d’abord l’appareil à déplacer.'); return; }
+        v3.moving = c.id; viz.hoverObj = c.id;
+        showToast(`<b>${esc(SYMBOLS[c.type].name)}</b> ${esc(c.label || '')} : clique ${isCeil(c.type) ? 'le sol de la pièce visée' : 'le mur'} où le poser.`, 4000);
+        return;
+      }
+      const c = byId(v3.moving);
+      v3.moving = null; viz.hoverObj = null;
+      const tg = c && implantTarget(hit, c.type);
+      if (!tg) { showToast(isCeil(c && c.type) ? 'Vise le sol de la pièce.' : 'Vise un mur (la face côté pièce).'); return; }
+      Object.assign(c, { x: tg.x, y: tg.y, rot: tg.rot });
+      if (!isCeil(c.type) && implantH()) c.h = implantH();
+      implantChanged(`Nouvel emplacement : <b>${esc(SYMBOLS[c.type].name)}</b> ${esc(c.label || '')}${tg.room ? ' — ' + esc(tg.room) : ''}${isCeil(c.type) ? '' : ', à ' + Math.round(mountH(c) * 100) + ' cm'}.`);
+      return;
+    }
     if (k.startsWith('mat:')) {
       const wire = hit && hit.kind === 'wall' && editor.wires.find((q) => q.id === hit.w.wid);
       if (!wire) { showToast('Clique un mur pour changer son matériau.'); return; }
@@ -1349,17 +1368,21 @@ function initHouseUI(app) {
     const tg = implantTarget(hit);
     if (!tg) { showToast(IMPLANT[k].ceil ? 'Vise le sol de la pièce : le point se pose au plafond, à l’aplomb.' : 'Vise un mur (la face côté pièce).'); return; }
     const c = { id: editor.uid(), type: k, x: tg.x, y: tg.y, rot: tg.rot, label: editor.nextRef(k), value: '' };
+    if (!IMPLANT[k].ceil && implantH()) c.h = implantH();
     editor.components.push(c);
-    const h = MOUNT_H[k] ? Math.round(MOUNT_H[k] * 100) + ' cm' : '';
-    implantChanged(`<b>${esc(SYMBOLS[k].name)}</b> ${esc(c.label)} posé${tg.room ? ' — ' + esc(tg.room) : ''}` +
+    const h = Math.round(mountH(c) * 100) + ' cm';
+    implantChanged(`Pose : <b>${esc(SYMBOLS[k].name)}</b> ${esc(c.label)}${tg.room ? ' — ' + esc(tg.room) : ''}` +
       (IMPLANT[k].ceil ? ' (plafond)' : ` à ${h}, ${tg.mat ? esc(tg.mat.label.toLowerCase()) + (tg.mat.hollow ? ' → boîte cloison sèche' : ' → boîte maçonnerie') : ''}`) + '. Annulable (Ctrl+Z dans le plan).');
   }
   function implantHover(id, p) {
     const k = v3.implant;
     let h = '';
-    if (k === 'del') {
+    if (k === 'del' || (k === 'move' && !v3.moving)) {
       const c = id && byId(id);
-      h = c && IMPLANTED.has(c.type) ? `<b>Retirer</b> ${esc(SYMBOLS[c.type].name)} ${esc(c.label || '')}` : '';
+      h = c && IMPLANTED.has(c.type) ? `<b>${k === 'del' ? 'Retirer' : 'Déplacer'}</b> ${esc(SYMBOLS[c.type].name)} ${esc(c.label || '')}` : '';
+    } else if (k === 'move') {
+      const c = byId(v3.moving), tg = c && implantTarget(implantHit(p), c.type);
+      if (tg) h = `<b>Poser ici</b> ${esc(SYMBOLS[c.type].name)} ${esc(c.label || '')}${tg.room ? ' · ' + esc(tg.room) : ''}`;
     } else {
       const hit = implantHit(p);
       if (k.startsWith('mat:')) {
@@ -1368,12 +1391,12 @@ function initHouseUI(app) {
       } else {
         const tg = implantTarget(hit);
         if (tg) h = `<b>${esc(IMPLANT[k].label)}</b>${tg.room ? ' · ' + esc(tg.room) : ''}` +
-          (IMPLANT[k].ceil ? '<span>au plafond, à l’aplomb</span>' : `<span>à ${Math.round((MOUNT_H[k] || 0.3) * 100)} cm · ${tg.mat ? esc(tg.mat.label) : ''}</span><span>${tg.mat && tg.mat.doublage ? 'boîte étanche à l’air (doublage)' : tg.mat && tg.mat.hollow ? 'boîte cloison sèche' : 'boîte maçonnerie'}</span>`);
+          (IMPLANT[k].ceil ? '<span>au plafond, à l’aplomb</span>' : `<span>à ${implantH() || Math.round((MOUNT_H[k] || 0.3) * 100)} cm · ${tg.mat ? esc(tg.mat.label) : ''}</span><span>${tg.mat && tg.mat.doublage ? 'boîte étanche à l’air (doublage)' : tg.mat && tg.mat.hollow ? 'boîte cloison sèche' : 'boîte maçonnerie'}</span>`);
       }
     }
     cv3.style.cursor = h ? 'crosshair' : '';
     if (!h) { tip.hidden = true; return; }
-    tip.innerHTML = h + '<em>Clic : ' + (k === 'del' ? 'retirer' : k.startsWith('mat:') ? 'changer le matériau' : 'poser') + '</em>';
+    tip.innerHTML = h + '<em>Clic : ' + (k === 'del' ? 'retirer' : k === 'move' ? (v3.moving ? 'poser ici' : 'choisir l’appareil') : k.startsWith('mat:') ? 'changer le matériau' : 'poser') + '</em>';
     tip.hidden = false;
     const r = view3d.getBoundingClientRect();
     tip.style.left = Math.min(p.x + 16, r.width - 260) + 'px';
@@ -1381,6 +1404,7 @@ function initHouseUI(app) {
   }
   function setImplant(k) {
     v3.implant = k || null;
+    v3.moving = null;
     const on = !!v3.implant;
     setChip('v3-implant', on);
     $('v3-implant-kind').hidden = !on;

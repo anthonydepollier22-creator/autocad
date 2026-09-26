@@ -339,8 +339,12 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   (échelle 0 → 4 kW), avec une étiquette en watts au-dessus de chaque pièce ;
 - **Implanter** (`I`) : poser l'appareillage **directement en 3D** — prise, interrupteur,
   va-et-vient, applique, RJ45 sur le mur visé, à sa hauteur NF (30 cm, 1,10 m, 1,90 m)
-  et face à la pièce ; point lumineux et DAAF au plafond en visant le sol ; « Retirer »
-  enlève un appareil. Les murs se teintent selon leur **matériau** : **cloison placo
+  et face à la pièce — ou à la **hauteur choisie** (5 cm, 30 cm, 90 cm et 1,30 m pour
+  l'accessibilité PMR, 1,10 m au-dessus d'un plan de travail, 1,90 m) : la 3D, les
+  remontées de câble et l'éclairement en tiennent compte, et le contrôle NF signale une
+  prise à moins de 5 cm du sol ou une commande hors de 0,90–1,30 m ; point lumineux et
+  DAAF au plafond en visant le sol ; « Déplacer » (l'appareil, puis son nouveau mur)
+  et « Retirer ». Les murs se teintent selon leur **matériau** : **cloison placo
   72/48** (montants de l'ossature tous les 60 cm), carreau de plâtre, brique,
   parpaing, béton, ossature bois, et **doublage placo** côté pièce des façades ; « Mur
   placo / maçonné » change le mur visé (aussi dans les propriétés d'un mur en 2D). Le
@@ -659,7 +663,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-155 vérifications sans dépendance : valeurs numériques de chaque simulation
+158 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

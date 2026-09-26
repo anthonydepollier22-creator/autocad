@@ -1060,3 +1060,6 @@ body.light .day-sec { --dc7: #4a3aa7; }
 .v3-matlegend[hidden] { display: none; }
 .v3-matlegend span { display: inline-flex; align-items: center; gap: 5px; }
 .v3-matlegend i { width: 18px; height: 11px; border-radius: 2px; border: 1px solid rgba(255, 255, 255, 0.35); }
+
+.v3-implant-h { display: inline-flex; align-items: center; gap: 5px; padding: 0 8px; font-size: 12px; color: var(--muted); }
+.v3-implant-h select { font: inherit; font-size: 12px; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 4px; }
