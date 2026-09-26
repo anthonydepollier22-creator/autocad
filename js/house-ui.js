@@ -1395,7 +1395,7 @@ function initHouseUI(app) {
     const h = Math.round(mountH(c) * 100) + ' cm';
     implantChanged(`Pose : <b>${esc(SYMBOLS[k].name)}</b> ${esc(c.label)}${tg.room ? ' — ' + esc(tg.room) : ''}` +
       (IMPLANT[k].ceil ? ' (plafond)' : IMPLANT[k].furn ? `, contre ${tg.mat ? esc(tg.mat.label.toLowerCase()) : 'le mur'} (sortie de câble à 30 cm)`
-        : ` à ${h}, ${tg.mat ? esc(tg.mat.label.toLowerCase()) + (tg.mat.hollow ? ' → boîte cloison sèche' : ' → boîte maçonnerie') : ''}`) + '. Annulable (Ctrl+Z dans le plan).');
+        : ` à ${h}, ${tg.mat ? esc(tg.mat.label.toLowerCase()) + (tg.mat.hollow ? ' → boîte cloison sèche' : ' → boîte maçonnerie') : ''}`) + '. Annulable (Ctrl+Z).');
   }
   const WALL_H = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light']); // hauteur réglable
   function implantHover(id, p) {
@@ -1613,6 +1613,14 @@ function initHouseUI(app) {
       return;
     }
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    // annuler / rétablir sans quitter la 3D (pose, déplacement, hauteur, matériau des murs)
+    if ((e.ctrlKey || e.metaKey) && ['z', 'y'].includes(e.key.toLowerCase())) {
+      e.preventDefault(); e.stopPropagation();
+      if (e.key.toLowerCase() === 'y' || e.shiftKey) editor.redo(); else editor.undo();
+      ensureDesign(true); structKey = null; tick(0, true); build3D(false);
+      showToast(e.key.toLowerCase() === 'y' || e.shiftKey ? 'Rétabli.' : 'Annulé.', 1200);
+      return;
+    }
     // implantation : ↑ / ↓ sur l'appareil survolé règle sa hauteur de pose par pas de 5 cm
     if (v3.implant && v3.hoverDev && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       const c = byId(v3.hoverDev);

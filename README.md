@@ -405,7 +405,8 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   DAAF au plafond en visant le sol ; **radiateur** dos au mur visé et **bouche VMC**
   au plafond ; « Déplacer » (l'appareil, puis son nouveau mur)
   et « Retirer ». Survoler un appareil affiche sa hauteur : **↑ / ↓** la règle par pas
-  de 5 cm, directement en 3D. La hauteur se règle aussi en 2D (panneau Propriétés, *Hauteur de
+  de 5 cm, directement en 3D ; **Ctrl+Z / Ctrl+Y** annulent et rétablissent sans quitter
+  la 3D. La hauteur se règle aussi en 2D (panneau Propriétés, *Hauteur de
   pose*) et s'inscrit sur le plan d'implantation (« PC4 h110 »), en SVG et en DXF. Les murs se teintent selon leur **matériau** : **cloison placo
   72/48** (montants de l'ossature tous les 60 cm), carreau de plâtre, brique,
   parpaing, béton, ossature bois, et **doublage placo** côté pièce des façades ; « Mur
