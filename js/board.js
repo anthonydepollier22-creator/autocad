@@ -2005,19 +2005,20 @@ function drawSommaire(ctx, design, meta, entries, hasPlan) {
   text(`${tri ? 'Triphasé 400 V' : 'Monophasé 230 V'} · abonnement ${design.agcp.kva} kVA · ${design.rcds.length} interrupteurs différentiels 30 mA · ${design.circuits.length} circuits · ${_bNum(design.cableTotal)} m de câble`, 60, 172, { size: 11, color: mute });
   text('Norme NF C 15-100 — contrôle simplifié, à faire valider par un professionnel avant la visite du Consuel.', 60, 190, { size: 9.5, color: mute });
   // tableau des folios
-  const x0 = 60, x1 = UNI.W - 60, y0 = 230, rh = 30;
-  ctx.lineWidth = 1.1; _uLine(ctx, x0, y0, x1, y0, 1.2);
-  text('Folio', x0 + 6, y0 + 20, { bold: true, size: 10 }); text('Titre', x0 + 110, y0 + 20, { bold: true, size: 10 }); text('Contenu', x0 + 380, y0 + 20, { bold: true, size: 10 });
   const rows = [{ title: 'Sommaire', what: 'Liste des folios du dossier', from: 1, to: 1 }, ...entries];
+  // hauteur de ligne : le tableau et les documents joints tiennent au-dessus du cartouche
+  const x0 = 60, x1 = UNI.W - 60, y0 = 222, rh = Math.min(30, Math.floor((UNI.H - 15 - 62 - 128 - y0) / (rows.length + 1))), ty = Math.round(rh * 0.66);
+  ctx.lineWidth = 1.1; _uLine(ctx, x0, y0, x1, y0, 1.2);
+  text('Folio', x0 + 6, y0 + ty, { bold: true, size: 10 }); text('Titre', x0 + 110, y0 + ty, { bold: true, size: 10 }); text('Contenu', x0 + 380, y0 + ty, { bold: true, size: 10 });
   rows.forEach((r, i) => {
     const y = y0 + rh * (i + 1);
     _uLine(ctx, x0, y, x1, y, i ? 0.5 : 1);
-    text(r.from === r.to ? String(r.from) : `${r.from} à ${r.to}`, x0 + 6, y + 20, { size: 11, bold: true });
-    text(r.title, x0 + 110, y + 20, { size: 11 });
-    text(r.what, x0 + 380, y + 20, { size: 10, color: mute });
+    text(r.from === r.to ? String(r.from) : `${r.from} à ${r.to}`, x0 + 6, y + ty, { size: 11, bold: true });
+    text(r.title, x0 + 110, y + ty, { size: 11 });
+    text(r.what, x0 + 380, y + ty, { size: 10, color: mute });
   });
   _uLine(ctx, x0, y0 + rh * (rows.length + 1), x1, y0 + rh * (rows.length + 1), 1.2);
-  const yn = y0 + rh * (rows.length + 1) + 34;
+  const yn = y0 + rh * (rows.length + 1) + 30;
   text('Documents joints (format A4 ou à l’échelle)', x0, yn, { bold: true, size: 11 });
   const docs = [hasPlan && 'Plan d’implantation à l’échelle (SVG, DXF pour AutoCAD)', 'Face avant du tableau et étiquettes de repérage à l’échelle 1', 'Dossier du projet : contrôle NF pièce par pièce, autocontrôle, matériel et budget'].filter(Boolean);
   docs.forEach((d, i) => text('•  ' + d, x0 + 8, yn + 22 + i * 18, { size: 10 }));

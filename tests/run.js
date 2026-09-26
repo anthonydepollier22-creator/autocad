@@ -1269,6 +1269,16 @@ r = run(`(function(){
 })()`);
 check('Photovoltaïque : schéma de principe (15 modules en 2 chaînes 8 + 7, coffret DC, onduleur, coupure AC, signalisation), dossier, DXF', r.mods && r.parts && r.set && r.none && r.dxf, JSON.stringify(r));
 
+// Sommaire : quel que soit le nombre de séries, le tableau et les documents joints restent au-dessus du cartouche
+r = run(`(function(){
+  var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data; addShutters(h);
+  var b = boardFromDesign(designInstallation(h.components, h.wires)); boardAddCircuit(b, 'pv');
+  var d = designInstallation(h.components, h.wires, b), T = technicalSet(d, { title: 'x' }, h.components, h.wires);
+  var m = /<text[^>]*y="([\\d.]+)"[^>]*>•  Dossier du projet/.exec(T.pages[0]);
+  return { n: T.entries.length, y: m ? +m[1] : null, top: UNI.H - 15 - 62 };
+})()`);
+check('Sommaire : 14 séries et documents joints au-dessus du cartouche', r.n >= 14 && r.y !== null && r.y < r.top - 4, JSON.stringify(r));
+
 // Nomenclature du matériel : folio A3 du dossier, lignes du métré par catégorie
 r = run(`(function(){
   var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), L = materialList(h.components, h.wires, d), svg = nomenclatureSVGs(d, { title: 'T5' }, h.components, h.wires).join('');
