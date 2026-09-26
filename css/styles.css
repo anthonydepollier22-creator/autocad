@@ -960,6 +960,10 @@ body.light .day-sec { --dc7: #4a3aa7; }
 .bd-edit { overflow: auto; padding: 12px 12px 18px; border-right: 1px solid var(--border); font-size: 12.5px; }
 .bd-view { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--surface-2); }
 .bd-viewbar { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+/* six vues : la barre défile au lieu de couper les libellés */
+.bd-viewbar .seg { max-width: 100%; overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; }
+.bd-viewbar .seg::-webkit-scrollbar { display: none; }
+.bd-viewbar .seg button { white-space: nowrap; flex: 0 0 auto; }
 .bd-folios, .bd-zoom { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 .bd-folios[hidden] { display: none; }
 .bd-folios button, .bd-zoom button {
