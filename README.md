@@ -365,7 +365,8 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   remontées de câble et l'éclairement en tiennent compte, et le contrôle NF signale une
   prise à moins de 5 cm du sol ou une commande hors de 0,90–1,30 m ; point lumineux et
   DAAF au plafond en visant le sol ; « Déplacer » (l'appareil, puis son nouveau mur)
-  et « Retirer ». Les murs se teintent selon leur **matériau** : **cloison placo
+  et « Retirer ». La hauteur se règle aussi en 2D (panneau Propriétés, *Hauteur de
+  pose*) et s'inscrit sur le plan d'implantation (« PC4 h110 »), en SVG et en DXF. Les murs se teintent selon leur **matériau** : **cloison placo
   72/48** (montants de l'ossature tous les 60 cm), carreau de plâtre, brique,
   parpaing, béton, ossature bois, et **doublage placo** côté pièce des façades ; « Mur
   placo / maçonné » change le mur visé (aussi dans les propriétés d'un mur en 2D). Le

@@ -1028,11 +1028,11 @@ class Editor {
     // Sur un plan de maison, l'appareillage est dense : ses repères n'apparaissent
     // qu'en zoomant, au survol ou à la sélection.
     const quiet = sym.plan && !selected && this.hoverId !== c.id && this.view.scale < 1.6;
-    if ((c.label || c.value) && !sym.ownLabel && !quiet) {
+    if ((c.label || c.value || c.h) && !sym.ownLabel && !quiet) {
       ctx.save();
       ctx.fillStyle = selected ? this.colors.labelSel : this.colors.label;
       ctx.font = `${11}px sans-serif`;
-      const txt = [c.label, c.value].filter(Boolean).join(' ');
+      const txt = labelText(c);
       const la = labelAnchor(c, SYMBOLS[c.type]);
       ctx.textAlign = la.align;
       ctx.fillText(txt, la.x, la.y);
@@ -1299,10 +1299,10 @@ class Editor {
       ctx.save(); ctx.translate(c.x, c.y); ctx.rotate((c.rot * Math.PI) / 180);
       ctx.strokeStyle = '#111'; ctx.fillStyle = '#111'; ctx.lineWidth = 2;
       sym.draw(ctx, c); ctx.restore();
-      if ((c.label || c.value) && !sym.ownLabel) {
+      if ((c.label || c.value || c.h) && !sym.ownLabel) {
         const la = labelAnchor(c, sym);
         ctx.fillStyle = '#333'; ctx.font = '11px sans-serif'; ctx.textAlign = la.align; ctx.textBaseline = 'alphabetic';
-        ctx.fillText([c.label, c.value].filter(Boolean).join(' '), la.x, la.y);
+        ctx.fillText(labelText(c), la.x, la.y);
       }
     }
     // cotations

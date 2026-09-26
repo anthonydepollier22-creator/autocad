@@ -153,7 +153,7 @@ function buildSVG(components, wires, symbols, meta) {
     ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(((c.rot || 0) * Math.PI) / 180);
     ctx.strokeStyle = '#111'; ctx.fillStyle = '#111'; ctx.lineWidth = 2;
     sym.draw(ctx, c.type === 'room' ? { ...c, __area: areas[c.id] } : c); ctx.restore();
-    const txt = [c.label, c.value].filter(Boolean).join(' ');
+    const txt = labelText(c);
     if (txt && !sym.ownLabel) {
       const la = labelAnchor(c, sym);
       ctx.fillStyle = '#333'; ctx.font = '11px sans-serif'; ctx.textAlign = la.align; ctx.textBaseline = 'alphabetic';

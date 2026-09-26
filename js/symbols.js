@@ -1129,6 +1129,8 @@ SYMBOLS.__order = Object.keys(SYMBOLS).filter((k) => !k.startsWith('__'));
 
 // Position de l'étiquette (repère + valeur) : au-dessus du symbole, ou à sa
 // droite quand il est tourné à la verticale (schéma unifilaire, colonnes).
+// Texte affiché près d'un symbole : repère, valeur et hauteur de pose choisie (h110 = axe à 1,10 m)
+function labelText(c) { return [c.label, c.value, +c.h > 0 ? 'h' + Math.round(+c.h) : ''].filter(Boolean).join(' '); }
 function labelAnchor(c, sym) {
   const a = ((c.rot || 0) * Math.PI) / 180;
   if (Math.abs(Math.sin(a)) > 0.7) return { x: c.x + sym.bbox.h / 2 + 8, y: c.y + 4, align: 'left' };

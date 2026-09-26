@@ -114,7 +114,7 @@ function buildDXF(components, wires, symbols, meta) {
     ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(((c.rot || 0) * Math.PI) / 180);
     sym.draw(ctx, c.type === 'room' ? { ...c, __area: areas[c.id] } : c);
     ctx.restore();
-    const txt = [c.label, c.value].filter(Boolean).join(' ');
+    const txt = labelText(c);
     if (txt && !sym.ownLabel) {
       const la = labelAnchor(c, sym);
       ctx.layer = 'REPERES'; ctx.font = '11px sans-serif'; ctx.textAlign = la.align; ctx.textBaseline = 'alphabetic';

@@ -383,6 +383,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const onWrap = document.getElementById('prop-on-wrap');
   const onChk = document.getElementById('prop-on');
   const propCircuit = document.getElementById('prop-circuit');
+  // Hauteur de pose des appareils muraux (cm) : vide = hauteur usuelle NF
+  const WALL_MOUNT = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light']);
+  const hWrap = document.getElementById('prop-h-wrap'), hInput = document.getElementById('prop-h');
+  hInput.addEventListener('change', () => {
+    const v = Math.round(+hInput.value);
+    for (const id of editor.selection) {
+      const c = editor.components.find((x) => x.id === id);
+      if (!c || !WALL_MOUNT.has(c.type)) continue;
+      if (v > 0) c.h = Math.max(5, Math.min(250, v)); else delete c.h;
+    }
+    editor.pushHistory(); editor.render();
+    if (houseUI) houseUI.redesign();
+    editor._emit();
+  });
   onChk.addEventListener('change', () => {
     for (const id of editor.selection) {
       const c = editor.components.find((x) => x.id === id);
@@ -1169,6 +1183,12 @@ document.addEventListener('DOMContentLoaded', () => {
       valueLbl.textContent = isRoom ? 'Nom de la pièce' : load && load.cls === 'socket' ? 'Charge branchée' : load ? 'Puissance' : sym.plan ? 'Remarque' : 'Valeur';
       valueInput.placeholder = isRoom ? 'Chambre, Séjour, Cuisine…' : load && load.cls === 'socket' ? 'ex. 2000 W (radiateur d’appoint)'
         : load ? fmtW(loadPower(sel[0])) : sym.plan ? '' : '1 kΩ';
+      const mount = WALL_MOUNT.has(sel[0].type);
+      hWrap.style.display = mount ? '' : 'none';
+      if (mount && document.activeElement !== hInput) {
+        hInput.value = +sel[0].h > 0 ? sel[0].h : '';
+        hInput.placeholder = String(Math.round((MOUNT_H[sel[0].type] || 0.3) * 100)) + ' (NF)';
+      }
       const isSwitch = SWITCHABLE.has(sel[0].type);
       switchWrap.style.display = isSwitch ? '' : 'none';
       closedChk.checked = !!sel[0].closed;
