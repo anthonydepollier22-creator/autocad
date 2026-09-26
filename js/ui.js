@@ -1283,11 +1283,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Nouveautés : une fois par version (pas quand on arrive par un lien de démo)
   try {
-    const NEWS = '1.12';
+    const NEWS = '1.13';
     if (localStorage.getItem('electricad-news') !== NEWS) {
       localStorage.setItem('electricad-news', NEWS);
       if (!location.search) {
-        setTimeout(() => showToast('<b>Nouveau</b> (bouton Tableau) : <b>tableaux divisionnaires</b> (garage, atelier : ses ID, son unifilaire, son câblage, ΔU et Icc depuis l’origine), <b>disjoncteur différentiel</b> 30 mA par circuit (colonne ID → DDR), folio <b>Nomenclature du matériel</b>.', 9000), 1200);
+        setTimeout(() => showToast('<b>Nouveau</b> : <b>tableau divisionnaire</b> à poser sur le plan ou en 3D (garage, atelier : ses appareils en partent) ; <b>photovoltaïque</b> dans le tableau (onduleur, deux sources) ; sur placo, les boîtes <b>évitent les montants</b>. Exemple : Maison T5 + garage — tableau divisionnaire.', 9000), 1200);
       }
     }
   } catch (_) { /* stockage indisponible */ }
