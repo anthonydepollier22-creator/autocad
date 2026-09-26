@@ -1258,6 +1258,17 @@ r = run(`(function(){
 })()`);
 check('Salles d’eau : folio des volumes 1 et 2 (plan à l’échelle, appareils situés), prise en volume 2 signalée « à déplacer » et par le contrôle NF, dossier, DXF', r.ok0 && r.rooms && r.set && r.pz === '2:err' && r.flag && r.nf && r.dxf, JSON.stringify(r));
 
+// Photovoltaïque : schéma de principe (champ, coffret DC, onduleur, coupure AC, protection au tableau)
+r = run(`(function(){
+  var h = buildHouse('t4'), b = boardFromDesign(designInstallation(h.components, h.wires)); boardAddCircuit(b, 'pv6');
+  var d = designInstallation(h.components, h.wires, b), pv = d.circuits.filter(function(c){ return c.kind === 'pv'; })[0], L = pvLayout(pv);
+  var svg = pvSVGs(d, {}).join(''), T = technicalSet(d, {}, h.components, h.wires);
+  var none = pvSVGs(designInstallation(h.components, h.wires), {}).join('');
+  return { mods: L.n === 15 && L.strings === 2 && L.sizes.join('+') === '8+7', parts: ['Coffret DC', 'Interrupteur-sectionneur DC', 'Onduleur', 'Interrupteur-sectionneur AC', 'deux sources de tension', 'courant continu sous tension', pv.id].every(function(t){ return svg.indexOf(t) > 0; }),
+    set: T.entries.some(function(e){ return e.title === 'Photovoltaïque'; }), none: /Aucun circuit de production/.test(none), dxf: /EOF\\s*$/.test(pvDXF(d, {})) };
+})()`);
+check('Photovoltaïque : schéma de principe (15 modules en 2 chaînes 8 + 7, coffret DC, onduleur, coupure AC, signalisation), dossier, DXF', r.mods && r.parts && r.set && r.none && r.dxf, JSON.stringify(r));
+
 // Nomenclature du matériel : folio A3 du dossier, lignes du métré par catégorie
 r = run(`(function(){
   var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), L = materialList(h.components, h.wires, d), svg = nomenclatureSVGs(d, { title: 'T5' }, h.components, h.wires).join('');

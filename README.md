@@ -285,6 +285,13 @@ l'éditeur du tableau, **avec ou sans plan** :
   disjoncteur puis chaque inverseur et son moteur (phase, neutre, montée, descente,
   terre), colonne de suite au-delà de six ; métré (moteurs, inverseurs), 3D (coffre,
   tablier baissé quand le moteur tourne), élévations ; export SVG et DXF ;
+- **Photovoltaïque** (folio A3 par circuit de production, vue « Photovoltaïque », guide
+  UTE C 15-712-1) : champ de modules (nombre et chaînes équilibrées déduits de la
+  puissance crête, Uco à froid), coffret DC (interrupteur-sectionneur DC, parafoudre
+  selon le risque foudre), onduleur à découplage intégré, interrupteur-sectionneur AC
+  près de l'onduleur, câble et ΔU côté alternatif, disjoncteur et différentiel au
+  tableau, AGCP et compteur ; équipotentialité du champ, signalisation (deux sources,
+  courant continu), vérifications ; export SVG et DXF ;
 - **Salles d'eau — volumes** (folios A3, vue « Salles d'eau », NF C 15-100 § 701) :
   chaque local avec douche ou baignoire redessiné à l'échelle normalisée (1:20, 1:25,
   1:50…), volumes 1 et 2 teintés, chaque appareil situé (hauteur, distance au volume 1,
@@ -814,7 +821,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-202 vérifications sans dépendance : valeurs numériques de chaque simulation
+203 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

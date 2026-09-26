@@ -1716,6 +1716,158 @@ function wetRoomDXF(design, meta, components, wires) {
 }
 
 // ---------------------------------------------------------------------------
+// Photovoltaïque (guide UTE C 15-712-1) : schéma de principe de chaque circuit
+// de production, du champ de modules au réseau, côté continu puis alternatif
+// ---------------------------------------------------------------------------
+const PV_MOD = { wc: 400, voc: 41, isc: 13.9, perString: 12 }; // module type (hypothèse, à ajuster selon la fiche technique)
+function pvLayout(c) {
+  const kwc = (c.power || 0) / 1000, n = Math.max(1, Math.round((c.power || 0) / PV_MOD.wc));
+  const strings = Math.max(1, Math.ceil(n / PV_MOD.perString)), per = Math.ceil(n / strings);
+  const sizes = Array.from({ length: strings }, (_, i) => Math.floor(n / strings) + (i < n % strings ? 1 : 0)); // chaînes équilibrées
+  return { kwc, n, strings, per, sizes, voc: Math.round(per * PV_MOD.voc * 1.15) }; // Uco à froid (-10 °C) ≈ +15 %
+}
+function drawPV(ctx, design, meta, list, folio) {
+  const D = design.root || design, k = folio || 0, nF = Math.max(1, list.length), c = list[k];
+  const ink = '#1a2230', mute = '#5b6b82', red = '#b3261e', PE = '#2e9e46', DC = '#b3261e';
+  const layer = (n) => { if ('layer' in ctx) ctx.layer = n; };
+  const text = (t, x, y, o) => {
+    o = o || {};
+    ctx.save(); ctx.fillStyle = o.color || ink; ctx.font = `${o.bold ? 'bold ' : ''}${o.size || 8}px sans-serif`;
+    ctx.textAlign = o.align || 'left'; ctx.fillText(t, x, y); ctx.restore();
+  };
+  const line = (pts, col, w, dash) => { ctx.save(); ctx.strokeStyle = col || ink; ctx.lineWidth = w || 1.4; if (dash) ctx.setLineDash(dash); ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); };
+  // symbole vertical (disjoncteur, sectionneur) couché sur la ligne horizontale, de x à x + h
+  const lying = (fn, x, y, h) => { ctx.save(); ctx.translate(x, y); ctx.rotate(-Math.PI / 2); ctx.strokeStyle = ink; fn(ctx, 0, 0, h); ctx.restore(); };
+  const box = (x, y, w, h, dash) => { ctx.save(); ctx.lineWidth = 1; ctx.strokeStyle = mute; if (dash) ctx.setLineDash([5, 3]); ctx.strokeRect(x, y, w, h); ctx.restore(); };
+  ctx.save(); ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  layer('CARTOUCHE');
+  _uCartouche(ctx, D, meta, 'Photovoltaïque — schéma de principe', k, nF);
+  layer('TEXTES');
+  text('Production photovoltaïque — schéma de principe', 30, 46, { bold: true, size: 17 });
+  text('Du champ de modules au réseau : côté continu (=), onduleur, côté alternatif (~) ; guide UTE C 15-712-1 et NF C 15-100', 30, 62, { size: 8, color: mute });
+  if (!c) { text('Aucun circuit de production photovoltaïque dans le tableau (bouton « + Circuit » → Photovoltaïque).', 30, 170, { size: 11, color: mute }); ctx.restore(); return; }
+  const L = pvLayout(c), tri = c.phase === '3P', y = 250;
+  // --- champ photovoltaïque
+  const fx = 40, mw = 15, mh = 24;
+  layer('TEXTES'); text(`Champ PV — ${_bNum(L.kwc, 1)} kWc`, fx, 110, { bold: true, size: 10 });
+  text(`${L.n} modules de ${PV_MOD.wc} Wc (classe II), ${L.strings > 1 ? L.strings + ' chaînes (' + L.sizes.join(' + ') + ')' : '1 chaîne'}`, fx, 123, { size: 7.5, color: mute });
+  const sy0 = 140, rowH = 44;
+  for (let s = 0; s < Math.min(L.strings, 3); s++) {
+    const yy = sy0 + s * rowH;
+    layer('SCHEMA');
+    const nm = L.sizes[s];
+    for (let m = 0; m < nm && m < 12; m++) { ctx.save(); ctx.lineWidth = 0.9; ctx.strokeRect(fx + m * (mw + 2), yy, mw, mh); ctx.restore(); line([[fx + m * (mw + 2), yy + mh], [fx + m * (mw + 2) + mw, yy]], '#9aa4b2', 0.5); }
+    const xe = fx + Math.min(nm, 12) * (mw + 2), ys = y - 18 + s * 6;
+    // sortie de chaîne vers le coffret DC, réunie aux autres à l'entrée
+    line([[xe, yy + mh / 2], [300, yy + mh / 2], [300, ys], [338, ys], [338, y]], DC, 1.3);
+    layer('TEXTES'); text(`+ / −  chaîne ${s + 1}`, xe + 6, yy + mh / 2 - 3, { size: 6.5, color: mute });
+  }
+  layer('TEXTES');
+  const yInfo = sy0 + Math.min(L.strings, 3) * rowH + 4;
+  text(`Uco à froid ≈ ${L.per} × ${PV_MOD.voc} V × 1,15 ≈ ${L.voc} V · Icc ≈ ${_bNum(PV_MOD.isc, 1)} A par chaîne`, fx + 12, yInfo, { size: 7, color: mute });
+  text('Câble solaire double isolation 4 mm² (H1Z2Z2-K), + et − côte à côte', fx + 12, yInfo + 11, { size: 7, color: mute });
+  // --- coffret DC : parafoudre, interrupteur-sectionneur
+  const bx = 330;
+  layer('SCHEMA'); box(bx, y - 60, 170, 120);
+  layer('TEXTES'); text('Coffret DC', bx + 6, y - 48, { bold: true, size: 8.5 });
+  layer('SCHEMA');
+  line([[bx, y], [bx + 40, y]], DC);
+  ctx.save(); ctx.strokeStyle = DC; lying(_uSwitch, bx + 40, y, 44); ctx.restore();
+  line([[bx + 84, y], [bx + 170, y]], DC);
+  // parafoudre DC en dérivation vers la terre
+  line([[bx + 110, y], [bx + 110, y + 14]], DC, 1.1); ctx.save(); ctx.lineWidth = 1.1; ctx.setLineDash([3, 2]); ctx.strokeRect(bx + 104, y + 14, 12, 18); ctx.restore();
+  line([[bx + 107, y + 18], [bx + 112, y + 23], [bx + 108, y + 24], [bx + 113, y + 29]], ink, 0.8);
+  line([[bx + 110, y + 32], [bx + 110, y + 40]], PE, 1.1); _uEarth(ctx, bx + 110, y + 40);
+  layer('TEXTES');
+  text('Interrupteur-sectionneur DC', bx + 6, y - 30, { size: 7 }); text(`coupure en charge, ≥ ${L.voc} V`, bx + 6, y - 21, { size: 6.5, color: mute });
+  text('Parafoudre DC', bx + 120, y + 22, { size: 6.5 }); text('selon risque', bx + 120, y + 30, { size: 6.5, color: mute }); text('foudre', bx + 120, y + 38, { size: 6.5, color: mute });
+  // --- onduleur
+  const ox = 520;
+  layer('SCHEMA'); line([[bx + 170, y], [ox, y]], DC);
+  ctx.save(); ctx.lineWidth = 1.3; ctx.strokeRect(ox, y - 30, 60, 60); ctx.restore(); line([[ox, y + 30], [ox + 60, y - 30]], ink, 1);
+  line([[ox + 8, y - 16], [ox + 22, y - 16]], ink, 1); line([[ox + 8, y - 12], [ox + 22, y - 12]], ink, 1);
+  ctx.save(); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(ox + 36, y + 16); ctx.quadraticCurveTo(ox + 41, y + 8, ox + 45, y + 15); ctx.quadraticCurveTo(ox + 49, y + 22, ox + 53, y + 14); ctx.stroke(); ctx.restore();
+  line([[ox + 30, y + 30], [ox + 30, y + 52]], PE, 1.1); _uEarth(ctx, ox + 30, y + 52);
+  layer('TEXTES');
+  text(`Onduleur ${_bNum(L.kwc, 1)} kVA${tri ? ' triphasé' : ''}`, ox - 6, y - 40, { bold: true, size: 8.5 });
+  text('découplage intégré', ox + 66, y + 22, { size: 6.5, color: mute }); text('(DIN VDE 0126-1-1)', ox + 66, y + 30, { size: 6.5, color: mute });
+  // --- côté alternatif : interrupteur-sectionneur près de l'onduleur, câble, disjoncteur et différentiel au tableau
+  const ax = 600, sw = Math.max(c.In, 20);
+  layer('SCHEMA'); line([[ax, y], [630, y]]);
+  lying(_uSwitch, 630, y, 44);
+  line([[674, y], [800, y]]);
+  layer('TEXTES');
+  text(`Interrupteur-sectionneur AC ${tri ? '4P' : '2P'} ${sw} A`, 612, y - 30, { size: 7 }); text('à proximité de l’onduleur', 612, y - 21, { size: 6.5, color: mute });
+  text(`${boardCable(c.S, c.phase)} · ${_bNum(c.length || 0, 1)} m`, 690, y - 6, { size: 7.5 });
+  const dU = c.dUpct != null ? c.dUpct : null;
+  text(dU != null ? `ΔU ${_bNum(dU, 1)} % (1 % au plus)` : 'ΔU ≤ 1 %', 690, y + 12, { size: 7, color: dU != null && dU > 1 ? red : mute });
+  // tableau
+  const tx = 800;
+  layer('SCHEMA'); box(tx, y - 70, 170, 140);
+  layer('TEXTES'); text('Tableau de répartition', tx + 6, y - 58, { bold: true, size: 8.5 });
+  layer('SCHEMA');
+  line([[tx, y], [tx + 20, y]]); lying(_uBreaker, tx + 20, y, 44); line([[tx + 64, y], [tx + 80, y]]);
+  ctx.save(); ctx.strokeStyle = ink; ctx.translate(tx + 96, y); ctx.rotate(-Math.PI / 2); _uTorus(ctx, 0, 0, -16); ctx.restore();
+  line([[tx + 80, y], [tx + 170, y]]);
+  layer('TEXTES');
+  text(`${c.id} · ${c.curve || 'C'}${c.In}${tri ? ' 3P+N' : ' 1P+N'}`, tx + 12, y + 24, { size: 7.5, bold: true });
+  const rcdTxt = c.ddr ? `DDR 30 mA type ${c.ddr}` : c.rcd ? `sous ${c.rcd} 30 mA` : 'différentiel 30 mA';
+  text(rcdTxt, tx + 12, y + 35, { size: 7 });
+  text('type B si l’onduleur peut injecter', tx + 12, y + 50, { size: 6.5, color: mute }); text('un défaut continu (notice)', tx + 12, y + 58, { size: 6.5, color: mute });
+  // AGCP, compteur, réseau
+  const gx = 1000;
+  layer('SCHEMA'); line([[tx + 170, y], [gx, y]]);
+  lying(_uBreaker, gx, y, 40);
+  ctx.save(); ctx.translate(gx + 22, y); ctx.rotate(-Math.PI / 2); _uTorus(ctx, 0, 0, -14); ctx.restore();
+  line([[gx + 40, y], [gx + 62, y]]);
+  ctx.save(); ctx.lineWidth = 1.2; ctx.strokeRect(gx + 62, y - 14, 40, 28); ctx.restore();
+  line([[gx + 102, y], [gx + 150, y]]);
+  layer('TEXTES');
+  text(`AGCP ${D.agcp ? D.agcp.setting + ' A ' : ''}500 mA`, gx - 6, y - 24, { size: 7 });
+  text('kWh', gx + 82, y + 3, { size: 8, bold: true, align: 'center' }); text('⇄', gx + 82, y + 26, { size: 10, align: 'center' });
+  text('Compteur', gx + 62, y - 30, { size: 7 }); text('communicant', gx + 62, y - 21, { size: 6.5, color: mute });
+  text('Réseau public', gx + 108, y - 8, { size: 7.5, bold: true });
+  // équipotentialité des masses du champ
+  const eY = 420;
+  layer('SCHEMA'); line([[fx + 4, sy0 + Math.min(L.strings, 3) * rowH - 16], [fx + 4, eY], [ox + 30, eY]], PE, 1.3, [5, 3]);
+  line([[ox + 30, y + 70], [ox + 30, eY]], PE, 1.1, [5, 3]);
+  ctx.save(); ctx.lineWidth = 1.1; ctx.strokeRect(ox + 10, eY, 40, 12); ctx.restore(); line([[ox + 30, eY + 12], [ox + 30, eY + 26]], PE, 1.2); _uEarth(ctx, ox + 30, eY + 26);
+  layer('TEXTES');
+  text('Équipotentialité des cadres et des supports métalliques du champ, 6 mm² Cu au moins, reliée à la borne principale de terre', fx + 12, eY - 5, { size: 7, color: mute });
+  text('Borne principale de terre', ox + 56, eY + 9, { size: 7.5 });
+  // signalisation et vérifications
+  const ky = 500;
+  layer('SCHEMA'); box(30, ky, 560, 132); box(610, ky, 550, 132);
+  layer('TEXTES');
+  text('Signalisation', 42, ky + 18, { bold: true, size: 9 });
+  ['« Attention — présence de deux sources de tension » : au tableau et au coffret de comptage',
+    '« Attention — câbles courant continu sous tension » : coffret DC et cheminements DC',
+    'Organes de coupure repérés : côté continu (coffret DC) et côté alternatif (près de l’onduleur)',
+    'Schéma de l’installation photovoltaïque affiché près de l’onduleur',
+    'Onduleur : conformité et paramètres de découplage à joindre au dossier de raccordement'].forEach((t, i) => text('— ' + t, 42, ky + 38 + i * 16, { size: 7.5 }));
+  text('Vérifications', 622, ky + 18, { bold: true, size: 9 });
+  [`Tension de chaîne à vide ${L.voc} V : inférieure à la tension DC maximale de l’onduleur`,
+    'Polarité de chaque chaîne mesurée avant raccordement à l’onduleur',
+    'Câbles DC en double isolation, + et − dans le même cheminement (boucles d’induction réduites)',
+    `Circuit dédié ${c.id} : ${c.curve || 'C'}${c.In} en ${boardCable(c.S, c.phase)}, aucun récepteur raccordé`,
+    `Chute de tension côté alternatif : ${dU != null ? _bNum(dU, 1) + ' %' : 'à calculer'} (1 % au plus recommandé)`,
+    'Continuité de l’équipotentialité du champ jusqu’à la borne principale de terre'].forEach((t, i) => text('☐ ' + t, 622, ky + 38 + i * 16, { size: 7.5, color: i === 4 && dU != null && dU > 1 ? red : ink }));
+  text(`Hypothèse de calcul : modules de ${PV_MOD.wc} Wc, Uco ${PV_MOD.voc} V, Icc ${_bNum(PV_MOD.isc, 1)} A — à remplacer par les valeurs de la fiche technique retenue.`, 30, UNI.H - 15 - 62 - 22, { size: 7.5, color: mute });
+  ctx.restore();
+}
+function pvCircuits(design) { return (design.root || design).circuits.filter((c) => c.kind === 'pv'); }
+function pvSVGs(design, meta) {
+  const list = pvCircuits(design), out = [];
+  for (let k = 0; k < Math.max(1, list.length); k++) { const ctx = new SVGContext(); drawPV(ctx, design, meta, list, k); out.push(_folioWrap(ctx.out.join(''))); }
+  return out;
+}
+function pvDXF(design, meta) {
+  const list = pvCircuits(design), ctx = new DXFContext(), n = Math.max(1, list.length);
+  for (let k = 0; k < n; k++) { ctx.save(); ctx.translate(0, k * (UNI.H + 60)); drawPV(ctx, design, meta, list, k); ctx.restore(); }
+  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: n * (UNI.H + 60) }, { U: 1 / 0.3528, insunits: 4, layers: [['SCHEMA', 7], ['TEXTES', 2], ['CARTOUCHE', 8]] });
+}
+
+// ---------------------------------------------------------------------------
 // Dossier technique : les folios A3 dans l'ordre, numérotés à la suite, et
 // leur sommaire (folio 1)
 // ---------------------------------------------------------------------------
@@ -1739,6 +1891,8 @@ function _technicalSeries(design, components, wires) {
   if (hc.length) S.push({ title: 'Chauffage (fil pilote)', what: 'Radiateurs de chaque circuit : phase, neutre, fil pilote, terre', n: heatingFolios(hc), draw: (ctx, m, k) => drawHeating(ctx, design, m, hc, k) });
   const vr = shutterCircuits(design, components);
   if (vr.length) S.push({ title: 'Volets roulants', what: 'Commandes montée / descente et moteurs de chaque circuit', n: shutterFolios(vr), draw: (ctx, m, k) => drawShutters(ctx, design, m, vr, k) });
+  const pvL = pvCircuits(design);
+  if (pvL.length) S.push({ title: 'Photovoltaïque', what: 'Champ de modules, coffret DC, onduleur, coupures, protection au tableau', n: pvL.length, draw: (ctx, m, k) => drawPV(ctx, design, m, pvL, k) });
   const wetL = hasPlan ? wetRoomsAudit(components, wires) : [];
   if (wetL.length) S.push({ title: 'Salles d’eau (volumes)', what: 'Volumes 1 et 2 de chaque douche et baignoire, appareillage situé et vérifié', n: wetFolios(wetL), draw: (ctx, m, k) => drawWetRooms(ctx, design, m, wetL, wires, components, k) });
   S.push({ title: 'Mise à la terre', what: 'Prise de terre, barrette, borne principale, PE des circuits, LEP et LES', n: 1, draw: (ctx, m) => drawEarthing(ctx, design, m) });
