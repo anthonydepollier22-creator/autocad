@@ -791,7 +791,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-197 vérifications sans dépendance : valeurs numériques de chaque simulation
+198 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

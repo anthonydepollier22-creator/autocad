@@ -1047,6 +1047,14 @@ r = run(`(function(){
 })()`);
 check('Repère du tableau divisionnaire repris du plan (TD2 reste TD2 sur les folios et dans les noms)', r.ref === 'TD2' && /TD2/.test(r.names) && !/TD1/.test(r.names), JSON.stringify(r));
 
+// TD posé dans une pièce sans appareil : départ et un ID en réserve, pas d'erreur
+r = run(`(function(){
+  var h = buildHouse('t3'); // TD hors de la maison (abri de jardin pas encore dessiné) : aucun appareil dans sa pièce
+  var d = designInstallation(h.components.concat([{ id: 'TDz', type: 'panel_sub', x: -600, y: 200, rot: 0, label: 'TD1', value: '' }]), h.wires);
+  return { panels: d.panels.length, ids: d.rcds.filter(function(r){ return r.panel; }).length, errs: d.checks.filter(function(c){ return c.level === 'err'; }).map(function(c){ return c.msg; }) };
+})()`);
+check('TD posé hors des pièces (sans appareil) : départ en réserve avec son ID, sans non-conformité', r.panels === 1 && r.ids === 1 && !r.errs.length, JSON.stringify(r));
+
 // Exemple « Maison T5 + garage — tableau divisionnaire »
 r = run(`(function(){
   var d = getExampleData('maison-t5-td'), des = designInstallation(d.components, d.wires), td = d.components.find(function(c){ return c.type === 'panel_sub'; });

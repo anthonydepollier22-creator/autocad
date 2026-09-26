@@ -666,6 +666,8 @@ function designInstallation(components, wires, board) {
         if (!r) { r = { id: 'ID' + (rcds.length + 1), In: 40, type: t, circuits: [], panel: f.id }; rcds.push(r); (byType[t] = byType[t] || []).push(r); }
         r.circuits.push(ct.id); ct.rcd = r.id;
       }
+      // TD sans appareil dans sa pièce : un ID 30 mA en réserve
+      if (!Object.keys(byType).length) rcds.push({ id: 'ID' + (rcds.length + 1), In: 40, type: 'AC', circuits: [], panel: f.id });
     }
     rcds.forEach((r, i) => { const old = r.id; r.id = 'ID' + (i + 1); circuits.forEach((c) => { if (c.rcd === old) c.rcd = '#' + r.id; }); });
     circuits.forEach((c) => { c.rcd = c.rcd ? c.rcd.replace('#', '') : null; }); // départ de TD : en tête, sans ID
