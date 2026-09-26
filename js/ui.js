@@ -1283,11 +1283,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Nouveautés : une fois par version (pas quand on arrive par un lien de démo)
   try {
-    const NEWS = '1.10';
+    const NEWS = '1.11';
     if (localStorage.getItem('electricad-news') !== NEWS) {
       localStorage.setItem('electricad-news', NEWS);
       if (!location.search) {
-        setTimeout(() => showToast('<b>Nouveau</b> : <b>dossier technique</b> numéroté (sommaire, plan d’implantation, <b>plan de câblage</b>, unifilaire, câblage du tableau — aussi en triphasé —, note de calcul…), bouton <b>Câbles</b> sur le plan, murs placo / maçonnerie visibles en 2D, <b>boîtes d’encastrement</b> en rayons X.', 9000), 1200);
+        setTimeout(() => showToast('<b>Nouveau</b> en 3D (Implanter) : tracer une <b>cloison placo</b>, percer une <b>porte</b>, nommer la <b>pièce</b>, puis <b>Compléter NF</b> ; implantation en <b>visite</b>, Ctrl+Z. Tableau : <b>Dossier DXF</b> complet ; onglet Norme : <b>autocontrôle</b> à cocher.', 9000), 1200);
       }
     }
   } catch (_) { /* stockage indisponible */ }
