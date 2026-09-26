@@ -514,6 +514,8 @@ document.addEventListener('DOMContentLoaded', () => {
       html += `<li${g.compId ? ' class="clickable" data-id="' + g.compId + '"' : ''}>${ic} ${_escHtml(g.msg)}</li>`;
     }
     html += '</ul>';
+    const onStud = rep.global.filter((g) => /sur un montant|sur une fourrure/.test(g.msg)).length;
+    if (onStud) html += `<button type="button" class="btn-ghost norm-fix" id="norm-fix-studs">Décaler ${onStud > 1 ? `les ${onStud} boîtes` : 'la boîte'} hors des montants</button>`;
     // Autocontrôle avant le Consuel : points vérifiés sur le plan et le tableau, puis cases à cocher sur place
     if (typeof selfCheckList === 'function') {
       const d = houseUI && houseUI.design();
@@ -534,6 +536,12 @@ document.addEventListener('DOMContentLoaded', () => {
       editor.autosave(); renderNorm(true);
     }));
     normBox.querySelectorAll('[data-id]').forEach((el) => el.addEventListener('click', () => editor.focusComponent(el.dataset.id)));
+    const fx = document.getElementById('norm-fix-studs');
+    if (fx) fx.addEventListener('click', () => {
+      const n = fixStudBoxes(editor.components, editor.wires);
+      editor.pushHistory(); editor.render(); editor._emit();
+      showToast(`${n} boîte${n > 1 ? 's' : ''} décalée${n > 1 ? 's' : ''} de quelques centimètres, entre deux montants. Annulable (Ctrl+Z).`, 3500);
+    });
   }
   function _escHtml(s) {
     return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

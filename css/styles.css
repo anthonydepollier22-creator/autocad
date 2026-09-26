@@ -1098,3 +1098,6 @@ body.light .day-sec { --dc7: #4a3aa7; }
 
 /* palette d'implantation : groupes (appareils | murs et pièces | outils) */
 .v3-implant-kind .v3-sep { width: 1px; align-self: stretch; margin: 4px 4px; background: var(--border-strong); flex: 0 0 auto; }
+
+/* Norme : correction automatique (boîtes hors des montants) */
+.norm-fix { margin: 4px 0 10px; }

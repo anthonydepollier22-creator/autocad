@@ -80,6 +80,20 @@ function studShift(t, L) {
   const dir = near === 0 ? 1 : near === L ? -1 : t >= near ? 1 : -1;
   return { t: near + dir * STUD_CLEAR, by: Math.abs(near + dir * STUD_CLEAR - t) };
 }
+// Décale hors des montants les boîtes posées sur une cloison sèche ou un doublage ; renvoie leur nombre
+const STUD_BOXED = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light']);
+function fixStudBoxes(components, wires) {
+  let n = 0;
+  for (const c of components) {
+    if (!STUD_BOXED.has(c.type)) continue;
+    const nw = nearestWall(wires, c.x, c.y, 45);
+    if (!nw || !wallMaterial(nw.w).hollow) continue;
+    const sh = studShift(nw.t, Math.hypot(nw.b.x - nw.a.x, nw.b.y - nw.a.y));
+    if (!sh) continue;
+    c.x = Math.round(c.x + nw.ux * (sh.t - nw.t)); c.y = Math.round(c.y + nw.uy * (sh.t - nw.t)); n++;
+  }
+  return n;
+}
 // Repères du matériau sur le trait d'un mur (plan 2D) : montants tous les 60 cm
 // pour une cloison sèche (placo, ossature bois), hachures à 45° pour la maçonnerie
 function wallMarks(w) {
@@ -444,7 +458,7 @@ function checkNFC15100(components, wires) {
     }
     // Cloison sèche ou doublage : une boîte d'encastrement ne se pose pas sur un montant (tous les 60 cm)
     for (const c of components) {
-      if (!['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light'].includes(c.type)) continue;
+      if (!STUD_BOXED.has(c.type)) continue;
       const nw = nearestWall(wires, c.x, c.y, 45);
       if (!nw || !wallMaterial(nw.w).hollow) continue;
       const sh = studShift(nw.t, Math.hypot(nw.b.x - nw.a.x, nw.b.y - nw.a.y));
