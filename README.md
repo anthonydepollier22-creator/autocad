@@ -162,7 +162,9 @@ L'installation est **conçue** puis **simulée en temps réel** :
 ### 🗺️ Plan d'implantation
 
 Le bouton **Repères** (onglet Tableau) affiche à côté de chaque appareil du plan le
-**repère de son circuit** (C1, C2…), aux couleurs des câbles de la vue Rayons X. Les
+**repère de son circuit** (C1, C2…), aux couleurs des câbles de la vue Rayons X ; le
+bouton **Câbles** trace le **cheminement de chaque circuit** dans les goulottes jusqu'à
+ses appareils (repris par l'export SVG et l'impression, et en folio du dossier technique). Les
 exports du plan — **SVG**, **DXF** (calque `CIRCUITS`), **impression** et **dossier** —
 deviennent un vrai plan d'implantation : repères de circuits, surfaces des pièces et une
 **légende** des symboles électriques avec leurs **quantités**, suivie de la liste des

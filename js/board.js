@@ -969,30 +969,32 @@ function planFolioSVG(design, meta, components, wires, routes) {
 // Plan de câblage : le cheminement de chaque circuit dans les goulottes, à sa
 // couleur (décalé pour distinguer les câbles d'une même goulotte), puis la
 // descente jusqu'à chaque appareil
-function routesSVG(design, components) {
-  if (!design.net || !design.route) return '';
+function routeSegments(design, components) {
+  if (!design || !design.net || !design.route) return [];
   const net = design.net, colors = typeof CABLE_COLORS !== 'undefined' ? CABLE_COLORS : ['#ffb020', '#4f9dff', '#35d07f', '#ff5d7a'];
-  const byId = {}, n = design.circuits.length, f = (v) => Math.round(v * 10) / 10;
+  const byId = {}, n = design.circuits.length;
   for (const c of components) byId[c.id] = c;
-  let out = '';
-  design.circuits.forEach((ct, k) => {
-    const off = (k - (n - 1) / 2) * 2.4;
-    let d = '';
+  return design.circuits.map((ct, k) => {
+    const off = (k - (n - 1) / 2) * 2.4, segs = [];
     for (const ei of ct.edges || []) {
       const e = net.edges[ei];
       if (!e || e.riser) continue;
       const a = net.pos[e.a], b = net.pos[e.b], L = Math.hypot(b.x - a.x, b.y - a.y) || 1, nx = -(b.y - a.y) / L, ny = (b.x - a.x) / L;
-      d += `M${f(a.x + nx * off)} ${f(a.y + ny * off)}L${f(b.x + nx * off)} ${f(b.y + ny * off)}`;
+      segs.push([a.x + nx * off, a.y + ny * off, b.x + nx * off, b.y + ny * off]);
     }
     for (const id of ct.devices || []) {
       const r = design.route[id], c = byId[id];
       if (!r || r.off || r.node === undefined || !c) continue;
       const p = net.pos[r.node];
-      d += `M${f(p.x)} ${f(p.y)}L${f(c.x)} ${f(c.y)}`;
+      segs.push([p.x, p.y, c.x, c.y]);
     }
-    if (d) out += `<path d="${d}" fill="none" stroke="${colors[k % colors.length]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.92"/>`;
+    return { id: ct.id, color: colors[k % colors.length], segs };
   });
-  return out;
+}
+function routesSVG(design, components) {
+  const f = (v) => Math.round(v * 10) / 10;
+  return routeSegments(design, components).filter((r) => r.segs.length).map((r) =>
+    `<path d="${r.segs.map(([x1, y1, x2, y2]) => `M${f(x1)} ${f(y1)}L${f(x2)} ${f(y2)}`).join('')}" fill="none" stroke="${r.color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.92"/>`).join('');
 }
 function drawSommaire(ctx, design, meta, entries, hasPlan) {
   const ink = '#1a2230', mute = '#5b6b82';

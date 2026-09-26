@@ -342,7 +342,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const planMeta = () => {
     const plan = editor.wires.some((w) => w.kind === 'wall');
     const d = plan && houseUI ? houseUI.design() : null;
-    return { ...editor.meta, date: new Date().toISOString().slice(0, 10), legend: plan, tags: d && d.ok ? circuitTags(d) : null };
+    return { ...editor.meta, date: new Date().toISOString().slice(0, 10), legend: plan, tags: d && d.ok ? circuitTags(d) : null,
+      routesSVG: d && d.ok && editor.showRoutes ? routesSVG(d, editor.components) : '' }; // câbles affichés : exportés aussi (SVG, impression)
   };
   document.getElementById('btn-svg').addEventListener('click', () => {
     const blob = new Blob([buildSVG(editor.components, editor.wires, SYMBOLS, planMeta())], { type: 'image/svg+xml' });

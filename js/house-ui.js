@@ -12,6 +12,7 @@ function initHouseUI(app) {
   const $ = (s) => document.getElementById(s);
   const sim = new InstallSim();
   try { editor.showTags = localStorage.getItem('electricad-tags') === '1'; } catch (_) { editor.showTags = false; }
+  try { editor.showRoutes = localStorage.getItem('electricad-routes') === '1'; } catch (_) { editor.showRoutes = false; }
   let design = null, designRev = null;
   const SWITCH_ALL = new Set(['switch_sa', 'switch_vv_wall', 'switch', 'push_button', 'sw_vv']);
   const LIGHT_T = new Set(['dcl', 'wall_light']);
@@ -34,6 +35,7 @@ function initHouseUI(app) {
     const relevant = board || editor.components.some((c) => c.type === 'panel_house');
     design = relevant ? designInstallation(editor.components, editor.wires, board) : null;
     editor.circuitTags = design && design.ok && typeof circuitTags === 'function' ? circuitTags(design).map : null;
+    editor.routeLines = design && design.ok && typeof routeSegments === 'function' ? routeSegments(design, editor.components) : null;
     if (design && design.ok) sim.setDesign(design);
     structKey = null;
     return design;
@@ -127,6 +129,7 @@ function initHouseUI(app) {
       '<button data-act="furnish" title="Meuble les pièces vides">Meubler</button>' +
       '<button data-act="board" title="Tableau électrique et folios : modifier les circuits, unifilaire, note de calcul, schémas développés, élévations, communication, face avant, étiquettes ; exports SVG / DXF / PDF">Folios</button>' +
       `<button data-act="tags" aria-pressed="${editor.showTags ? 'true' : 'false'}" title="Repère du circuit (C1, C2…) à côté de chaque appareil du plan, aux couleurs des câbles">Repères</button>` +
+      `<button data-act="routes" aria-pressed="${editor.showRoutes ? 'true' : 'false'}" title="Cheminement de chaque circuit dans les goulottes, à sa couleur (comme le plan de câblage du dossier technique)">Câbles</button>` +
       '<button data-act="dossier" title="Dossier du projet à imprimer ou enregistrer en PDF : plan, norme, tableau, matériel, 3D, journée type">Dossier</button></div>';
     // Puissance et énergie
     h += '<div class="inst-live">' +
@@ -306,6 +309,13 @@ function initHouseUI(app) {
     if (act === 'houses') { openHouses(); return; }
     if (act === 'dossier') { openDossier(); return; }
     if (act === 'unifilar' || act === 'board') { if (app.openBoard) app.openBoard(); return; }
+    if (act === 'routes') {
+      editor.showRoutes = !editor.showRoutes;
+      try { localStorage.setItem('electricad-routes', editor.showRoutes ? '1' : '0'); } catch (_) { /* stockage indisponible */ }
+      ensureDesign(); editor.render(); structKey = null; tick(0, true);
+      if (editor.showRoutes) showToast('Câbles sur le plan : chaque circuit suit les goulottes jusqu’à ses appareils, à la couleur de son repère.', 4000);
+      return;
+    }
     if (act === 'tags') {
       editor.showTags = !editor.showTags;
       try { localStorage.setItem('electricad-tags', editor.showTags ? '1' : '0'); } catch (_) { /* stockage indisponible */ }

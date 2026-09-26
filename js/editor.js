@@ -687,6 +687,16 @@ class Editor {
 
     // Fils
     for (const w of this.wires) this._drawWire(w, this.selection.has(w.id), lw);
+    // câbles des circuits dans les goulottes (bouton « Câbles » de l'onglet Tableau)
+    if (this.showRoutes && this.routeLines) {
+      ctx.save(); ctx.lineCap = 'round'; ctx.lineWidth = 3; ctx.globalAlpha = 0.9;
+      for (const r of this.routeLines) {
+        ctx.strokeStyle = r.color; ctx.beginPath();
+        for (const [x1, y1, x2, y2] of r.segs) { ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); }
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
 
     // Composants
     for (const c of this.components) this._drawComponent(c, this.selection.has(c.id), lw);
