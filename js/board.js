@@ -1536,6 +1536,186 @@ function earthingDXF(design, meta) {
 }
 
 // ---------------------------------------------------------------------------
+// Salles d'eau (NF C 15-100, § 701) : chaque local contenant une douche ou une
+// baignoire, vu en plan avec ses volumes 1 et 2, et chaque appareil situé,
+// avec son exigence (interdit, classe II, IPX4, autorisé)
+// ---------------------------------------------------------------------------
+const WET_CMD = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'switch_shutter', 'push_button', 'panel_house', 'panel_sub', 'gtl']);
+const WET_FIX = new Set(['bathtub', 'shower', 'washbasin', 'toilet', 'washer', 'dryer', 'water_heater', 'radiator']);
+function wetRoomsAudit(components, wires) {
+  if (typeof wetZones !== 'function' || !wires.some((w) => w.kind === 'wall')) return [];
+  const info = computeRooms(components, wires), zones = wetZones(components, wires), out = [];
+  if (!info.owner) return out;
+  for (const z of zones) {
+    if (z.room < 0) continue;
+    let R = out.find((x) => x.room === z.room);
+    if (!R) {
+      // emprise de la pièce d'après la grille de détection
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (let k = 0; k < info.owner.length; k++) {
+        if (info.owner[k] !== z.room) continue;
+        const gx = k % info.nx, gy = (k - gx) / info.nx, x = info.x0 + gx * info.step, y = info.y0 + gy * info.step;
+        x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+      }
+      out.push((R = { room: z.room, name: info.rooms[z.room].name, zones: [], box: { x0: x0 - 15, y0: y0 - 15, x1: x1 + 15, y1: y1 + 15 }, devs: [] }));
+    }
+    R.zones.push(z);
+  }
+  for (const R of out) {
+    const wet = R.zones.map((z) => z.c);
+    for (const c of components) {
+      const sym = SYMBOLS[c.type];
+      if (!sym || !sym.plan || !(sym.terminals || []).length || c.type === 'shutter' || roomAt(info, c.x, c.y) !== R.room) continue;
+      const h = typeof mountH === 'function' ? mountH(c) : 1, d = Math.min(...wet.map((w) => _distToFootprint(c.x, c.y, w)));
+      const vol = h > 2.25 ? 0 : d <= 0.5 ? 1 : d < 60 ? 2 : 0; // 0 : hors volume
+      const light = c.type === 'dcl' || c.type === 'wall_light', heat = c.type === 'radiator';
+      let level = 'ok', req = h > 2.25 ? 'au-dessus de 2,25 m : hors volume' : 'hors volume : autorisé';
+      if (vol === 1) { level = 'err'; req = c.type === 'water_heater' ? 'chauffe-eau : conditions du § 701' : 'interdit (TBTS 12 V seulement)'; if (c.type === 'water_heater') level = 'warn'; }
+      else if (vol === 2) {
+        if (WET_CMD.has(c.type)) { level = 'err'; req = c.type === 'socket_wall' ? 'prise interdite (sauf rasoir à transfo. de séparation)' : 'appareillage de commande interdit'; }
+        else { level = 'warn'; req = light || heat ? 'classe II, IPX4' : 'IPX4 au moins'; }
+      }
+      R.devs.push({ c, ref: c.label || sym.prefix || c.type, name: sym.name, h, d: Math.max(0, Math.round(d)), vol, level, req });
+    }
+    R.devs.sort((a, b) => a.vol - b.vol || a.d - b.d);
+    R.fix = components.filter((c) => WET_FIX.has(c.type) && roomAt(info, c.x, c.y) === R.room);
+    R.errors = R.devs.filter((x) => x.level === 'err').length;
+  }
+  return out;
+}
+const WET_PER = 2;
+function wetFolios(list) { return Math.max(1, Math.ceil(list.length / WET_PER)); }
+function drawWetRooms(ctx, design, meta, list, wires, components, folio) {
+  const k = folio || 0, nF = wetFolios(list), mine = list.slice(k * WET_PER, (k + 1) * WET_PER);
+  const ink = '#1a2230', mute = '#5b6b82', red = '#b3261e', amber = '#b26a00', ok = '#2e7d32', V1 = '#1f6fd1', V2 = '#3b8fd9', V1f = '#bcd5f6', V2f = '#e1eefc';
+  const layer = (n) => { if ('layer' in ctx) ctx.layer = n; };
+  const text = (t, x, y, o) => {
+    o = o || {};
+    ctx.save(); ctx.fillStyle = o.color || ink; ctx.font = `${o.bold ? 'bold ' : ''}${o.size || 8}px sans-serif`;
+    ctx.textAlign = o.align || 'left'; ctx.fillText(t, x, y); ctx.restore();
+  };
+  const fit = (t, n) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
+  ctx.save(); ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  layer('CARTOUCHE');
+  _uCartouche(ctx, design, meta, 'Salles d’eau — volumes (§ 701)', k, nF);
+  layer('TEXTES');
+  text('Salles d’eau — volumes et appareillage', 30, 46, { bold: true, size: 17 });
+  text('Volume 1 : emprise de la baignoire ou de la douche jusqu’à 2,25 m ; volume 2 : bande de 60 cm autour, arrêtée par les murs ; au-delà, hors volume', 30, 62, { size: 8, color: mute });
+  [['Volume 1', V1, V1f], ['Volume 2', V2, V2f]].forEach(([t, c, f], i) => {
+    const x = UNI.W - 30 - (2 - i) * 120; layer('SCHEMA');
+    ctx.save(); ctx.fillStyle = f; ctx.beginPath(); ctx.rect(x, 36, 20, 10); ctx.fill(); ctx.restore();
+    ctx.save(); ctx.lineWidth = 0.6; ctx.strokeStyle = c; ctx.strokeRect(x, 36, 20, 10); ctx.restore();
+    layer('TEXTES'); text(t, x + 26, 45, { size: 8 });
+  });
+  if (!mine.length) { layer('TEXTES'); text('Aucune douche ni baignoire sur le plan.', 30, 170, { size: 11, color: mute }); }
+  mine.forEach((R, i) => {
+    const px = 30 + i * 575, zx = px, zy = 92, zw = 550, zh = 330;
+    // échelle normalisée (plan en cm, 1 pt = 0,3528 mm) : la plus grande où la pièce tient
+    const bw = R.box.x1 - R.box.x0, bh = R.box.y1 - R.box.y0, fitSc = Math.min(zw / bw, zh / bh);
+    const scale = [20, 25, 50, 75, 100, 200].find((e) => 10 / (0.3528 * e) <= fitSc) || 200, sc = 10 / (0.3528 * scale);
+    const ox = zx + (zw - bw * sc) / 2, oy = zy + (zh - bh * sc) / 2;
+    const T = (x, y) => [ox + (x - R.box.x0) * sc, oy + (y - R.box.y0) * sc];
+    const inBox = (x, y) => x >= R.box.x0 && x <= R.box.x1 && y >= R.box.y0 && y <= R.box.y1;
+    layer('TEXTES');
+    text(`${fit(R.name, 40)} — échelle 1:${scale}`, px, 84, { bold: true, size: 9.5 });
+    layer('SCHEMA');
+    ctx.save(); ctx.lineWidth = 0.8; ctx.strokeStyle = '#c8d0dc'; ctx.strokeRect(zx, zy, zw, zh); ctx.restore();
+    // volumes
+    for (const z of R.zones) {
+      ctx.save(); ctx.fillStyle = V2f; ctx.beginPath();
+      for (const r of z.v2) { const [a, b] = T(r.x, r.y); ctx.rect(a, b, r.w * sc, r.h * sc); }
+      ctx.fill(); ctx.restore();
+      ctx.save(); ctx.fillStyle = V1f; ctx.strokeStyle = V1; ctx.lineWidth = 0.6; ctx.beginPath(); z.v1.forEach((p, j) => { const [a, b] = T(p.x, p.y); if (j) ctx.lineTo(a, b); else ctx.moveTo(a, b); }); ctx.closePath(); ctx.fill(); ctx.stroke(); ctx.restore();
+      const cx = z.v1.reduce((t, p) => t + p.x, 0) / 4, cy = z.v1.reduce((t, p) => t + p.y, 0) / 4, [a, b] = T((z.v1[0].x * 2 + cx) / 3, (z.v1[0].y * 2 + cy) / 3);
+      layer('TEXTES'); text('V1', a, b + 3, { bold: true, size: 9, color: V1, align: 'center' });
+      if (z.v2.length) { const big = z.v2.reduce((m, r) => (r.w * r.h > m.w * m.h ? r : m), z.v2[0]); const [c2, d2] = T(big.x + big.w / 2, big.y + big.h / 2); text('V2', c2, d2 + 3, { bold: true, size: 8, color: V2, align: 'center' }); }
+      layer('SCHEMA');
+    }
+    // murs (découpés à l'emprise), baies
+    const clip = (a, b) => { // Liang-Barsky
+      let t0 = 0, t1 = 1; const dx = b.x - a.x, dy = b.y - a.y;
+      for (const [p, q] of [[-dx, a.x - R.box.x0], [dx, R.box.x1 - a.x], [-dy, a.y - R.box.y0], [dy, R.box.y1 - a.y]]) {
+        if (p === 0) { if (q < 0) return null; continue; }
+        const r = q / p; if (p < 0) { if (r > t1) return null; if (r > t0) t0 = r; } else { if (r < t0) return null; if (r < t1) t1 = r; }
+      }
+      return [{ x: a.x + t0 * dx, y: a.y + t0 * dy }, { x: a.x + t1 * dx, y: a.y + t1 * dy }];
+    };
+    ctx.save(); ctx.strokeStyle = '#1f2733'; ctx.lineWidth = Math.max(1.5, 9 * sc); ctx.lineCap = 'butt';
+    for (const w of wires) {
+      if (w.kind !== 'wall') continue;
+      for (let j = 0; j < w.points.length - 1; j++) { const s = clip(w.points[j], w.points[j + 1]); if (!s) continue; const [a, b] = T(s[0].x, s[0].y), [c2, d2] = T(s[1].x, s[1].y); ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c2, d2); ctx.stroke(); }
+    }
+    ctx.restore();
+    for (const c of components) {
+      if (!(c.type === 'door' || c.type === 'window_a') || !inBox(c.x, c.y)) continue;
+      const ar = ((c.rot || 0) * Math.PI) / 180, hw = OPENING_HALF[c.type] || 40, ux = Math.cos(ar), uy = Math.sin(ar);
+      const [a, b] = T(c.x - ux * hw, c.y - uy * hw), [c2, d2] = T(c.x + ux * hw, c.y + uy * hw);
+      ctx.save(); ctx.strokeStyle = '#ffffff'; ctx.lineWidth = Math.max(1.5, 9 * sc) + 1; ctx.lineCap = 'butt'; ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c2, d2); ctx.stroke(); ctx.restore();
+      ctx.save(); ctx.strokeStyle = ink; ctx.lineWidth = 0.8;
+      if (c.type === 'window_a') { const nx = -uy * 2, ny = ux * 2; ctx.beginPath(); ctx.moveTo(a + nx, b + ny); ctx.lineTo(c2 + nx, d2 + ny); ctx.moveTo(a - nx, b - ny); ctx.lineTo(c2 - nx, d2 - ny); ctx.stroke(); }
+      else { ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.moveTo(a, b); ctx.lineTo(c2, d2); ctx.stroke(); }
+      ctx.restore();
+    }
+    // équipements sanitaires et appareils fixes
+    for (const f of R.fix) {
+      const P = _wetFootprint(f).map((p) => T(p.x, p.y));
+      ctx.save(); ctx.lineWidth = 0.9; ctx.strokeStyle = '#5b6b82'; ctx.beginPath(); P.forEach(([a, b], j) => (j ? ctx.lineTo(a, b) : ctx.moveTo(a, b))); ctx.closePath(); ctx.stroke(); ctx.restore();
+      const [a, b] = T(f.x, f.y); layer('TEXTES'); text(fit(SYMBOLS[f.type].name, 16), a, b + 3, { size: 6.5, color: mute, align: 'center' }); layer('SCHEMA');
+    }
+    // appareils électriques : pastille à la couleur de l'exigence, repère
+    R.devs.forEach((x) => {
+      if (WET_FIX.has(x.c.type)) return;
+      const [a, b] = T(x.c.x, x.c.y), col = x.level === 'err' ? red : x.level === 'warn' ? amber : ok;
+      ctx.save(); ctx.fillStyle = '#ffffff'; ctx.strokeStyle = col; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(a, b, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.restore();
+      layer('TEXTES'); text(x.ref, a + 6, b - 5, { size: 6.8, bold: true, color: col }); layer('SCHEMA');
+    });
+    // tableau des appareils
+    layer('TEXTES');
+    const ty = 440, cols = [px, px + 48, px + 205, px + 250, px + 305, px + 355];
+    ['Repère', 'Appareil', 'Hauteur', 'Distance', 'Volume', 'Exigence'].forEach((h, j) => text(h, cols[j], ty, { bold: true, size: 7.5, color: mute }));
+    layer('SCHEMA'); ctx.save(); ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(px, ty + 4); ctx.lineTo(px + zw, ty + 4); ctx.stroke(); ctx.restore();
+    const rows = R.devs.slice(0, 12);
+    rows.forEach((x, j) => {
+      const y = ty + 17 + j * 12, col = x.level === 'err' ? red : x.level === 'warn' ? amber : ink;
+      layer('TEXTES');
+      text(x.ref, cols[0], y, { size: 7.5, bold: true });
+      text(fit(x.name, 30), cols[1], y, { size: 7.5 });
+      text(`${_bNum(x.h, 2)} m`, cols[2], y, { size: 7.5 });
+      text(x.vol ? '—' : `${x.d} cm`, cols[3], y, { size: 7.5, color: mute });
+      text(x.vol === 1 ? 'V1' : x.vol === 2 ? 'V2' : 'hors', cols[4], y, { size: 7.5, bold: !!x.vol, color: x.vol === 1 ? V1 : x.vol === 2 ? V2 : mute });
+      text(fit(x.req, 38), cols[5], y, { size: 7.5, color: col });
+    });
+    if (R.devs.length > rows.length) text(`+ ${R.devs.length - rows.length} autres appareils hors volume`, px, ty + 17 + rows.length * 12, { size: 7, color: mute });
+    text(R.errors ? `${R.errors} appareil${R.errors > 1 ? 's' : ''} à déplacer hors des volumes 1 et 2` : 'Aucune prise ni commande dans les volumes 1 et 2', px, ty + 32 + (rows.length + (R.devs.length > rows.length ? 1 : 0)) * 12, { bold: true, size: 8.5, color: R.errors ? red : ok });
+  });
+  // règles des volumes
+  layer('TEXTES');
+  const ry = 642, C = [30, 118, 368, 446, 850];
+  text('Règles des volumes — NF C 15-100, § 701', 30, ry, { bold: true, size: 9 });
+  ['Volume', 'Emprise', 'IP mini', 'Autorisé', 'Interdit'].forEach((h, j) => text(h, C[j], ry + 16, { bold: true, size: 7.5, color: mute }));
+  layer('SCHEMA'); ctx.save(); ctx.lineWidth = 0.6; ctx.beginPath(); ctx.moveTo(30, ry + 20); ctx.lineTo(UNI.W - 30, ry + 20); ctx.stroke(); ctx.restore();
+  layer('TEXTES');
+  [['Volume 0', 'intérieur de la baignoire ou du receveur', 'IPX7', 'TBTS 12 V ~ (source hors des volumes 0, 1 et 2)', 'tout autre matériel'],
+    ['Volume 1', 'au-dessus, jusqu’à 2,25 m du fond', 'IPX4', 'TBTS 12 V ~ ; chauffe-eau sous les conditions du § 701', 'prises, commandes, luminaires 230 V'],
+    ['Volume 2', '60 cm autour du volume 1, jusqu’à 2,25 m', 'IPX4', 'luminaires et chauffage de classe II, prise rasoir à transformateur de séparation, TBTS', 'prises 2P+T, interrupteurs'],
+    ['Hors volume', 'au-delà de 60 cm ou au-dessus de 2,25 m', '—', 'prises 2P+T, commandes, tout matériel', '—']].forEach((r, j) => {
+    r.forEach((t, q) => text(t, C[q], ry + 34 + j * 15, { size: 7.5, bold: q === 0, color: q === 4 && t !== '—' ? red : ink }));
+  });
+  text('Tous les circuits de la salle d’eau sont protégés par un dispositif différentiel 30 mA ; liaison équipotentielle supplémentaire : folio « Mise à la terre ». Jets d’eau de nettoyage : IPX5.', 30, UNI.H - 15 - 62 - 22, { size: 7.5, color: mute });
+  ctx.restore();
+}
+function wetRoomSVGs(design, meta, components, wires) {
+  const list = wetRoomsAudit(components, wires), out = [];
+  for (let k = 0; k < wetFolios(list); k++) { const ctx = new SVGContext(); drawWetRooms(ctx, design, meta, list, wires, components, k); out.push(_folioWrap(ctx.out.join(''))); }
+  return out;
+}
+function wetRoomDXF(design, meta, components, wires) {
+  const list = wetRoomsAudit(components, wires), ctx = new DXFContext(), n = wetFolios(list);
+  for (let k = 0; k < n; k++) { ctx.save(); ctx.translate(0, k * (UNI.H + 60)); drawWetRooms(ctx, design, meta, list, wires, components, k); ctx.restore(); }
+  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: n * (UNI.H + 60) }, { U: 1 / 0.3528, insunits: 4, layers: [['SCHEMA', 7], ['TEXTES', 2], ['CARTOUCHE', 8]] });
+}
+
+// ---------------------------------------------------------------------------
 // Dossier technique : les folios A3 dans l'ordre, numérotés à la suite, et
 // leur sommaire (folio 1)
 // ---------------------------------------------------------------------------
@@ -1559,6 +1739,8 @@ function _technicalSeries(design, components, wires) {
   if (hc.length) S.push({ title: 'Chauffage (fil pilote)', what: 'Radiateurs de chaque circuit : phase, neutre, fil pilote, terre', n: heatingFolios(hc), draw: (ctx, m, k) => drawHeating(ctx, design, m, hc, k) });
   const vr = shutterCircuits(design, components);
   if (vr.length) S.push({ title: 'Volets roulants', what: 'Commandes montée / descente et moteurs de chaque circuit', n: shutterFolios(vr), draw: (ctx, m, k) => drawShutters(ctx, design, m, vr, k) });
+  const wetL = hasPlan ? wetRoomsAudit(components, wires) : [];
+  if (wetL.length) S.push({ title: 'Salles d’eau (volumes)', what: 'Volumes 1 et 2 de chaque douche et baignoire, appareillage situé et vérifié', n: wetFolios(wetL), draw: (ctx, m, k) => drawWetRooms(ctx, design, m, wetL, wires, components, k) });
   S.push({ title: 'Mise à la terre', what: 'Prise de terre, barrette, borne principale, PE des circuits, LEP et LES', n: 1, draw: (ctx, m) => drawEarthing(ctx, design, m) });
   if (hasPlan && typeof elevations === 'function') {
     const E = elevations(components, wires);

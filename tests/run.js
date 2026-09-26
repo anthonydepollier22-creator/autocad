@@ -1243,6 +1243,21 @@ r = run(`(function(){
 })()`);
 check('Mise à la terre : folio (borne principale, barrette, prise de terre, PE de chaque circuit et du TD, LEP 10 mm², LES des salles d’eau, RA trop élevée signalée), dossier, métré, DXF', r.parts && r.ids && r.td && r.wet && r.ra && r.lep === 10 && r.set && r.dxf && r.mat, JSON.stringify(r));
 
+// Salles d'eau : volumes 1 et 2, chaque appareil situé ; une prise posée dans le volume 2 est signalée
+r = run(`(function(){
+  var h = buildHouse('t4'), d = designInstallation(h.components, h.wires), L = wetRoomsAudit(h.components, h.wires);
+  var ok0 = L.length >= 1 && L.every(function(R){ return R.errors === 0 && R.zones.length >= 1; });
+  var svg0 = wetRoomSVGs(d, {}, h.components, h.wires).join('');
+  var T = technicalSet(d, {}, h.components, h.wires);
+  var tub = h.components.find(function(c){ return c.type === 'bathtub'; }), b = SYMBOLS.bathtub.bbox;
+  h.components.push({ id: 'pz', type: 'socket_wall', x: tub.x, y: tub.y + (tub.rot === 180 ? -1 : 1) * (b.h / 2 + 30), rot: 0, label: 'PCX' });
+  var L2 = wetRoomsAudit(h.components, h.wires), x = [].concat.apply([], L2.map(function(R){ return R.devs; })).find(function(v){ return v.c.id === 'pz'; });
+  var svg1 = wetRoomSVGs(d, {}, h.components, h.wires).join(''), nf = checkNFC15100(h.components, h.wires);
+  return { ok0: ok0, rooms: L.map(function(R){ return R.name; }).every(function(n){ return svg0.indexOf(n) > 0; }), set: T.entries.some(function(e){ return /Salles d’eau/.test(e.title); }),
+    pz: x ? x.vol + ':' + x.level : null, flag: /à déplacer hors des volumes/.test(svg1), nf: nf.errors > 0, dxf: /EOF\\s*$/.test(wetRoomDXF(d, {}, h.components, h.wires)) };
+})()`);
+check('Salles d’eau : folio des volumes 1 et 2 (plan à l’échelle, appareils situés), prise en volume 2 signalée « à déplacer » et par le contrôle NF, dossier, DXF', r.ok0 && r.rooms && r.set && r.pz === '2:err' && r.flag && r.nf && r.dxf, JSON.stringify(r));
+
 // Nomenclature du matériel : folio A3 du dossier, lignes du métré par catégorie
 r = run(`(function(){
   var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), L = materialList(h.components, h.wires, d), svg = nomenclatureSVGs(d, { title: 'T5' }, h.components, h.wires).join('');
