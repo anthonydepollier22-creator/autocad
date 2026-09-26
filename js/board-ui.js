@@ -137,6 +137,10 @@ function initBoardUI(app) {
 
   function renderPreview(d) {
     $('bd-folios').hidden = true;
+    // vues sans objet : élévations sans plan, communication sans prise RJ45
+    const avail = { elev: hasPlan(), vdi: editor.components.some((c) => c.type === 'rj45') };
+    modal.querySelectorAll('[data-view]').forEach((b) => { b.hidden = avail[b.dataset.view] === false; });
+    if (avail[st.view] === false) st.view = 'uni';
     if (!d || !d.ok) { sheet.innerHTML = '<p class="bd-empty">L’aperçu du schéma unifilaire apparaîtra ici.</p>'; return; }
     let svg = '';
     if (st.view === 'uni') {
