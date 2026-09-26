@@ -266,7 +266,7 @@ function designInstallation(components, wires, board) {
   const design = {
     ok: false, circuits: [], rcds: [], agcp: null, issues: [], area: 0, byDevice: {}, plugs: {},
     installed: 0, probable: 0, cableTotal: 0, panel: null, custom: !!B, orphans: [],
-    supply: { phases: B && B.supply && +B.supply.phases === 3 ? 3 : 1, surge: !!(B && B.supply && B.supply.surge), kva: null, rows: (B && B.supply && +B.supply.rows) || 0, ra: (B && B.supply && +B.supply.ra) || null },
+    supply: { phases: B && B.supply && +B.supply.phases === 3 ? 3 : 1, surge: !!(B && B.supply && B.supply.surge), shed: !!(B && B.supply && B.supply.shed), kva: null, rows: (B && B.supply && +B.supply.rows) || 0, ra: (B && B.supply && +B.supply.ra) || null },
   };
   const tb = components.find((c) => c.type === 'panel_house');
   if (!tb && !B) { design.issues.push({ level: 'err', msg: 'Aucun tableau électrique : place-le (ou lance l’implantation automatique).' }); return design; }
@@ -791,6 +791,18 @@ class InstallSim {
         if (sock && (c.on || s.always)) demand[sock] = (demand[sock] || 0) + loadPower(c);
       } else demand[c.id] = c.on || s.always ? loadPower(c) : 0;
     }
+    // Délesteur : si l'appel dépasse 95 % du réglage de l'AGCP, le chauffage est coupé (fil pilote)
+    let shed = false;
+    if (d.supply && d.supply.shed) {
+      const tri3 = d.supply.phases === 3 ? 3 : 1;
+      const Idem = Object.values(demand).reduce((s, p) => s + p, 0) / U_NOM / tri3;
+      if (Idem > 0.95 * d.agcp.setting) {
+        shed = true;
+        for (const c of components) if (LOADS[c.type] && LOADS[c.type].cls === 'heating' && demand[c.id]) demand[c.id] = 0;
+      }
+      if (shed !== !!this.shedding) this.log(shed ? `Délesteur : ${Math.round(Idem)} A appelés pour ${d.agcp.setting} A — chauffage coupé (fil pilote) le temps de la pointe.` : 'Délesteur : la pointe est passée, le chauffage repart.', shed ? 'warn' : 'info');
+      this.shedding = shed;
+    }
 
     // Courants et tensions par circuit (charges résistives : P ∝ U²)
     const circ = [], dev = {};
@@ -882,7 +894,7 @@ class InstallSim {
     this.energy += (Ptot * dts) / 3600;
     const lit = new Set();
     for (const id in dev) if (dev[id].on && LOADS[comp[id] && comp[id].type] && LOADS[comp[id].type].cls === 'light') lit.add(id);
-    this.snap = { t: this.t, P: Ptot, I: Itot, circuits: circ, devices: dev, lit, energy: this.energy, cost: (this.energy / 1000) * TARIF_KWH, agcpLoad: Ibr / d.agcp.setting, phases: Iph };
+    this.snap = { t: this.t, P: Ptot, I: Itot, circuits: circ, devices: dev, lit, energy: this.energy, shed, cost: (this.energy / 1000) * TARIF_KWH, agcpLoad: Ibr / d.agcp.setting, phases: Iph };
     return this.snap;
   }
 }

@@ -206,6 +206,11 @@ l'éditeur du tableau, **avec ou sans plan** :
   (F pour la borne, A pour la plaque et le lave-linge), il figure à l'unifilaire
   (disjoncteur + tore), sur la face avant, au câblage, au métré, et en simulation un
   défaut d'isolement ne coupe que ce circuit ;
+- **Délesteur** (case du tableau, à côté du parafoudre) : il coupe le chauffage électrique
+  (fil pilote) quand l'appel approche le réglage de l'AGCP ; suggéré quand le chauffage
+  dépasse la moitié de l'abonnement, dessiné à l'unifilaire (circuits pilotés), sur la face
+  avant et au métré ; en simulation, les radiateurs s'arrêtent le temps de la pointe et le
+  disjoncteur de branchement tient ;
 - **Production photovoltaïque** en autoconsommation (« + Circuit » → Photovoltaïque 3 / 6 kWc
   ou 9 kWc triphasé) : circuit de l'onduleur sous son propre disjoncteur différentiel
   30 mA (type A par défaut, à adapter à la notice), chute de tension limitée à 1 %
@@ -768,7 +773,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-190 vérifications sans dépendance : valeurs numériques de chaque simulation
+191 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

@@ -11,7 +11,7 @@ const MAT_PRICES = {
   rowPanel: [0, 38, 62, 88, 118, 150],       // coffret selon le nombre de rangées de 13 modules
   rcd: { AC25: 42, AC40: 46, AC63: 62, A: 78, A63: 95, F: 135, B: 290 },
   breaker: { 2: 9, 6: 9, 10: 8, 16: 8, 20: 8.5, 25: 10, 32: 11.5, 40: 15, 50: 24, 63: 28 },
-  surge: 69, contactor: 22, teleruptor: 18,
+  surge: 69, contactor: 22, teleruptor: 18, shed: 95,
   tri: { rcd: 2.6, breaker3P: 45, surge: 145 }, // triphasé : ID 4P (≈ 2,6 × le prix 2P), disjoncteurs 3P+N
   isolator: { 40: 18, 63: 24, 80: 45, 100: 55 },
   ddr: { AC: 48, A: 68, F: 125, B: 320 },
@@ -71,6 +71,7 @@ function materialList(components, wires, design) {
       const m = tri ? byIn3 : byIn; m[10] = (m[10] || 0) + 1; // son disjoncteur de déconnexion
     }
     for (const In of Object.keys(byIn3).map(Number).sort((a, b) => a - b)) add('Tableau', `Disjoncteur 3P+N ${In} A courbe C`, byIn3[In], 'u', P.tri.breaker3P);
+    if (design.supply && design.supply.shed) add('Tableau', `Délesteur ${Math.min(4, Math.max(1, design.circuits.filter((c) => c.kind === 'heating').length))} voie(s) (fil pilote)`, 1, 'u', P.shed, 'pilote les circuits de chauffage');
     add('Tableau', 'Contacteur jour / nuit 20 A (heures creuses)', design.circuits.filter((c) => c.contactor).length, 'u', P.contactor);
     // un télérupteur par éclairage à poussoirs (pièce à trois commandes ou plus), un au moins par circuit coché
     const tlRooms = typeof lightingControls === 'function' ? lightingControls(design, components, wires).filter((g) => g.kind === 'tl' && !g.generic) : [];

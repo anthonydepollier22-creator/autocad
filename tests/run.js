@@ -1108,6 +1108,23 @@ r = run(`(function(){
 })()`);
 check('Photovoltaïque : onduleur sous disjoncteur différentiel type A, ΔU 1 %, hors puissance probable, deux sources signalées, sectionneur AC au métré', r.pv && r.info && !r.errs && r.prob && r.uni && r.mat, JSON.stringify(r));
 
+// Délesteur : le chauffage (fil pilote) est coupé aux pointes, l'AGCP ne déclenche pas
+r = run(`(function(){
+  var h = buildHouse('t3'), d0 = designInstallation(h.components, h.wires), b = boardFromDesign(d0);
+  b.supply.kva = 9;
+  var dNo = designInstallation(h.components, h.wires, b), sugg = dNo.checks.some(function(c){ return c.level === 'info' && /délesteur/.test(c.msg); });
+  b.supply.shed = true;
+  var d = designInstallation(h.components, h.wires, b);
+  h.components.forEach(function(c){ if (LOADS[c.type] && (LOADS[c.type].cls === 'heating' || LOADS[c.type].cls === 'dedicated')) c.on = true; });
+  var sim = new InstallSim(); sim.setDesign(d);
+  var s = null; for (var k = 0; k < 50; k++) s = sim.step(1, h.components, h.wires);
+  var rads = h.components.filter(function(c){ return c.type === 'radiator'; });
+  var uni = unifilarSVGs(d, {}).join(''), front = boardFrontSVG(d, {}), mat = materialList(h.components, h.wires, d).lines;
+  return { sugg: sugg, shed: s.shed, radsOff: rads.every(function(c){ return !s.devices[c.id].P; }), agcp: sim.agcp.closed, uni: uni.indexOf('Délesteur') > 0 && uni.indexOf('>DL<') > 0,
+    front: front.indexOf('Délest.') > 0, mat: mat.some(function(l){ return /Délesteur/.test(l.name); }), noSugg: !d.checks.some(function(c){ return /délesteur \(fil pilote\) coupe/.test(c.msg); }) };
+})()`);
+check('Délesteur : suggéré quand le chauffage pèse sur l’abonnement ; en simulation il coupe les radiateurs à la pointe et l’AGCP tient ; unifilaire, face avant, métré', r.sugg && r.shed && r.radsOff && r.agcp && r.uni && r.front && r.mat && r.noSugg, JSON.stringify(r));
+
 // Nomenclature du matériel : folio A3 du dossier, lignes du métré par catégorie
 r = run(`(function(){
   var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), L = materialList(h.components, h.wires, d), svg = nomenclatureSVGs(d, { title: 'T5' }, h.components, h.wires).join('');

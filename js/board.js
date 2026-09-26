@@ -87,7 +87,7 @@ function boardCable(S, phase) { return (phase === '3P' ? '5G' : '3G') + _bS(S); 
 function boardFromDesign(design) {
   return {
     v: 1,
-    supply: { kva: design.agcp ? design.agcp.kva : 9, phases: (design.supply && design.supply.phases) || 1, surge: !!(design.supply && design.supply.surge), area: Math.round(design.area || 0), ra: (design.supply && design.supply.ra) || null },
+    supply: { kva: design.agcp ? design.agcp.kva : 9, phases: (design.supply && design.supply.phases) || 1, surge: !!(design.supply && design.supply.surge), shed: !!(design.supply && design.supply.shed), area: Math.round(design.area || 0), ra: (design.supply && design.supply.ra) || null },
     rcds: design.rcds.map((r) => ({ id: r.id, In: r.In, type: r.type, sens: r.sens || 30, panel: r.panel || null })),
     circuits: design.circuits.map((c) => ({
       id: c.id, name: c.name, kind: c.kind, In: c.In, S: c.S, curve: c.curve || 'C', rcd: c.rcd,
@@ -279,6 +279,9 @@ function checkBoard(design) {
   const mods = boardModules(design);
   if (mods.reservePct < 20) push('warn', `Réserve de ${mods.reservePct} % : 20 % de modules libres au moins (prévoir ${mods.rowsCount + 1} rangées).`);
   if (!(design.supply && design.supply.surge)) push('info', 'Parafoudre : obligatoire en zone foudroyée AQ2 ou avec une alimentation aérienne, conseillé ailleurs.');
+  const heatP = cs.filter((c) => c.kind === 'heating').reduce((s, c) => s + (c.power || 0), 0);
+  if (design.supply && design.supply.shed && !heatP) push('warn', 'Délesteur sans circuit de chauffage à piloter.');
+  else if (!(design.supply && design.supply.shed) && design.agcp && heatP >= 0.5 * design.agcp.kva * 1000) push('info', `Chauffage électrique ${_bNum(heatP / 1000, 1)} kW pour ${design.agcp.kva} kVA : un délesteur (fil pilote) coupe le chauffage aux pointes et évite le déclenchement du disjoncteur de branchement.`);
   if (cs.some((c) => c.kind === 'pv')) push('info', 'Production photovoltaïque : étiquette « Attention — présence de deux sources de tension » sur le tableau et au compteur, interrupteur-sectionneur côté alternatif à proximité de l’onduleur, onduleur conforme (découplage).');
   if (!out.some((o) => o.level === 'err' || o.level === 'warn')) push('ok', `Tableau conforme : ${cs.length} circuits, ${rcds.length} différentiels 30 mA, réserve ${mods.reservePct} %.`);
   return out;
@@ -345,7 +348,7 @@ function boardPanelView(design, pid) {
     root: D, panelId: pid, panelOf: P,
     rcds: D.rcds.filter((r) => (r.panel || null) === pid),
     circuits: D.circuits.filter((c) => (c.panel || null) === pid),
-    supply: pid ? Object.assign({}, D.supply, { surge: false, rows: 0 }) : D.supply,
+    supply: pid ? Object.assign({}, D.supply, { surge: false, shed: false, rows: 0 }) : D.supply,
   });
 }
 function boardModules(design, pid) {
@@ -361,6 +364,8 @@ function boardModules(design, pid) {
     items.push({ kind: 'breaker', w: tri ? 4 : 1, ref: 'QF', text: 'Disj. parafoudre', In: 10 });
     items.push({ kind: 'surge', w: tri ? 4 : 2, ref: 'PF', text: 'Parafoudre' });
   }
+  // délesteur : coupe le chauffage (fil pilote) quand la consommation approche le réglage de l'AGCP
+  if (design.supply && design.supply.shed) items.push({ kind: 'shed', w: 2, ref: 'DL', text: 'Délesteur (fil pilote)' });
   // départs vers les tableaux divisionnaires : en tête, sous l'AGCP (comme le parafoudre)
   for (const c of design.circuits.filter((x) => x.kind === 'sub' && !design.rcds.some((r) => r.id === x.rcd))) {
     items.push({ kind: 'breaker', w: c.phase === '3P' ? 4 : 1, ref: c.id, text: c.name, In: c.In, ct: c, phase: design.supply && design.supply.phases === 3 ? c.phase : null, feed: c.panelRef });
@@ -421,7 +426,7 @@ function unifilarLayout(design) {
     groups.push(...V.rcds.map((r) => ({ r, cs: V.circuits.filter((c) => c.rcd === r.id) })).filter((g) => g.cs.length));
     const loose = V.circuits.filter((c) => c.kind !== 'sub' && !c.ddr && !V.rcds.some((r) => r.id === c.rcd));
     if (loose.length) groups.push({ r: null, cs: loose });
-    const start = (local) => (local ? 120 : 180 + (V.supply && V.supply.surge ? 70 : 0));
+    const start = (local) => (local ? 120 : 180 + (V.supply && V.supply.surge ? 70 : 0) + (V.supply && V.supply.shed ? 80 : 0));
     panelFolio[P.id || ''] = folios.length;
     let F = { groups: [], panel: P, view: V, local: 0 };
     folios.push(F);
@@ -612,6 +617,17 @@ function drawUnifilar(ctx, design, meta, folio) {
       _uLine(ctx, px, bus + 78, px - 3, bus + 86, 1); _uLine(ctx, px - 3, bus + 86, px + 3, bus + 86, 1); _uLine(ctx, px + 3, bus + 86, px, bus + 95, 1);
       text('Parafoudre', px + 10, bus + 84, { size: 7.5 }); text('type 2', px + 10, bus + 94, { size: 7.5, color: mute });
       _uLine(ctx, px, bus + 100, px, bus + 112, 1.3); _uEarth(ctx, px, bus + 112);
+    }
+    // Délesteur : mesure du courant sur l'arrivée, ordres fil pilote vers les circuits de chauffage
+    if (design.supply && design.supply.shed) {
+      const px = 150 + (design.supply.surge ? 70 : 0), heat = design.circuits.filter((c) => c.kind === 'heating').map((c) => c.id);
+      _uLine(ctx, px, bus, px, bus + 22, 1.3);
+      ctx.lineWidth = 1.3; ctx.strokeRect(px - 13, bus + 22, 26, 30);
+      text('DL', px, bus + 41, { size: 9, bold: true, align: 'center' });
+      _uLine(ctx, px, bus + 52, px, bus + 62, 1.3); _uEarth(ctx, px, bus + 62); // neutre / terre fonctionnelle
+      text('Délesteur', px + 17, bus + 32, { size: 7.5 }); text('fil pilote', px + 17, bus + 42, { size: 7, color: mute });
+      const lines = []; for (let i = 0; i < heat.length; i += 3) lines.push(heat.slice(i, i + 3).join(', '));
+      (heat.length ? ['→ ' + lines[0]].concat(lines.slice(1)) : ['aucun chauffage']).forEach((l, i) => text(l, px + 17, bus + 52 + i * 10, { size: 7, color: heat.length ? blue : red }));
     }
     // Terre : borne principale et prise de terre
     const ex = 44, ey = 470;
@@ -1332,12 +1348,12 @@ function drawBoardFront(ctx, design, meta) {
     const slots = row.reduce((s, m) => s + m.w, 0);
     for (const m of row) {
       const w = m.w * mw - 0.8;
-      const fill = m.kind === 'rcd' || m.kind === 'ddr' ? '#e8f0fd' : m.kind === 'surge' ? '#fff4e0' : m.kind === 'contactor' || m.kind === 'teleruptor' ? '#eef7ef' : m.kind === 'switch' || m.feed ? '#f4effb' : '#ffffff';
+      const fill = m.kind === 'rcd' || m.kind === 'ddr' ? '#e8f0fd' : m.kind === 'surge' || m.kind === 'shed' ? '#fff4e0' : m.kind === 'contactor' || m.kind === 'teleruptor' ? '#eef7ef' : m.kind === 'switch' || m.feed ? '#f4effb' : '#ffffff';
       box(x + 0.4, y, w, 44, fill, ink, 0.45);
       // manette
       box(x + w / 2 - 2.6 + 0.4, y + 14, 5.2, 12, m.kind === 'rcd' || m.kind === 'ddr' ? blue : '#2b3342', null, 0.2);
       text(m.ref, x + w / 2 + 0.4, y + 6.5, { size: 3, bold: true, color: m.kind === 'rcd' || m.kind === 'ddr' ? blue : ink });
-      const sub = m.kind === 'breaker' ? `C${m.In}${m.phase ? ' · ' + (m.phase === '3P' ? '3P+N' : m.phase) : ''}` : m.kind === 'ddr' ? `C${m.In} · 30 mA ${m.ddr}` : m.kind === 'rcd' ? m.text : m.kind === 'surge' ? 'Type 2' : m.kind === 'switch' ? `${m.In} A` : m.kind === 'contactor' ? 'HC' : 'TL';
+      const sub = m.kind === 'breaker' ? `C${m.In}${m.phase ? ' · ' + (m.phase === '3P' ? '3P+N' : m.phase) : ''}` : m.kind === 'ddr' ? `C${m.In} · 30 mA ${m.ddr}` : m.kind === 'rcd' ? m.text : m.kind === 'surge' ? 'Type 2' : m.kind === 'shed' ? 'Délest.' : m.kind === 'switch' ? `${m.In} A` : m.kind === 'contactor' ? 'HC' : 'TL';
       text(sub, x + w / 2 + 0.4, y + 34, { size: 2.8 });
       if (m.kind === 'rcd' || m.kind === 'ddr') { ctx.beginPath(); ctx.arc(x + w - 4, y + 38.5, 1.6, 0, Math.PI * 2); ctx.strokeStyle = ink; ctx.lineWidth = 0.3; ctx.stroke(); text('T', x + w - 4, y + 39.5, { size: 2 }); }
       // étiquette sous l'appareil
@@ -1519,7 +1535,7 @@ function drawBoardWiring(ctx, design, meta, folio) {
       for (const [, tx] of tt) { dot(tx, yb); dot(tx, yB); }
       layer('TEXTES');
       text(m.ref, p.x + p.w / 2, yb + 15 * sc, { bold: true, size: fs(7), align: 'center', color: m.kind === 'rcd' || m.kind === 'ddr' ? N : ink });
-      const sub = m.kind === 'breaker' || m.kind === 'ddr' ? `C${m.In}` : m.kind === 'rcd' ? `${m.rcd.In} A` : m.kind === 'surge' ? 'type 2' : m.kind === 'contactor' ? 'HC' : 'TL';
+      const sub = m.kind === 'breaker' || m.kind === 'ddr' ? `C${m.In}` : m.kind === 'rcd' ? `${m.rcd.In} A` : m.kind === 'surge' ? 'type 2' : m.kind === 'shed' ? 'délest.' : m.kind === 'contactor' ? 'HC' : 'TL';
       text(sub, p.x + p.w / 2, yb + 27 * sc, { size: fs(6.5), align: 'center' });
       if (m.kind === 'rcd') text(`30 mA ${m.rcd.type}`, p.x + p.w / 2, yb + 39 * sc, { size: fs(6), align: 'center', color: mute });
       else if (m.kind === 'ddr') text(`30 mA ${m.ddr}${tri ? ' · ' + (m.ct.phase === '3P' ? '3P+N' : tt[0][0]) : ''}`, p.x + p.w / 2, yb + 39 * sc, { size: fs(6), align: 'center', color: mute });
