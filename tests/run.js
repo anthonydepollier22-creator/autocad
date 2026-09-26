@@ -1269,6 +1269,16 @@ r = run(`(function(){
 })()`);
 check('Photovoltaïque : schéma de principe (15 modules en 2 chaînes 8 + 7, coffret DC, onduleur, coupure AC, signalisation), dossier, DXF', r.mods && r.parts && r.set && r.none && r.dxf, JSON.stringify(r));
 
+// Borne de recharge (IRVE) : circuit dédié du TD garage, différentiel dédié type F, schéma de principe
+r = run(`(function(){
+  var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d = designInstallation(h.components, h.wires);
+  var L = evCircuits(d), c = L[0], svg = evSVGs(d, {}).join(''), T = technicalSet(d, {}, h.components, h.wires);
+  var b = boardFromDesign(d), none = evSVGs(designInstallation([], [], { circuits: [], rcds: [], supply: b.supply }), {}).join('');
+  return { n: L.length, td: !!c && !!c.panel && svg.indexOf('Tableau divisionnaire ' + c.panelRef) > 0, parts: ['mode 3', 'RDC-DD', 'Pilotage de la recharge', 'installateur qualifié IRVE', c.id].every(function(t){ return svg.indexOf(t) > 0; }),
+    type: /type F/.test(svg), set: T.entries.some(function(e){ return e.title === 'Borne de recharge (IRVE)'; }), none: /Aucune borne de recharge/.test(none), dxf: /EOF\\s*$/.test(evDXF(d, {})) };
+})()`);
+check('Borne de recharge (IRVE) : folio du point de charge (TD du garage, différentiel type F, mode 3, pilotage, règles), dossier, DXF', r.n === 1 && r.td && r.parts && r.type && r.set && r.none && r.dxf, JSON.stringify(r));
+
 // Sommaire : quel que soit le nombre de séries, le tableau et les documents joints restent au-dessus du cartouche
 r = run(`(function(){
   var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data; addShutters(h);

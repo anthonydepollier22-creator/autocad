@@ -1868,6 +1868,123 @@ function pvDXF(design, meta) {
 }
 
 // ---------------------------------------------------------------------------
+// Borne de recharge de véhicule électrique (IRVE, NF C 15-100 § 722) : schéma
+// de principe de chaque point de charge, du tableau au véhicule
+// ---------------------------------------------------------------------------
+function evCircuits(design) { return (design.root || design).circuits.filter((c) => c.appliance === 'ev_charger' || /recharge|irve/i.test(c.name)); }
+function drawEV(ctx, design, meta, list, folio) {
+  const D = design.root || design, k = folio || 0, nF = Math.max(1, list.length), c = list[k];
+  const ink = '#1a2230', mute = '#5b6b82', red = '#b3261e', PE = '#2e9e46';
+  const layer = (n) => { if ('layer' in ctx) ctx.layer = n; };
+  const text = (t, x, y, o) => {
+    o = o || {};
+    ctx.save(); ctx.fillStyle = o.color || ink; ctx.font = `${o.bold ? 'bold ' : ''}${o.size || 8}px sans-serif`;
+    ctx.textAlign = o.align || 'left'; ctx.fillText(t, x, y); ctx.restore();
+  };
+  const line = (pts, col, w, dash) => { ctx.save(); ctx.strokeStyle = col || ink; ctx.lineWidth = w || 1.4; if (dash) ctx.setLineDash(dash); ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); };
+  const lying = (fn, x, y, h, tag) => { ctx.save(); ctx.translate(x, y); ctx.rotate(-Math.PI / 2); ctx.strokeStyle = ink; fn(ctx, 0, 0, h, tag); ctx.restore(); };
+  const box = (x, y, w, h, dash) => { ctx.save(); ctx.lineWidth = 1; ctx.strokeStyle = mute; if (dash) ctx.setLineDash([5, 3]); ctx.strokeRect(x, y, w, h); ctx.restore(); };
+  ctx.save(); ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  layer('CARTOUCHE');
+  _uCartouche(ctx, D, meta, 'Borne de recharge (IRVE) — schéma de principe', k, nF);
+  layer('TEXTES');
+  text('Borne de recharge de véhicule électrique — schéma de principe', 30, 46, { bold: true, size: 17 });
+  text('Un circuit dédié et un différentiel 30 mA par point de charge ; recharge en mode 3 sur borne murale (NF C 15-100, § 722 ; guide UTE C 15-722)', 30, 62, { size: 8, color: mute });
+  if (!c) { text('Aucune borne de recharge dans le tableau (bouton « + Circuit » → Borne de recharge).', 30, 170, { size: 11, color: mute }); ctx.restore(); return; }
+  const tri = c.phase === '3P', kw = (c.power || 0) / 1000, y = 225;
+  const P = c.panel ? (D.panels || []).find((p) => p.id === c.panel) : null;
+  const rc = c.ddr ? { id: c.id, type: c.ddr } : (D.rcds || []).find((r) => r.id === c.rcd);
+  const rType = rc ? rc.type : '—', okType = ['F', 'B'].includes(rType);
+  // réseau, AGCP
+  layer('SCHEMA'); ctx.save(); ctx.lineWidth = 1.2; ctx.strokeRect(40, y - 14, 40, 28); ctx.restore();
+  layer('TEXTES'); text('kWh', 60, y + 3, { size: 8, bold: true, align: 'center' }); text('Compteur', 40, y - 22, { size: 7 });
+  layer('SCHEMA'); line([[80, y], [110, y]]); lying(_uBreaker, 110, y, 40); ctx.save(); ctx.translate(132, y); ctx.rotate(-Math.PI / 2); _uTorus(ctx, 0, 0, -14); ctx.restore();
+  line([[150, y], [230, y]]);
+  layer('TEXTES'); text(`AGCP ${D.agcp ? D.agcp.setting + ' A ' : ''}500 mA`, 104, y - 26, { size: 7 });
+  // tableau : différentiel dédié, disjoncteur, commande (heures creuses, horloge)
+  const tx = 230, ctr = c.contactor;
+  layer('SCHEMA'); box(tx, y - 80, ctr ? 330 : 250, 150);
+  layer('TEXTES'); text(P ? `Tableau divisionnaire ${P.ref}${P.name ? ' — ' + P.name : ''}` : 'Tableau de répartition', tx + 8, y - 66, { bold: true, size: 8.5 });
+  if (P && P.feeder) text(`alimenté en tête du tableau principal : ${P.feeder.id}, ${boardCable(P.feeder.S, P.feeder.phase)}, ${_bNum(P.feeder.length || 0, 1)} m`, tx + 8, y - 55, { size: 6.8, color: mute });
+  layer('SCHEMA');
+  line([[tx, y], [tx + 30, y]]);
+  ctx.save(); ctx.translate(tx + 50, y); ctx.rotate(-Math.PI / 2); _uTorus(ctx, 0, 0, -16); ctx.restore();
+  line([[tx + 30, y], [tx + 90, y]]); lying(_uBreaker, tx + 90, y, 44);
+  let xe = tx + 134;
+  if (ctr) { line([[xe, y], [xe + 20, y]]); lying(_uContactor, xe + 20, y, 44, ctr === 'ih' ? 'IH' : 'HC'); xe += 64; }
+  line([[xe, y], [tx + (ctr ? 330 : 250), y]]);
+  layer('TEXTES');
+  text(`${c.ddr ? 'DDR' : rc ? rc.id : 'ID'} 30 mA`, tx + 30, y + 26, { bold: true, size: 7.5 });
+  text(`type ${rType}`, tx + 30, y + 36, { bold: true, size: 7.5, color: okType ? ink : red });
+  const shared = rc && !c.ddr ? D.circuits.filter((x) => x.rcd === rc.id).length : 1;
+  text(c.ddr ? 'dédié' : shared > 1 ? `${shared} circuits` : 'dédié', tx + 30, y + 46, { size: 6.5, color: shared > 1 ? red : mute });
+  text(c.id, tx + 100, y + 26, { bold: true, size: 7.5 }); text(`${c.curve || 'C'}${c.In} ${tri ? '3P+N' : '1P+N'}`, tx + 100, y + 36, { size: 7.5 });
+  if (ctr) text(ctr === 'ih' ? 'Interrupteur horaire' : 'Contacteur jour / nuit', tx + 150, y - 30, { size: 7 });
+  // câble et borne
+  const bx = ctr ? 700 : 620;
+  const x0 = tx + (ctr ? 330 : 250);
+  layer('TEXTES');
+  text(`${boardCable(c.S, c.phase)} · ${_bNum(c.length || 0, 1)} m`, x0 + 14, y - 8, { size: 7.5 });
+  text(c.dUpct != null ? `ΔU ${_bNum(c.dUpct, 1)} %` : '', x0 + 14, y + 14, { size: 7, color: c.dUpct > (c.limit || 5) ? red : mute });
+  layer('SCHEMA'); line([[x0, y], [bx, y]]);
+  ctx.save(); ctx.lineWidth = 1.4; ctx.strokeRect(bx, y - 60, 90, 120); ctx.restore();
+  ctx.save(); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(bx + 45, y + 20, 16, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); // socle type 2
+  for (const [dx, dy] of [[-7, -5], [7, -5], [0, 6], [-8, 7], [8, 7]]) { ctx.save(); ctx.beginPath(); ctx.arc(bx + 45 + dx, y + 20 + dy, 2.2, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); }
+  ctx.save(); ctx.lineWidth = 1; ctx.strokeRect(bx + 14, y - 48, 62, 22); ctx.restore();
+  line([[bx + 45, y + 60], [bx + 45, y + 86]], PE, 1.2); _uEarth(ctx, bx + 45, y + 86);
+  layer('TEXTES');
+  text(`Borne ${_bNum(kw, 1)} kW`, bx, y - 70, { bold: true, size: 9 });
+  text('mode 3', bx + 45, y - 39, { size: 7, align: 'center' }); text('RDC-DD 6 mA', bx + 45, y - 30, { size: 6.5, align: 'center', color: mute });
+  text('socle type 2', bx + 45, y + 50, { size: 6.5, align: 'center', color: mute });
+  // câble de recharge et véhicule
+  const vx = bx + 170;
+  layer('SCHEMA');
+  line([[bx + 90, y + 20], [bx + 120, y + 20], [bx + 130, y + 36], [vx, y + 36]], ink, 2.2);
+  ctx.save(); ctx.lineWidth = 1.3; ctx.beginPath();
+  ctx.moveTo(vx, y + 50); ctx.lineTo(vx, y + 20); ctx.lineTo(vx + 40, y + 20); ctx.lineTo(vx + 70, y - 4); ctx.lineTo(vx + 140, y - 4); ctx.lineTo(vx + 170, y + 20); ctx.lineTo(vx + 200, y + 24); ctx.lineTo(vx + 200, y + 50); ctx.closePath(); ctx.stroke();
+  for (const wx of [vx + 45, vx + 160]) { ctx.beginPath(); ctx.arc(wx, y + 52, 14, 0, Math.PI * 2); ctx.stroke(); }
+  ctx.restore();
+  layer('TEXTES'); text('Véhicule électrique', vx + 100, y - 14, { size: 8, align: 'center' }); text('câble type 2', bx + 96, y + 12, { size: 6.5, color: mute });
+  // pilotage
+  const py = 400;
+  layer('SCHEMA'); box(tx, py, 330, 58, true);
+  line([[tx + 330, py + 28], [bx + 20, py + 28], [bx + 20, y + 60]], mute, 1, [4, 3]);
+  layer('TEXTES');
+  text('Pilotage de la recharge', tx + 10, py + 17, { bold: true, size: 8 });
+  text(ctr === 'hc' ? 'contacteur heures creuses (signal du compteur)' : ctr === 'ih' ? 'interrupteur horaire (plages programmées)' : 'heures creuses, programmation de la borne ou gestionnaire', tx + 10, py + 31, { size: 7 });
+  text('d’énergie (délestage si l’appel approche le réglage de l’AGCP)', tx + 10, py + 42, { size: 7, color: mute });
+  // règles et vérifications
+  const ky = 490;
+  layer('SCHEMA'); box(30, ky, 560, 138); box(610, ky, 550, 138);
+  layer('TEXTES');
+  text('Règles', 42, ky + 18, { bold: true, size: 9 });
+  ['Un circuit dédié par point de charge, sans autre récepteur',
+    'Différentiel 30 mA par point de charge : type B, ou type A / F si la borne',
+    '    détecte le courant de défaut continu de 6 mA (RDC-DD, voir la notice)',
+    `Section adaptée au courant de charge continu : ${boardCable(c.S, c.phase)} pour ${c.curve || 'C'}${c.In}`,
+    'Borne de plus de 3,7 kW : installateur qualifié IRVE (décret n° 2017-26)',
+    'Parafoudre conseillé ; borne fixée, socle protégé des chocs'].forEach((t, i) => text((t.startsWith(' ') ? '' : '— ') + t.trim(), t.startsWith(' ') ? 52 : 42, ky + 38 + i * 16, { size: 7.5 }));
+  text('Vérifications', 622, ky + 18, { bold: true, size: 9 });
+  [`Type du différentiel : ${rType}${okType ? '' : ' — type F, A-EV ou B conseillé'}`,
+    `Chute de tension : ${c.dUpct != null ? _bNum(c.dUpct, 1) + ' %' : 'à calculer'}`,
+    'Continuité du conducteur de protection jusqu’à la borne',
+    shared > 1 ? `Différentiel ${rc.id} partagé : un différentiel dédié à la borne est requis` : 'Déclenchement du différentiel au test de la borne',
+    'Puissance de l’abonnement : recharge en heures creuses ou pilotée',
+    'Essai de charge complet avec le véhicule'].forEach((t, i) => text('☐ ' + t, 622, ky + 38 + i * 16, { size: 7.5, color: (i === 0 && !okType) || (i === 3 && shared > 1) ? red : ink }));
+  ctx.restore();
+}
+function evSVGs(design, meta) {
+  const list = evCircuits(design), out = [];
+  for (let k = 0; k < Math.max(1, list.length); k++) { const ctx = new SVGContext(); drawEV(ctx, design, meta, list, k); out.push(_folioWrap(ctx.out.join(''))); }
+  return out;
+}
+function evDXF(design, meta) {
+  const list = evCircuits(design), ctx = new DXFContext(), n = Math.max(1, list.length);
+  for (let k = 0; k < n; k++) { ctx.save(); ctx.translate(0, k * (UNI.H + 60)); drawEV(ctx, design, meta, list, k); ctx.restore(); }
+  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: n * (UNI.H + 60) }, { U: 1 / 0.3528, insunits: 4, layers: [['SCHEMA', 7], ['TEXTES', 2], ['CARTOUCHE', 8]] });
+}
+
+// ---------------------------------------------------------------------------
 // Dossier technique : les folios A3 dans l'ordre, numérotés à la suite, et
 // leur sommaire (folio 1)
 // ---------------------------------------------------------------------------
@@ -1893,6 +2010,8 @@ function _technicalSeries(design, components, wires) {
   if (vr.length) S.push({ title: 'Volets roulants', what: 'Commandes montée / descente et moteurs de chaque circuit', n: shutterFolios(vr), draw: (ctx, m, k) => drawShutters(ctx, design, m, vr, k) });
   const pvL = pvCircuits(design);
   if (pvL.length) S.push({ title: 'Photovoltaïque', what: 'Champ de modules, coffret DC, onduleur, coupures, protection au tableau', n: pvL.length, draw: (ctx, m, k) => drawPV(ctx, design, m, pvL, k) });
+  const evL = evCircuits(design);
+  if (evL.length) S.push({ title: 'Borne de recharge (IRVE)', what: 'Circuit dédié, différentiel, commande, borne mode 3, pilotage', n: evL.length, draw: (ctx, m, k) => drawEV(ctx, design, m, evL, k) });
   const wetL = hasPlan ? wetRoomsAudit(components, wires) : [];
   if (wetL.length) S.push({ title: 'Salles d’eau (volumes)', what: 'Volumes 1 et 2 de chaque douche et baignoire, appareillage situé et vérifié', n: wetFolios(wetL), draw: (ctx, m, k) => drawWetRooms(ctx, design, m, wetL, wires, components, k) });
   S.push({ title: 'Mise à la terre', what: 'Prise de terre, barrette, borne principale, PE des circuits, LEP et LES', n: 1, draw: (ctx, m) => drawEarthing(ctx, design, m) });

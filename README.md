@@ -292,6 +292,12 @@ l'éditeur du tableau, **avec ou sans plan** :
   près de l'onduleur, câble et ΔU côté alternatif, disjoncteur et différentiel au
   tableau, AGCP et compteur ; équipotentialité du champ, signalisation (deux sources,
   courant continu), vérifications ; export SVG et DXF ;
+- **Borne de recharge (IRVE)** (folio A3 par point de charge, vue « Borne IRVE ») :
+  compteur, AGCP, tableau (principal ou divisionnaire du garage, avec sa ligne),
+  différentiel 30 mA dédié et son type, disjoncteur, contacteur heures creuses ou
+  interrupteur horaire, câble et ΔU, borne mode 3 (socle type 2, détection 6 mA DC),
+  véhicule ; pilotage de la recharge, règles (circuit et différentiel dédiés,
+  installateur qualifié au-delà de 3,7 kW) et vérifications ; export SVG et DXF ;
 - **Salles d'eau — volumes** (folios A3, vue « Salles d'eau », NF C 15-100 § 701) :
   chaque local avec douche ou baignoire redessiné à l'échelle normalisée (1:20, 1:25,
   1:50…), volumes 1 et 2 teintés, chaque appareil situé (hauteur, distance au volume 1,
@@ -821,7 +827,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-204 vérifications sans dépendance : valeurs numériques de chaque simulation
+205 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
