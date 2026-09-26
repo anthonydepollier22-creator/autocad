@@ -1286,24 +1286,49 @@ function addShutters(doc) {
     const nw = nearestWall(doc.wires, win.x, win.y, 30);
     if (!nw) continue;
     // côté intérieur : la pièce de vie derrière la fenêtre
-    let side = null;
+    let side = null, room = -1;
     for (const sd of [1, -1]) {
       const r = roomAt(info, win.x + nw.nx * sd * 40, win.y + nw.ny * sd * 40);
-      if (r >= 0 && info.rooms[r].type && SHUTTER_ROOMS.has(info.rooms[r].type.key)) { side = sd; break; }
+      if (r >= 0 && info.rooms[r].type && SHUTTER_ROOMS.has(info.rooms[r].type.key)) { side = sd; room = r; break; }
     }
     if (side === null) continue;
     const nx = nw.nx * side, ny = nw.ny * side, L = Math.hypot(nw.b.x - nw.a.x, nw.b.y - nw.a.y);
     _addComp(doc, 'shutter', win.x + nx * 15, win.y + ny * 15, win.rot || 0);
     // commande à 70 cm de l'axe de la fenêtre (sinon 100 cm, de l'autre côté), à l'écart des autres appareils muraux
     const at = (t) => ({ x: nw.a.x + nw.ux * t + nx * 20, y: nw.a.y + nw.uy * t + ny * 20 });
-    // ni contre un autre appareil mural, ni derrière un meuble haut ou encombrant (meuble TV, armoire…)
-    const hides = doc.components.filter((c) => (FURN[c.type] && FURN[c.type].tall) || (BLOCKS_OUTLET.has(c.type) && c.type !== 'radiator'));
-    const free = (p) => !doc.components.some((c) => (STUD_BOXED.has(c.type) || c.type === 'radiator') && Math.hypot(c.x - p.x, c.y - p.y) < 35) &&
-      !hides.some((c) => _inPoly(_footprint(c, 12), p.x, p.y)) &&
-      !doc.components.some((c) => OPENING_HALF[c.type] && c.type !== 'window_a' && Math.hypot(c.x - p.x, c.y - p.y) < OPENING_HALF[c.type] + 30);
+    // ni contre un autre appareil mural, ni derrière un meuble haut (meuble TV, armoire, réfrigérateur…),
+    // ni dans le volume 2 d'une douche ou d'une baignoire (60 cm autour)
+    const hides = doc.components.filter((c) => FURN[c.type] && FURN[c.type].tall);
+    const wet = doc.components.filter((c) => c.type === 'shower' || c.type === 'bathtub');
+    const free = (p, near) => !doc.components.some((c) => (STUD_BOXED.has(c.type) || c.type === 'radiator') && Math.hypot(c.x - p.x, c.y - p.y) < (near || 35)) &&
+      !hides.some((c) => _inPoly(_footprint(c, 12), p.x, p.y)) && !wet.some((c) => _distToFootprint(p.x, p.y, c) < WET_V2 + 5) &&
+      !doc.components.some((c) => OPENING_HALF[c.type] && c.type !== 'window_a' && Math.hypot(c.x - p.x, c.y - p.y) < OPENING_HALF[c.type] + (near ? 10 : 30));
     const cand = [70, -70, 100, -100, 130, -130].map((d) => nw.t + d).filter((tt) => tt >= 15 && tt <= L - 15);
-    const t = cand.find((tt) => free(at(tt))) !== undefined ? cand.find((tt) => free(at(tt))) : cand[0]; // à défaut : la première place sur le mur
-    if (t !== undefined) { const p = at(t); _addDevice(ctx, 'switch_shutter', p.x, p.y, _rotDevice(nx, ny)); }
+    const t = cand.find((tt) => free(at(tt)));
+    let p = t !== undefined ? at(t) : null, rot = _rotDevice(nx, ny);
+    if (!p) { // mur de la fenêtre encombré : à côté de la commande d'éclairage de la pièce (entrée)
+      for (const ls of doc.components.filter((c) => (c.type === 'switch_sa' || c.type === 'switch_vv_wall') && roomAt(info, c.x, c.y) === room)) {
+        const w2 = nearestWall(doc.wires, ls.x, ls.y, 40);
+        if (!w2) continue;
+        const L2 = Math.hypot(w2.b.x - w2.a.x, w2.b.y - w2.a.y);
+        const tt = [25, -25, 40, -40].map((d) => w2.t + d).find((x) => x >= 15 && x <= L2 - 15 && free({ x: w2.a.x + w2.ux * x + w2.nx * w2.d, y: w2.a.y + w2.uy * x + w2.ny * w2.d }, 18));
+        if (tt !== undefined) { p = { x: w2.a.x + w2.ux * tt + w2.nx * w2.d, y: w2.a.y + w2.uy * tt + w2.ny * w2.d }; rot = ls.rot || 0; break; }
+      }
+    }
+    if (!p) { // sinon à côté d'une porte de la pièce, côté pièce
+      for (const dr of doc.components.filter((c) => c.type === 'door')) {
+        // la baie coupe le mur : direction du mur d'après la rotation de la porte
+        const ar = ((dr.rot || 0) * Math.PI) / 180, ux = Math.cos(ar), uy = Math.sin(ar), h = OPENING_HALF.door;
+        const sd = [1, -1].find((k) => roomAt(info, dr.x - uy * k * 40, dr.y + ux * k * 40) === room);
+        if (sd === undefined) continue;
+        const pt = (d) => ({ x: dr.x + ux * d - uy * sd * 20, y: dr.y + uy * d + ux * sd * 20 });
+        const onWall = (q) => { const w = nearestWall(doc.wires, q.x, q.y, 26); return w && Math.abs(w.ux * ux + w.uy * uy) > 0.9; };
+        const d = [h + 15, -h - 15, h + 35, -h - 35].find((x) => onWall(pt(x)) && free(pt(x), 18));
+        if (d !== undefined) { p = pt(d); rot = _rotDevice(-uy * sd, ux * sd); break; }
+      }
+    }
+    if (!p && cand.length) p = at(cand[0]); // à défaut : la première place sur le mur
+    if (p) _addDevice(ctx, 'switch_shutter', p.x, p.y, rot);
     n++;
   }
   if (n && doc.wires.some((w) => w.kind === 'conduit')) autoConduits(doc);

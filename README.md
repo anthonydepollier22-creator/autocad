@@ -279,11 +279,20 @@ l'éditeur du tableau, **avec ou sans plan** :
   jamais relié à la terre, isolé en l'absence de gestionnaire ; export SVG et DXF ;
 - **Volets roulants** (folios A3) : bouton « Volets » de l'onglet Tableau, un moteur
   au coffre de chaque fenêtre (chambres, séjour, cuisine, bureau, salle d'eau) et sa
-  commande montée-descente à 1,10 m à côté (décalée hors montant sur placo) ; circuit
+  commande montée-descente à 1,10 m à côté (décalée hors montant sur placo, jamais
+  derrière un meuble haut ni dans le volume 2, sinon près de la porte) ; circuit
   « Volets roulants » 16 A en 1,5 mm², 10 moteurs au plus ; le folio dessine le
   disjoncteur puis chaque inverseur et son moteur (phase, neutre, montée, descente,
   terre), colonne de suite au-delà de six ; métré (moteurs, inverseurs), 3D (coffre,
   tablier baissé quand le moteur tourne), élévations ; export SVG et DXF ;
+- **Mise à la terre** (folio A3, vue « Terre ») : schéma TT de la prise de terre (boucle
+  à fond de fouille, cuivre nu 25 mm²) à la barrette de coupure et à la borne principale
+  de terre (conducteur de terre 16 mm²), répartiteur de terre de chaque tableau et
+  conducteur de protection de chaque circuit groupé par section, PE des lignes vers les
+  tableaux divisionnaires, liaison équipotentielle principale (eau, gaz, chauffage,
+  structure ; ½ du PE principal, 6 mm² au moins) et supplémentaire de chaque salle
+  d'eau (4 mm², 2,5 mm² sous conduit), valeur de RA saisie comparée aux 100 Ω de
+  l'AGCP 500 mA, liste des vérifications ; métré (LEP, LES) ; export SVG et DXF ;
 - **Élévations des murs** (folios A3), pièce par pièce : chaque mur vu depuis la
   pièce (nord, est, sud, ouest), portes, fenêtres et plan de travail, chaque appareil
   mural à sa **hauteur de pose** (cotée en cm) et à sa distance de l'angle gauche,
@@ -798,7 +807,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-199 vérifications sans dépendance : valeurs numériques de chaque simulation
+201 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

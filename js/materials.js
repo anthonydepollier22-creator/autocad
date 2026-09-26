@@ -21,6 +21,7 @@ const MAT_PRICES = {
   link: { 10: 2.9, 16: 4.4, 25: 6.8 }, // conducteur de liaison AGCP → tableau, €/m
   earthBar: 14,         // bornier de terre / répartiteur
   earthKit: 48,         // piquet de terre, câble 16 mm², barrette de coupure
+  lep: 32, les: 16,     // liaisons équipotentielles : principale (10 mm², colliers), supplémentaire d'une salle d'eau (4 mm², colliers)
   cable: { 1.5: 0.82, 2.5: 1.18, 4: 2.1, 6: 3.25, 10: 5.6, 16: 8.9 }, // gaine ICTA préfilée 3G…, €/m
   conduit: 4.6,         // goulotte / plinthe technique, €/m
   socket: 4.9, switchSa: 5.2, switchVv: 6.4, push: 5.9, dcl: 3.6, rj45: 12.5, cableOut32: 9.5, cableOut20: 6.5, smoke: 19.9,
@@ -103,6 +104,11 @@ function materialList(components, wires, design) {
       add('Tableau', `Bornier de terre (${T.ref})`, 1, 'u', P.earthBar);
     }
     add('Tableau', 'Prise de terre : piquet, câble 16 mm², barrette', 1, 'lot', P.earthKit);
+    if (typeof earthLepS === 'function') {
+      add('Tableau', `Liaison équipotentielle principale : conducteur ${earthLepS()} mm² vert-jaune, colliers`, 1, 'lot', P.lep, 'eau, gaz, chauffage, structure');
+      const wet = earthWetRooms(design);
+      if (wet.length) add('Tableau', 'Liaison équipotentielle supplémentaire : conducteur 4 mm² vert-jaune, colliers', wet.length, 'lot', P.les, wet.map((w) => w.name).join(', '));
+    }
 
     // --- Câbles et conduits : longueurs des circuits + 10 % de chutes --------
     const bySection = {};

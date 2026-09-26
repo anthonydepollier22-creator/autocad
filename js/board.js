@@ -1366,6 +1366,176 @@ function shutterDXF(design, meta, components) {
 }
 
 // ---------------------------------------------------------------------------
+// Mise à la terre (schéma TT) : prise de terre, barrette de coupure, borne
+// principale, conducteurs de protection de chaque circuit (par section), liaison
+// équipotentielle principale (LEP) et supplémentaire des salles d'eau (LES)
+// ---------------------------------------------------------------------------
+const EARTH_S = { earth: 16, bare: 25, main: 16, les: 4, lesConduit: 2.5 };
+// LEP : la moitié du conducteur principal de protection, 6 mm² au moins (section normalisée)
+function earthLepS() { return [6, 10, 16, 25].find((x) => x >= Math.max(6, EARTH_S.main / 2)); }
+// Salles d'eau desservies (d'après les pièces des circuits) et leurs circuits
+function earthWetRooms(design) {
+  const D = design.root || design, re = /salle d.?eau|salle de bain|\bsdb\b|douche/i, out = [];
+  for (const c of D.circuits) {
+    if (c.kind === 'sub') continue;
+    for (const r of String(c.rooms || '').split(', ')) {
+      if (!r || !re.test(r)) continue;
+      let o = out.find((x) => x.name === r);
+      if (!o) out.push((o = { name: r, circuits: [] }));
+      o.circuits.push(c.id);
+    }
+  }
+  return out;
+}
+// Conducteurs de protection d'un tableau, regroupés par section
+function _earthGroups(circuits) {
+  const G = {};
+  for (const c of circuits) if (c.kind !== 'sub') (G[c.S] = G[c.S] || []).push(c.id);
+  return Object.keys(G).map(Number).sort((a, b) => a - b).map((S) => ({ S, ids: G[S] }));
+}
+function drawEarthing(ctx, design, meta) {
+  const D = design.root || design, ink = '#1a2230', mute = '#5b6b82', PE = '#2e9e46', VJ = '#e8c21a', CU = '#b87333', red = '#b3261e';
+  const isDxf = !!ctx.ents, layer = (n) => { if ('layer' in ctx) ctx.layer = n; };
+  const text = (t, x, y, o) => {
+    o = o || {};
+    ctx.save(); ctx.fillStyle = o.color || ink; ctx.font = `${o.bold ? 'bold ' : ''}${o.size || 8}px sans-serif`;
+    ctx.textAlign = o.align || 'left'; ctx.fillText(t, x, y); ctx.restore();
+  };
+  const path = (color, pts, w, dash) => { ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = w || 1.3; if (dash) ctx.setLineDash(dash); ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); };
+  // conducteur vert-jaune : vert, rayé de jaune (trait simple en DXF)
+  const vj = (pts, w) => { path(PE, pts, w || 1.8); if (!isDxf) path(VJ, pts, (w || 1.8) * 0.5, [4, 5]); };
+  const dot = (x, y, c) => { ctx.save(); ctx.fillStyle = c || PE; ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
+  const clamp = (x, y) => { ctx.save(); ctx.strokeStyle = ink; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); };
+  const bar = (x, y, w, n) => { // répartiteur / borne : barrette percée
+    ctx.save(); ctx.strokeStyle = ink; ctx.lineWidth = 1.2; ctx.strokeRect(x, y, w, 12);
+    for (let i = 0; i < n; i++) { ctx.beginPath(); ctx.arc(x + (w / n) * (i + 0.5), y + 6, 2, 0, Math.PI * 2); ctx.stroke(); }
+    ctx.restore();
+  };
+  const fitIds = (ids, per) => { const L = []; for (let i = 0; i < ids.length; i += per) L.push(ids.slice(i, i + per).join(', ')); return L; };
+  const N = calcNote(D), lep = earthLepS();
+  ctx.save(); ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  layer('CARTOUCHE');
+  _uCartouche(ctx, D, meta, 'Mise à la terre et liaisons équipotentielles', 0, 1);
+  layer('TEXTES');
+  text('Mise à la terre et liaisons équipotentielles', 30, 46, { bold: true, size: 17 });
+  text('Schéma TT : prise de terre, borne principale, conducteur de protection de chaque circuit, liaisons équipotentielles principale et supplémentaire', 30, 62, { size: 8, color: mute });
+  [['Conducteur de protection vert-jaune', null], ['Cuivre nu (prise de terre)', CU]].forEach(([t, c], i) => {
+    const x = UNI.W - 30 - (2 - i) * 190; layer('SCHEMA'); if (c) path(c, [[x, 42], [x + 20, 42]], 2); else vj([[x, 42], [x + 20, 42]], 2); layer('TEXTES'); text(t, x + 25, 45, { size: 8 });
+  });
+  // --- Colonne gauche : borne principale, conducteur de terre, barrette, prise de terre
+  const ex = 120, by = 140;
+  layer('SCHEMA'); bar(ex - 40, by, 80, 6);
+  layer('TEXTES'); text('Borne principale de terre', ex + 8, by + 30, { bold: true, size: 8 }); text('dans la GTL', ex + 8, by + 40, { size: 7, color: mute });
+  layer('SCHEMA'); vj([[ex, by + 12], [ex, 240]]);
+  layer('TEXTES'); text('Conducteur de terre', ex + 8, 208, { size: 7.5 }); text(`${EARTH_S.earth} mm² Cu isolé`, ex + 8, 218, { size: 7, color: mute });
+  layer('SCHEMA'); // barrette de coupure : deux bornes et la lame démontable
+  ctx.save(); ctx.lineWidth = 1.1; ctx.strokeRect(ex - 9, 240, 18, 8); ctx.strokeRect(ex - 9, 258, 18, 8); ctx.strokeRect(ex - 4, 244, 8, 18); ctx.restore(); clamp(ex, 253);
+  layer('TEXTES'); text('Barrette de coupure', ex + 16, 250, { bold: true, size: 8 }); text('mesure de RA, démontable à l’outil', ex + 16, 260, { size: 7, color: mute });
+  layer('SCHEMA'); vj([[ex, 266], [ex, 330]]);
+  path(ink, [[40, 322], [260, 322]], 1.2); // niveau du sol
+  for (let x = 44; x < 260; x += 10) path(ink, [[x, 322], [x - 6, 330]], 0.6);
+  path(CU, [[ex, 330], [ex, 352]], 2);
+  ctx.save(); ctx.strokeStyle = CU; ctx.lineWidth = 2; ctx.strokeRect(45, 352, 210, 22); ctx.restore(); // boucle à fond de fouille
+  _uEarth(ctx, 255, 374);
+  layer('TEXTES');
+  text('Prise de terre : boucle à fond de fouille', 40, 398, { bold: true, size: 8 });
+  text(`cuivre nu ${EARTH_S.bare} mm² sous les fondations (à défaut : piquet de terre)`, 40, 409, { size: 7, color: mute });
+  const raOk = N.ra ? N.ra <= N.raMax : null;
+  text(N.ra ? `RA mesurée : ${_bNum(N.ra)} Ω — ${raOk ? 'conforme' : 'trop élevée'}` : `RA à mesurer : ${N.raMax} Ω au plus`, 40, 428, { bold: true, size: 8.5, color: raOk === false ? red : ink });
+  text(`RA × 0,5 A ≤ 50 V (AGCP ${D.agcp ? D.agcp.setting + ' A ' : ''}500 mA)`, 40, 439, { size: 7, color: mute });
+  // sections des conducteurs de protection
+  const sy = 470;
+  layer('SCHEMA'); ctx.save(); ctx.lineWidth = 1; ctx.strokeRect(30, sy, 250, 132); ctx.restore();
+  layer('TEXTES'); text('Sections (cuivre)', 40, sy + 16, { bold: true, size: 8.5 });
+  [['Conducteur de terre', `${EARTH_S.earth} mm² isolé (${EARTH_S.bare} nu)`], ['Conducteur principal de protection', `${EARTH_S.main} mm²`],
+    ['LEP (½ PE principal, 6 mm² au moins)', `${lep} mm²`], ['LES des salles d’eau', `${EARTH_S.les} mm² (${_bS(EARTH_S.lesConduit)} sous conduit)`],
+    ['PE de chaque circuit', 'section des phases'], ['PE d’un tableau divisionnaire', 'section de sa ligne']].forEach(([a, b], i) => {
+    text(a, 40, sy + 34 + i * 16, { size: 7.5 }); text(b, 272, sy + 34 + i * 16, { size: 7.5, color: mute, align: 'right' });
+  });
+  // --- Colonne centrale : répartiteur du tableau principal et PE des circuits
+  const rx = 330, rw = 460, ry = 144, panels = D.panels || [];
+  const mainCs = D.circuits.filter((c) => !c.panel), feeds = panels.map((p) => p.feeder).filter(Boolean);
+  layer('SCHEMA'); vj([[ex + 40, by + 6], [rx, by + 6]]);
+  layer('TEXTES'); text(`PE principal ${EARTH_S.main} mm²`, ex + 50, by + 1, { size: 7, color: mute });
+  const rEnd = rx + rw + Math.max(0, feeds.length - 1) * 8 + (feeds.length ? 10 : 0);
+  layer('SCHEMA'); bar(rx, ry, rEnd - rx, Math.round((rEnd - rx) / 24));
+  layer('TEXTES'); text('Répartiteur de terre — tableau principal', rx, ry - 8, { bold: true, size: 8.5 });
+  const groups = (list, x0, w, y0, per, colMax) => {
+    const G = _earthGroups(list), cw = Math.min(colMax, w / Math.max(1, G.length));
+    G.forEach((g, i) => {
+      const gx = x0 + i * cw, L = fitIds(g.ids, per), h = 22 + L.length * 10;
+      layer('SCHEMA'); vj([[gx + 10, y0 - 22], [gx + 10, y0]], 1.4); dot(gx + 10, y0 - 22);
+      ctx.save(); ctx.lineWidth = 0.9; ctx.strokeRect(gx, y0, cw - 12, h); ctx.restore();
+      layer('TEXTES'); text(`PE ${_bS(g.S)} mm²`, gx + 5, y0 + 12, { bold: true, size: 7.5 });
+      L.forEach((l, j) => text(l, gx + 5, y0 + 23 + j * 10, { size: 7, color: mute }));
+    });
+    return G.length;
+  };
+  groups(mainCs, rx, rw, ry + 34, 4, 115);
+  // tableaux divisionnaires : PE de la ligne d'alimentation jusqu'à leur répartiteur
+  const tdY = 372, lesY = panels.length ? 540 : 380;
+  panels.slice(0, 2).forEach((P, j) => {
+    const f = P.feeder, tx = rx + j * 240, xv = rx + rw + j * 8, yh = 346 + j * 6;
+    layer('SCHEMA'); vj([[xv, ry + 12], [xv, yh], [tx + 110, yh], [tx + 110, tdY]], 1.5); dot(xv, ry + 12);
+    bar(tx, tdY, 220, 9);
+    layer('TEXTES');
+    const nm = `${P.ref} · ${P.name || ''}`; text(nm.length > 22 ? nm.slice(0, 21) + '…' : nm, tx, tdY - 6, { bold: true, size: 8 });
+    text(`PE ${_bS(f.S)} mm² · ${f.id}${f.length ? ', ' + _bNum(f.length, 0) + ' m' : ''}`, tx + 116, yh + 10 + (j ? 0 : 0), { size: 7, color: mute });
+    groups(D.circuits.filter((c) => c.panel === P.id), tx, 220, tdY + 34, 3, 80);
+  });
+  if (panels.length > 2) { layer('TEXTES'); text(`+ ${panels.length - 2} tableau${panels.length > 3 ? 'x' : ''} divisionnaire${panels.length > 3 ? 's' : ''} (même principe)`, rx + 490, tdY + 8, { size: 7, color: mute }); }
+  // salles d'eau : liaison équipotentielle supplémentaire
+  const wet = earthWetRooms(D);
+  layer('TEXTES'); text('Liaison équipotentielle supplémentaire (LES) — salles d’eau', rx, lesY, { bold: true, size: 8.5 });
+  if (!wet.length) text('Aucune salle d’eau repérée : une LES relie, dans chaque local contenant une baignoire ou une douche, les éléments conducteurs au PE.', rx, lesY + 16, { size: 7.5, color: mute });
+  wet.slice(0, 3).forEach((w, i) => {
+    const lx = rx + i * 160, ly = lesY + 12, bx = lx + 14;
+    layer('SCHEMA'); ctx.save(); ctx.lineWidth = 0.9; ctx.setLineDash([4, 3]); ctx.strokeRect(lx, ly, 150, 128); ctx.restore();
+    vj([[bx, ly + 36], [bx, ly + 112]], 1.4);
+    layer('TEXTES'); text(w.name.length > 26 ? w.name.slice(0, 25) + '…' : w.name, lx + 6, ly + 14, { bold: true, size: 8 });
+    text(`PE des circuits ${w.circuits.slice(0, 4).join(', ')}${w.circuits.length > 4 ? '…' : ''}`, lx + 6, ly + 26, { size: 6.8, color: mute });
+    ['Canalisations d’eau métalliques', 'Évacuations métalliques', 'Baignoire, receveur métallique', 'Huisseries, bâti métallique'].forEach((t, k) => {
+      const yy = ly + 44 + k * 22;
+      layer('SCHEMA'); vj([[bx, yy], [bx + 16, yy]], 1.2); dot(bx, yy); clamp(bx + 20, yy);
+      layer('TEXTES'); text(t, bx + 28, yy + 3, { size: 7 });
+    });
+    layer('SCHEMA'); dot(bx, ly + 36);
+  });
+  if (wet.length > 3) { layer('TEXTES'); text(`+ ${wet.length - 3} autre${wet.length > 4 ? 's' : ''}`, rx + 480, lesY + 20, { size: 7, color: mute }); }
+  // --- Colonne droite : liaison équipotentielle principale
+  const lx = 870, ly0 = 96;
+  layer('SCHEMA'); vj([[ex + 25, by], [ex + 25, ly0], [lx, ly0], [lx, 300]]);
+  layer('TEXTES'); text(`Liaison équipotentielle principale (LEP) ${lep} mm² Cu`, rx, ly0 - 5, { size: 7.5, color: mute });
+  [['Canalisation d’eau', 'à l’entrée du bâtiment'], ['Canalisation de gaz', 'métallique, après le compteur'], ['Chauffage central', 'canalisations métalliques'], ['Éléments métalliques', 'de la construction (charpente…)']].forEach(([a, b], i) => {
+    const y = 136 + i * 54;
+    layer('SCHEMA'); vj([[lx, y], [lx + 34, y]], 1.4); dot(lx, y);
+    path(mute, [[lx + 38, y - 5], [lx + 110, y - 5]], 1); path(mute, [[lx + 38, y + 5], [lx + 110, y + 5]], 1); clamp(lx + 38, y);
+    layer('TEXTES'); text(a, lx + 118, y - 1, { bold: true, size: 7.5 }); text(b, lx + 118, y + 9, { size: 7, color: mute });
+  });
+  // vérifications
+  const vy = 360;
+  layer('SCHEMA'); ctx.save(); ctx.lineWidth = 1; ctx.strokeRect(850, vy, 310, 238); ctx.restore();
+  layer('TEXTES'); text('À vérifier avant la mise sous tension', 862, vy + 18, { bold: true, size: 8.5 });
+  let yy = vy + 38;
+  [[`Valeur de RA mesurée à la barrette (${N.raMax} Ω au plus)`], ['Continuité de chaque conducteur de protection', 'jusqu’à la borne principale de terre'],
+    ['Prises 2P+T, luminaires de classe I et masses', 'métalliques reliés au PE'], ['LEP : eau, gaz, chauffage, structure raccordés'],
+    ['LES réalisée dans chaque salle d’eau'], ['Aucun appareil de coupure sur le PE'],
+    ['Vert-jaune réservé aux conducteurs de protection'], ['Barrette de coupure accessible']].forEach((L) => {
+    layer('SCHEMA'); ctx.save(); ctx.lineWidth = 0.9; ctx.strokeRect(862, yy - 7, 8, 8); ctx.restore();
+    layer('TEXTES'); L.forEach((t, k) => text(t, 878, yy + k * 11, { size: 7.5 }));
+    yy += 11 * L.length + 12;
+  });
+  layer('TEXTES');
+  text('Schéma TT : l’AGCP 500 mA protège contre les contacts indirects (RA ≤ 100 Ω) ; les interrupteurs différentiels 30 mA assurent la protection complémentaire des circuits. Conducteur de protection jamais coupé, jamais commun à deux logements.', 30, UNI.H - 15 - 62 - 22, { size: 7.5, color: mute });
+  ctx.restore();
+}
+function earthingSVG(design, meta) { const ctx = new SVGContext(); drawEarthing(ctx, design, meta); return _folioWrap(ctx.out.join('')); }
+function earthingDXF(design, meta) {
+  const ctx = new DXFContext(); drawEarthing(ctx, design, meta);
+  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: UNI.H }, { U: 1 / 0.3528, insunits: 4, layers: [['SCHEMA', 7], ['TEXTES', 2], ['CARTOUCHE', 8]] });
+}
+
+// ---------------------------------------------------------------------------
 // Dossier technique : les folios A3 dans l'ordre, numérotés à la suite, et
 // leur sommaire (folio 1)
 // ---------------------------------------------------------------------------
@@ -1389,6 +1559,7 @@ function _technicalSeries(design, components, wires) {
   if (hc.length) S.push({ title: 'Chauffage (fil pilote)', what: 'Radiateurs de chaque circuit : phase, neutre, fil pilote, terre', n: heatingFolios(hc), draw: (ctx, m, k) => drawHeating(ctx, design, m, hc, k) });
   const vr = shutterCircuits(design, components);
   if (vr.length) S.push({ title: 'Volets roulants', what: 'Commandes montée / descente et moteurs de chaque circuit', n: shutterFolios(vr), draw: (ctx, m, k) => drawShutters(ctx, design, m, vr, k) });
+  S.push({ title: 'Mise à la terre', what: 'Prise de terre, barrette, borne principale, PE des circuits, LEP et LES', n: 1, draw: (ctx, m) => drawEarthing(ctx, design, m) });
   if (hasPlan && typeof elevations === 'function') {
     const E = elevations(components, wires);
     S.push({ title: 'Élévations des murs', what: 'Hauteurs de pose de l’appareillage, pièce par pièce', n: elevLayout(E).length, draw: (ctx, m, k) => drawElevations(ctx, design, m, E, k) });

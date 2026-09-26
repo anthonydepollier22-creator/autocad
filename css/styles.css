@@ -982,6 +982,7 @@ body.light .day-sec { --dc7: #4a3aa7; }
 .bd-badge.on, .board-info .bd-badge { background: var(--accent-soft); color: var(--accent); }
 .bd-supply { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; padding: 10px 12px; margin-bottom: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
 .bd-supply label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-weight: 600; }
+.bd-supply input[data-sf="ra"] { width: 84px; }
 .bd-agcp { margin-left: auto; color: var(--muted); font-size: 12px; }
 .bd-edit select, .bd-edit input[type="number"], .bd-edit input:not([type]) {
   font: inherit; font-size: 12px; color: var(--text); background: var(--surface-2);

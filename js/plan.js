@@ -443,7 +443,7 @@ function checkNFC15100(components, wires) {
     // Salle d'eau : pas de prise ni d'interrupteur à moins de 60 cm d'une douche ou baignoire
     const wet = components.filter((c) => c.type === 'shower' || c.type === 'bathtub');
     for (const c of components) {
-      if (c.type !== 'socket_wall' && !NF_SWITCHES.has(c.type)) continue;
+      if (c.type !== 'socket_wall' && !NF_SWITCHES.has(c.type) && c.type !== 'switch_shutter' && c.type !== 'push_button') continue;
       const r = roomAt(info, c.x, c.y);
       const w = wet.find((b) => roomAt(info, b.x, b.y) === r && _distToFootprint(c.x, c.y, b) < 60);
       if (w) push('err', `${c.label || 'Appareillage'} dans le volume 2 (à moins de 60 cm de la ${w.type === 'shower' ? 'douche' : 'baignoire'}).`, c.id);

@@ -1212,6 +1212,37 @@ r = run(`(function(){
 })()`);
 check('Volets roulants : moteur à chaque fenêtre des pièces de vie et sa commande, circuit 16 A 1,5 mm², folio des commandes, métré, élévations, NF sans remarque', r.n >= 8 && r.again === 0 && r.circ && r.pairs && !r.orphans && r.svg && r.mat && r.nf && r.set && r.elev, JSON.stringify(r));
 
+// Commande de volet : jamais derrière un meuble haut (meuble TV, armoire…) ni dans le passage d'une porte
+r = run(`(function(){
+  var bad = [];
+  ['t3', 't4', 't5'].forEach(function(k){
+    var h = buildHouse(k); addShutters(h);
+    var hides = h.components.filter(function(c){ return FURN[c.type] && FURN[c.type].tall; }), wet = h.components.filter(function(c){ return c.type === 'shower' || c.type === 'bathtub'; });
+    h.components.filter(function(c){ return c.type === 'switch_shutter'; }).forEach(function(sw){
+      if (hides.some(function(c){ return _inPoly(_footprint(c, 12), sw.x, sw.y); })) bad.push(k + ':' + sw.label + ' meuble');
+      if (wet.some(function(c){ return _distToFootprint(sw.x, sw.y, c) < 60; })) bad.push(k + ':' + sw.label + ' volume 2');
+      if (h.components.some(function(c){ return c.type === 'door' && Math.hypot(c.x - sw.x, c.y - sw.y) < 50; })) bad.push(k + ':' + sw.label + ' porte');
+    });
+  });
+  return { bad: bad };
+})()`);
+check('Volets : commande toujours dégagée (ni derrière un meuble haut, ni dans une porte, ni dans le volume 2) sur les maisons T3, T4, T5', r.bad.length === 0, JSON.stringify(r));
+
+// Mise à la terre : prise de terre, barrette, borne principale, PE par section, TD, LEP, LES des salles d'eau
+r = run(`(function(){
+  var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d0 = designInstallation(h.components, h.wires), b = boardFromDesign(d0);
+  b.supply.ra = 150;
+  var d = designInstallation(h.components, h.wires, b), svg = earthingSVG(d, {}), wet = earthWetRooms(d), mat = materialList(h.components, h.wires, d).lines;
+  var T = technicalSet(d, {}, h.components, h.wires), ids = d.circuits.filter(function(c){ return c.kind !== 'sub'; }).map(function(c){ return c.id; });
+  var txt = svg.replace(/<[^>]+>/g, ' ');
+  return { parts: ['Borne principale de terre', 'Barrette de coupure', 'boucle à fond de fouille', 'Répartiteur de terre', 'LEP', 'LES'].every(function(t){ return svg.indexOf(t) > 0; }),
+    ids: ids.every(function(id){ return new RegExp('\\\\b' + id + '\\\\b').test(txt); }), td: d.panels.every(function(p){ return svg.indexOf(p.ref + ' · ') > 0; }),
+    wet: wet.length >= 1 && wet.every(function(w){ return svg.indexOf(w.name) > 0; }), ra: svg.indexOf('trop élevée') > 0, lep: earthLepS(),
+    set: T.entries.some(function(e){ return e.title === 'Mise à la terre'; }), dxf: /EOF\\s*$/.test(earthingDXF(d, {})),
+    mat: mat.some(function(l){ return /équipotentielle principale/.test(l.name); }) && mat.some(function(l){ return /équipotentielle supplémentaire/.test(l.name) && l.qty === wet.length; }) };
+})()`);
+check('Mise à la terre : folio (borne principale, barrette, prise de terre, PE de chaque circuit et du TD, LEP 10 mm², LES des salles d’eau, RA trop élevée signalée), dossier, métré, DXF', r.parts && r.ids && r.td && r.wet && r.ra && r.lep === 10 && r.set && r.dxf && r.mat, JSON.stringify(r));
+
 // Nomenclature du matériel : folio A3 du dossier, lignes du métré par catégorie
 r = run(`(function(){
   var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), L = materialList(h.components, h.wires, d), svg = nomenclatureSVGs(d, { title: 'T5' }, h.components, h.wires).join('');
