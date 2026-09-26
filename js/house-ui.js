@@ -1411,7 +1411,10 @@ function initHouseUI(app) {
       v3.wallA = null;
       if (L < 30) { showToast('Cloison trop courte (30 cm au moins).'); return; }
       editor.wires.push({ id: editor.uid(), kind: 'wall', points: [{ x: A.x, y: A.y }, { x: B.x, y: B.y }], mat: 'placo' });
-      implantChanged(`Cloison <b>placo 72/48</b> de ${(L / 100).toFixed(2).replace('.', ',')} m. Si elle ferme une nouvelle pièce, nomme-la (onglet Norme → Étiqueter).`);
+      // espace fermé par la cloison : étiquette « Pièce » à renommer (Chambre, Bureau…)
+      const fresh = typeof unlabeledRooms === 'function' ? unlabeledRooms(editor.components, editor.wires) : [];
+      for (const r of fresh) editor.components.push({ id: editor.uid(), type: 'room', x: Math.round(r.x), y: Math.round(r.y), rot: 0, label: editor.nextRef('room'), value: 'Pièce' });
+      implantChanged(`Cloison <b>placo 72/48</b> de ${(L / 100).toFixed(2).replace('.', ',')} m.` + (fresh.length ? ` Nouvelle pièce de ${fresh.map((r) => r.area.toFixed(1).replace('.', ',')).join(' et ')} m² : renomme son étiquette « Pièce » dans le plan (Chambre, Bureau…).` : ''));
       return;
     }
     if (k === 'door') { // porte : ouverture de 80 cm dans le mur visé, battant côté pièce
