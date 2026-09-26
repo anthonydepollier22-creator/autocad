@@ -862,6 +862,96 @@ function calcNoteCSV(design) {
 }
 
 // ---------------------------------------------------------------------------
+// Nomenclature du matériel (folios A3) : les lignes du métré (materials.js),
+// par catégorie, numérotées ; la catégorie reprise en tête de folio
+// ---------------------------------------------------------------------------
+const NOMEN_ROWS = 44;
+function _nomenPages(list) {
+  const rows = [];
+  let cat = null, n = 0;
+  for (const l of list.lines) {
+    if (l.cat !== cat) { cat = l.cat; rows.push({ cat: cat === 'Équipements' ? 'Équipements (facultatifs)' : cat }); }
+    rows.push({ l, n: ++n, cat: cat === 'Équipements' ? 'Équipements (facultatifs)' : cat });
+  }
+  const pages = [];
+  for (let i = 0; i < rows.length;) {
+    const page = [];
+    if (!rows[i].l) { page.push(rows[i]); i++; } else page.push({ cat: rows[i].cat + ' (suite)' });
+    while (page.length < NOMEN_ROWS && i < rows.length) {
+      if (!rows[i].l && page.length > NOMEN_ROWS - 3) break; // pas de catégorie orpheline en bas de folio
+      page.push(rows[i]); i++;
+    }
+    pages.push(page);
+  }
+  return pages.length ? pages : [[]];
+}
+function nomenclatureFolios(list) { return _nomenPages(list).length; }
+function drawNomenclature(ctx, design, meta, list, folio) {
+  const pages = _nomenPages(list), k = Math.min(folio || 0, pages.length - 1), rows = pages[k], nF = pages.length;
+  const ink = '#1a2230', mute = '#5b6b82';
+  const layer = (n) => { if ('layer' in ctx) ctx.layer = n; };
+  const text = (t, x, y, o) => {
+    o = o || {};
+    ctx.save(); ctx.fillStyle = o.color || ink; ctx.font = `${o.bold ? 'bold ' : ''}${o.size || 8.5}px sans-serif`;
+    ctx.textAlign = o.align || 'left'; ctx.fillText(t, x, y); ctx.restore();
+  };
+  const fit = (t, n) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
+  ctx.save(); ctx.strokeStyle = ink;
+  layer('CARTOUCHE');
+  _uCartouche(ctx, design, meta, 'Nomenclature du matériel', k, nF);
+  layer('TEXTES');
+  text('Nomenclature du matériel', 30, 46, { bold: true, size: 17 });
+  text('Quantités tirées du plan et du tableau : longueurs de câble mesurées + 10 % de chutes, une boîte d’encastrement par appareil selon le mur (placo, doublage, maçonnerie).', 262, 45, { size: 8, color: mute });
+  const tx0 = 30, tx1 = UNI.W - 30, ty = 62, hh = 20, rh = 14.8;
+  const cols = [['N°', 40, true], ['Désignation', 560], ['Quantité', 76, true], ['Unité', 50], ['Remarque', tx1 - tx0 - 40 - 560 - 76 - 50]];
+  const y1 = ty + hh + rows.length * rh;
+  if (!('layer' in ctx)) { // fonds (SVG seulement)
+    ctx.fillStyle = '#e8eef6'; ctx.beginPath(); ctx.rect(tx0, ty, tx1 - tx0, hh); ctx.fill();
+    ctx.fillStyle = '#f1f4f9';
+    rows.forEach((r, i) => { if (!r.l) { ctx.beginPath(); ctx.rect(tx0, ty + hh + i * rh, tx1 - tx0, rh); ctx.fill(); } });
+  }
+  layer('CARTOUCHE');
+  _uLine(ctx, tx0, ty, tx1, ty, 1.1); _uLine(ctx, tx0, ty + hh, tx1, ty + hh, 1); _uLine(ctx, tx0, y1, tx1, y1, 1.1);
+  for (let i = 1; i < rows.length; i++) _uLine(ctx, tx0, ty + hh + i * rh, tx1, ty + hh + i * rh, 0.4);
+  let x = tx0;
+  for (const c of cols) { _uLine(ctx, x, ty, x, y1, x === tx0 ? 1.1 : 0.5); x += c[1]; }
+  _uLine(ctx, tx1, ty, tx1, y1, 1.1);
+  layer('TEXTES');
+  x = tx0;
+  const xs = cols.map((c) => { const x0 = x; x += c[1]; return x0; });
+  cols.forEach(([lab, w, right], i) => text(lab, right ? xs[i] + w - 5 : xs[i] + 5, ty + 13.5, { bold: true, size: 8, align: right ? 'right' : 'left' }));
+  rows.forEach((r, i) => {
+    const y = ty + hh + i * rh + 10.5;
+    if (!r.l) { text(r.cat, xs[1] + 5, y, { bold: true, size: 8.5 }); return; }
+    const q = Number(r.l.qty).toLocaleString('fr-FR', { maximumFractionDigits: 2 });
+    text(String(r.n), xs[0] + cols[0][1] - 5, y, { size: 8, align: 'right', color: mute });
+    text(fit(r.l.name, 118), xs[1] + 5, y, { size: 8.5 });
+    text(q, xs[2] + cols[2][1] - 5, y, { size: 8.5, bold: true, align: 'right' });
+    text(r.l.unit, xs[3] + 5, y, { size: 8.5 });
+    text(fit(r.l.note || '', 84), xs[4] + 5, y, { size: 7.5, color: mute });
+  });
+  if (k === nF - 1) {
+    const n = list.lines.length, eq = list.lines.filter((l) => l.cat === 'Équipements').length;
+    text(`${n} article${n > 1 ? 's' : ''}${eq ? `, dont ${eq} équipement${eq > 1 ? 's' : ''} facultatif${eq > 1 ? 's' : ''} (souvent achetés à part)` : ''}. Références commerciales et prix : à choisir chez le fournisseur (prix indicatifs dans l’onglet Métré).`, tx0, Math.min(y1 + 20, UNI.H - 90), { size: 8.5, color: mute });
+  } else text(`Suite folio ${(meta && meta.sheets ? meta.sheet + k + 1 : k + 2)} →`, tx1, Math.min(y1 + 20, UNI.H - 90), { size: 8, color: mute, align: 'right' });
+  ctx.restore();
+}
+function nomenclatureSVGs(design, meta, components, wires) {
+  const list = materialList(components, wires, design), out = [];
+  for (let k = 0; k < nomenclatureFolios(list); k++) {
+    const ctx = new SVGContext();
+    drawNomenclature(ctx, design, meta, list, k);
+    out.push(_folioWrap(ctx.out.join('')));
+  }
+  return out;
+}
+function nomenclatureDXF(design, meta, components, wires) {
+  const list = materialList(components, wires, design), ctx = new DXFContext(), n = nomenclatureFolios(list);
+  for (let k = 0; k < n; k++) { ctx.save(); ctx.translate(0, k * (UNI.H + 60)); drawNomenclature(ctx, design, meta, list, k); ctx.restore(); }
+  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: n * (UNI.H + 60) }, { U: 1 / 0.3528, insunits: 4, layers: [['TEXTES', 7], ['CARTOUCHE', 8]] });
+}
+
+// ---------------------------------------------------------------------------
 // Schémas développés des commandes d'éclairage : pour chaque pièce, entre la
 // phase et le neutre, les commandes (simple allumage, va-et-vient, télérupteur
 // et ses poussoirs) et les points lumineux, conducteurs en couleur.
@@ -1056,6 +1146,10 @@ function _technicalSeries(design, components, wires) {
   if (rj && typeof vdiDesign === 'function') {
     const V = vdiDesign(components, wires);
     S.push({ title: 'Communication (VDI)', what: 'Coffret grade 2TV, câblage en étoile catégorie 6', n: vdiFolios(V), draw: (ctx, m, k) => drawVDI(ctx, design, m, V, k) });
+  }
+  if (typeof materialList === 'function') {
+    const L = materialList(components, wires, design);
+    S.push({ title: 'Nomenclature du matériel', what: 'Tableau, câbles et conduits, appareillage, communication : quantités', n: nomenclatureFolios(L), draw: (ctx, m, k) => drawNomenclature(ctx, design, m, L, k) });
   }
   // numérotation continue : sommaire au folio 1
   let sheet = 2;

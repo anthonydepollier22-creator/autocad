@@ -261,8 +261,9 @@ l'éditeur du tableau, **avec ou sans plan** :
 - **Exports** : SVG, **DXF** (en millimètres, calques UNIFILAIRE / TEXTES / CARTOUCHE,
   validé par ezdxf) et **Dossier technique · PDF** : le **dossier technique** A3 — sommaire,
   plan d'implantation (légende, repères de circuits), **plan de câblage** (cheminement
-  de chaque circuit dans les goulottes, à sa couleur), unifilaire, câblage, note de calcul, schémas développés, élévations et
-  communication, **numérotés à la suite** (folio 3 / 11) — suivi de la face avant et
+  de chaque circuit dans les goulottes, à sa couleur), unifilaire, câblage, note de calcul, schémas développés, élévations,
+  communication et **nomenclature du matériel** (les quantités du métré par catégorie,
+  sans les prix), **numérotés à la suite** (folio 3 / 11) — suivi de la face avant et
   des étiquettes A4 — et **Dossier DXF** : tous ces folios côte à côte dans un seul
   fichier pour AutoCAD (millimètres, cartouches numérotés) ; le
   dossier du projet et le métré (coffret, parafoudre, contacteurs, ID 63 A…) suivent.
@@ -746,7 +747,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-183 vérifications sans dépendance : valeurs numériques de chaque simulation
+184 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

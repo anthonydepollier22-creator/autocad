@@ -1029,6 +1029,19 @@ r = run(`(function(){
 })()`);
 check('Dossier technique : sommaire (folio 1), plan d’implantation, plan de câblage (un tracé par circuit), unifilaire, câblage, note, développés, élévations, communication numérotés à la suite', r.n === r.total && r.seq && r.cover && r.plan && r.last, r.nums.join(' '));
 
+// Nomenclature du matériel : folio A3 du dossier, lignes du métré par catégorie
+r = run(`(function(){
+  var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), L = materialList(h.components, h.wires, d), svg = nomenclatureSVGs(d, { title: 'T5' }, h.components, h.wires).join('');
+  var T = technicalSet(d, { title: 'T5' }, h.components, h.wires), last = T.entries[T.entries.length - 1];
+  var esc = function(t){ return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+  var all = L.lines.every(function(l){ return svg.indexOf(esc(l.name.length > 118 ? l.name.slice(0, 117) : l.name)) > 0; });
+  var fake = { lines: [] }; for (var i = 0; i < 100; i++) fake.lines.push({ cat: i < 70 ? 'Tableau' : 'Appareillage', name: 'Article ' + i, qty: 1, unit: 'u', note: '' });
+  var pages = _nomenPages(fake), rows = pages.reduce(function(s, p){ return s + p.filter(function(r){ return r.l; }).length; }, 0);
+  return { last: last.title === 'Nomenclature du matériel' && last.to === T.total, all: all, cats: ['Tableau', 'Câbles et conduits', 'Appareillage', 'Communication'].every(function(c){ return svg.indexOf('>' + c + '<') > 0; }),
+    pag: pages.length === 3 && rows === 100 && pages[1][0].cat === 'Tableau (suite)' && pages.every(function(p){ return p.length <= NOMEN_ROWS; }), dxf: /EOF\\s*$/.test(nomenclatureDXF(d, {}, h.components, h.wires)) };
+})()`);
+check('Nomenclature du matériel : dernier folio du dossier, chaque ligne du métré par catégorie, pagination avec catégorie reprise ; DXF', r.last && r.all && r.cats && r.pag && r.dxf, JSON.stringify(r));
+
 // Dossier technique en un seul DXF
 r = run(`(function(){
   var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), T = technicalSet(d, { title: 'T5' }, h.components, h.wires), dxf = technicalDXF(d, { title: 'T5' }, h.components, h.wires);
