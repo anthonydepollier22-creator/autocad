@@ -9,12 +9,12 @@
 
 const MAT_PRICES = {
   rowPanel: [0, 38, 62, 88, 118, 150],       // coffret selon le nombre de rangées de 13 modules
-  rcd: { AC25: 42, AC40: 46, AC63: 62, A: 78, A63: 95, F: 135, B: 290 },
+  rcd: { AC25: 42, AC40: 46, AC63: 62, A: 78, A63: 95, 'A-SI': 98, F: 135, B: 290 },
   breaker: { 2: 9, 6: 9, 10: 8, 16: 8, 20: 8.5, 25: 10, 32: 11.5, 40: 15, 50: 24, 63: 28 },
   surge: 69, contactor: 22, teleruptor: 18, shed: 95, timer: 34,
   tri: { rcd: 2.6, breaker3P: 45, surge: 145 }, // triphasé : ID 4P (≈ 2,6 × le prix 2P), disjoncteurs 3P+N
   isolator: { 40: 18, 63: 24, 80: 45, 100: 55 },
-  ddr: { AC: 48, A: 68, F: 125, B: 320 },
+  ddr: { AC: 48, A: 68, 'A-SI': 88, F: 125, B: 320 },
   pvIsolator: 38, pvLabel: 6, tpc: 2.2, mesh: 0.6, // fourreau TPC rouge Ø 63, grillage avertisseur (€/m) // interrupteur-sectionneur AC près de l'onduleur, étiquettes « deux sources »  // disjoncteur différentiel 1P+N 30 mA (3P+N : × 2,5) // interrupteur-sectionneur de tête d'un tableau divisionnaire (2P)
   comb: 8.5,            // peigne d'alimentation, par rangée
   link: { 10: 2.9, 16: 4.4, 25: 6.8 }, // conducteur de liaison AGCP → tableau, €/m
@@ -55,10 +55,10 @@ function materialList(components, wires, design) {
     }
     const rcdName = {
       AC25: 'Interrupteur différentiel 25 A 30 mA type AC', AC40: 'Interrupteur différentiel 40 A 30 mA type AC', AC63: 'Interrupteur différentiel 63 A 30 mA type AC',
-      A: 'Interrupteur différentiel 40 A 30 mA type A', A63: 'Interrupteur différentiel 63 A 30 mA type A', F: 'Interrupteur différentiel 40 A 30 mA type F', B: 'Interrupteur différentiel 40 A 30 mA type B',
+      A: 'Interrupteur différentiel 40 A 30 mA type A', A63: 'Interrupteur différentiel 63 A 30 mA type A', 'A-SI': 'Interrupteur différentiel 40 A 30 mA type A-SI (haute immunité)', F: 'Interrupteur différentiel 40 A 30 mA type F', B: 'Interrupteur différentiel 40 A 30 mA type B',
     };
     const tri = design.supply && design.supply.phases === 3;
-    for (const k of ['AC25', 'AC40', 'AC63', 'A', 'A63', 'F', 'B']) add('Tableau', rcdName[k].replace('différentiel', tri ? 'différentiel 4P' : 'différentiel'), rcdKind[k], 'u', tri ? Math.round(P.rcd[k] * P.tri.rcd) : P.rcd[k]);
+    for (const k of ['AC25', 'AC40', 'AC63', 'A', 'A63', 'A-SI', 'F', 'B']) add('Tableau', rcdName[k].replace('différentiel', tri ? 'différentiel 4P' : 'différentiel'), rcdKind[k], 'u', tri ? Math.round(P.rcd[k] * P.tri.rcd) : P.rcd[k]);
     const byIn = {}, byIn3 = {};
     const ddr = {}; // disjoncteurs différentiels : un appareil par circuit, compté à part
     for (const c of design.circuits) {

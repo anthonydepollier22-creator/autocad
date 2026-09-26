@@ -1158,6 +1158,20 @@ r = run(`(function(){
 })()`);
 check('Liaison enterrée : câble R2V (pas d’ICTA), fourreau TPC rouge et grillage avertisseur au métré, mention à l’unifilaire, profondeur rappelée', r.tpc && r.mesh && r.r2v && r.icta && r.uni && r.info, JSON.stringify(r));
 
+// Différentiel type A-SI (haute immunité) pour le congélateur
+r = run(`(function(){
+  var b = boardTemplate(80), fz = boardAddCircuit(b, 'freezer');
+  var d1 = designInstallation([], [], b), info1 = d1.checks.some(function(c){ return c.ref === fz.id && /A-SI/.test(c.msg); });
+  var r = { id: boardNextId(b, 'ID'), In: 40, type: 'A-SI', sens: 30 }; b.rcds.push(r); fz.rcd = r.id;
+  var d2 = designInstallation([], [], b), info2 = d2.checks.some(function(c){ return c.ref === fz.id && /A-SI/.test(c.msg); });
+  var mat = materialList([], [], d2).lines;
+  // la plaque de cuisson accepte un A-SI (c'est un type A)
+  var ck = b.circuits.find(function(c){ return c.appliance === 'cooktop'; }); ck.rcd = r.id;
+  var d3 = designInstallation([], [], b);
+  return { info1: info1, info2: !info2, mat: mat.some(function(l){ return /type A-SI \\(haute immunité\\)/.test(l.name) && l.qty === 1; }), ck: !d3.checks.some(function(c){ return c.ref === ck.id && c.level === 'err'; }) };
+})()`);
+check('Différentiel type A-SI : conseillé pour le congélateur, accepté comme type A, compté au métré', r.info1 && r.info2 && r.mat && r.ck, JSON.stringify(r));
+
 // Nomenclature du matériel : folio A3 du dossier, lignes du métré par catégorie
 r = run(`(function(){
   var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), L = materialList(h.components, h.wires, d), svg = nomenclatureSVGs(d, { title: 'T5' }, h.components, h.wires).join('');

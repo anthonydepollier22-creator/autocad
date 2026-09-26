@@ -392,7 +392,7 @@ function designInstallation(components, wires, board) {
         manual: !list.length, lengthIn: +bc.length || 0, Pin: +bc.P || 0, appliance: bc.appliance || null,
         typeA: !!bc.typeA, typeF: !!bc.typeF, contactor: bc.contactor || null, teleruptor: !!bc.teleruptor, rcd: bc.rcd || null,
         // disjoncteur différentiel 30 mA propre au circuit (en tête, sous l'AGCP) : type AC, A, F ou B
-        ddr: !bc.rcd && bc.kind !== 'sub' && ['AC', 'A', 'F', 'B'].includes(bc.ddr) ? bc.ddr : null,
+        ddr: !bc.rcd && bc.kind !== 'sub' && ['AC', 'A', 'A-SI', 'F', 'B'].includes(bc.ddr) ? bc.ddr : null,
         buried: !!bc.buried, // liaison enterrée (garage, annexe, extérieur) : R2V sous fourreau TPC
         phase: ['L1', 'L2', 'L3', '3P'].includes(bc.phase) ? bc.phase : null,
       });

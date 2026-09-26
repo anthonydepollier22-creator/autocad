@@ -21,7 +21,8 @@ const BOARD_IN = [2, 6, 10, 16, 20, 25, 32, 40, 50, 63];
 const BOARD_S = [1.5, 2.5, 4, 6, 10, 16];
 const BOARD_S_MAX_IN = { 1.5: 16, 2.5: 20, 4: 25, 6: 32, 10: 40, 16: 63 }; // disjoncteur maximal par section (cuivre)
 const BOARD_RCD_IN = [25, 40, 63];
-const BOARD_RCD_TYPES = ['AC', 'A', 'F', 'B'];
+const BOARD_RCD_TYPES = ['AC', 'A', 'A-SI', 'F', 'B']; // A-SI : type A « super immunisé » (congélateur, informatique)
+const _rcdIsA = (t) => ['A', 'A-SI', 'F', 'B'].includes(t); // convient à la plaque et au lave-linge
 const BOARD_KINDS = { light: 'Éclairage', socket: 'Prises', heating: 'Chauffage', dedicated: 'Spécialisé', other: 'Autre', sub: 'Tableau divisionnaire', pv: 'Production PV' };
 
 // Circuits types (NF C 15-100) : ajout en un clic dans le tableau
@@ -239,8 +240,10 @@ function checkBoard(design) {
     if (['oven', 'washer', 'dishwasher', 'dryer', 'water_heater'].includes(c.appliance) && (c.In < 16 || c.S < 2.5)) push('err', `${c.id} ${c.name} : circuit spécialisé 20 A en 2,5 mm².`, c.id);
     // type du différentiel en amont : l'ID du groupe, ou le disjoncteur différentiel du circuit
     const rc = rcds.find((r) => r.id === c.rcd) || (c.ddr ? { id: 'son disjoncteur différentiel', type: c.ddr } : null);
-    if (rc && c.typeA && !['A', 'F', 'B'].includes(rc.type)) push('err', `${c.id} ${c.name} : sous ${rc.id} type ${rc.type} — il faut un différentiel type A (ou F).`, c.id);
+    if (rc && c.typeA && !_rcdIsA(rc.type)) push('err', `${c.id} ${c.name} : sous ${rc.id} type ${rc.type} — il faut un différentiel type A (ou F).`, c.id);
     if (rc && c.typeF && !['F', 'B'].includes(rc.type)) push('warn', `${c.id} ${c.name} : borne de recharge sous ${rc.id} type ${rc.type} — type F (ou A-EV, ou B) conseillé.`, c.id);
+    // congélateur : un déclenchement intempestif (orage, autre circuit) perd le contenu — ID type A-SI conseillé
+    if (rc && /cong[ée]lateur/i.test(c.name) && rc.type !== 'A-SI') push('info', `${c.id} ${c.name} : différentiel type A-SI (haute immunité) conseillé, seul ou avec peu de circuits, pour éviter les déclenchements intempestifs.`, c.id);
     if (c.ok === false) push('warn', `${c.id} ${c.name} : chute de tension ${_bNum(c.dUpct, 1)} % > ${c.limit} %.`, c.id);
     // Note de calcul : courant admissible du câble (triphasé : 3 conducteurs chargés), longueur protégée
     const Iz3 = c.phase === '3P' && CALC_IZ[3][c.S];
@@ -262,7 +265,7 @@ function checkBoard(design) {
   const needAC = A <= 35 ? 1 : A <= 100 ? 2 : 3;
   const nAC = rcds.filter((r) => r.type === 'AC' && byR(r).length).length, nA = rcds.filter((r) => r.type !== 'AC' && byR(r).length).length;
   if (A && nAC + nA < needAC + 1) push('warn', `${Math.round(A)} m² : ${needAC + 1} interrupteurs différentiels au moins (${needAC} type AC + 1 type A).`);
-  if (cs.some((c) => c.typeA && !c.ddr) && !rcds.some((r) => ['A', 'F', 'B'].includes(r.type))) push('err', 'Plaque de cuisson ou lave-linge : un différentiel type A est obligatoire.');
+  if (cs.some((c) => c.typeA && !c.ddr) && !rcds.some((r) => _rcdIsA(r.type))) push('err', 'Plaque de cuisson ou lave-linge : un différentiel type A est obligatoire.');
   // Triphasé : départs 3P+N sur un réseau monophasé, déséquilibre des phases
   const tri = design.supply && design.supply.phases === 3;
   for (const c of cs) if (!tri && c.phase === '3P') push('err', `${c.id} ${c.name} : départ triphasé sur une alimentation monophasée.`, c.id);

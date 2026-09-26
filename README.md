@@ -206,6 +206,9 @@ l'éditeur du tableau, **avec ou sans plan** :
   (F pour la borne, A pour la plaque et le lave-linge), il figure à l'unifilaire
   (disjoncteur + tore), sur la face avant, au câblage, au métré, et en simulation un
   défaut d'isolement ne coupe que ce circuit ;
+- **Type A-SI** (haute immunité) pour les interrupteurs et disjoncteurs différentiels :
+  conseillé pour le congélateur (évite de perdre son contenu sur un déclenchement
+  intempestif), accepté là où un type A est exigé, compté au métré ;
 - **Liaison enterrée** (bouton ⛏ sur un départ de TD, un circuit photovoltaïque ou
   extérieur) : câble U1000 R2V au lieu de la gaine ICTA, fourreau TPC rouge et grillage
   avertisseur au métré, « enterré (TPC) » à l'unifilaire, profondeur rappelée (0,50 m au
@@ -784,7 +787,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-194 vérifications sans dépendance : valeurs numériques de chaque simulation
+195 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
