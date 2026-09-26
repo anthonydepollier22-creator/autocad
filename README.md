@@ -170,9 +170,9 @@ circuits (repère, désignation, calibre).
 
 ![Plan d'implantation : repères de circuits et légende](docs/screenshot-implantation.png)
 
-### 🗂️ Tableau électrique et schéma unifilaire
+### 🗂️ Tableau électrique et folios (unifilaire, note de calcul, développés, élévations, VDI)
 
-Le bouton **Tableau** (barre d'outils, ou **Unifilaire** dans l'onglet Tableau) ouvre
+Le bouton **Tableau** (barre d'outils, ou **Folios** dans l'onglet Tableau) ouvre
 l'éditeur du tableau, **avec ou sans plan** :
 
 - **Tableau modifiable** : chaque interrupteur différentiel (25 / 40 / 63 A, type AC,

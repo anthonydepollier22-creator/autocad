@@ -125,7 +125,7 @@ function initHouseUI(app) {
       '<button data-act="implant" title="Ajoute l’appareillage NF C 15-100 manquant puis retrace les goulottes">Implanter</button>' +
       '<button data-act="conduits" title="Retrace toutes les goulottes depuis le tableau">Goulottes</button>' +
       '<button data-act="furnish" title="Meuble les pièces vides">Meubler</button>' +
-      '<button data-act="board" title="Tableau électrique et schéma unifilaire : modifier les circuits, folio normalisé, face avant, étiquettes, exports SVG / DXF / PDF">Unifilaire</button>' +
+      '<button data-act="board" title="Tableau électrique et folios : modifier les circuits, unifilaire, note de calcul, schémas développés, élévations, communication, face avant, étiquettes ; exports SVG / DXF / PDF">Folios</button>' +
       `<button data-act="tags" aria-pressed="${editor.showTags ? 'true' : 'false'}" title="Repère du circuit (C1, C2…) à côté de chaque appareil du plan, aux couleurs des câbles">Repères</button>` +
       '<button data-act="dossier" title="Dossier du projet à imprimer ou enregistrer en PDF : plan, norme, tableau, matériel, 3D, journée type">Dossier</button></div>';
     // Puissance et énergie
@@ -143,7 +143,7 @@ function initHouseUI(app) {
     h += '<div class="board"><div class="board-row"><button class="dm dm-agcp" data-agcp title="Disjoncteur de branchement : cliquer pour ouvrir / réarmer">' +
       '<span class="dm-lever"></span><b>AGCP</b><em>' + d.agcp.setting + ' A</em></button>' +
       `<div class="board-info"><b>Abonnement ${d.agcp.kva} kVA${d.custom ? ' <em class="bd-badge">personnalisé</em>' : ''}</b><span>${d.circuits.length} circuits · ${d.rcds.length} différentiels 30 mA · ${Math.round(d.cableTotal)} m de câble · réserve ${d.reserve} modules</span>` +
-      `<button class="bd-open" data-act="board">Modifier le tableau · unifilaire</button></div></div>`;
+      `<button class="bd-open" data-act="board">Modifier le tableau · folios</button></div></div>`;
     for (const r of d.rcds) {
       const cs = d.circuits.filter((c) => c.rcd === r.id);
       if (!cs.length) continue;
