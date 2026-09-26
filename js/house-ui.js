@@ -1843,6 +1843,7 @@ function initHouseUI(app) {
         wiringSVGs: d && d.ok ? boardWiringSVGs(d, editor.meta) : [],
         calcNoteSVGs: d && d.ok ? calcNoteSVGs(d, editor.meta) : [],
         developedSVGs: d && d.ok ? developedSVGs(d, editor.meta, editor.components, editor.wires) : [],
+        heatingSVGs: d && d.ok && d.circuits.some((c) => c.kind === 'heating') ? heatingSVGs(d, editor.meta, editor.components) : [],
         vdiSVGs: d && d.ok && editor.components.some((c) => c.type === 'rj45') ? vdiSVGs(d, editor.meta, editor.components, editor.wires) : [],
         elevationSVGs: d && d.ok ? elevationSVGs(d, editor.meta, editor.components, editor.wires) : [],
         materials: d && d.ok ? materialList(editor.components, editor.wires, d) : null,
