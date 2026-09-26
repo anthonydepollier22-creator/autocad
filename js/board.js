@@ -730,7 +730,7 @@ function drawUnifilar(ctx, design, meta, folio) {
   // Nomenclature des départs
   layer('CARTOUCHE');
   const rowsT = [['Repère', (c) => c.id], ['Protection', (c) => `${c.curve || 'C'}${c.In} A`], ['Différentiel', (c) => c.rcd || (c.kind === 'sub' ? 'AGCP' : c.ddr ? 'DDR ' + c.ddr : '—')], ['Câble', (c) => boardCable(c.S, c.phase)],
-    ['Longueur', (c) => f1(c.length) + ' m'], ['Charge', (c) => (c.kind === 'light' ? c.points + ' pts' : c.kind === 'socket' ? c.points + ' PC' : c.kind === 'sub' ? c.panelRef || 'TD' : c.kind === 'pv' ? f1(c.power / 1000) + ' kWc' : c.power >= 1000 ? f1(c.power / 1000) + ' kW' : Math.round(c.power) + ' W')],
+    ['Longueur', (c) => f1(c.length) + ' m'], ['Charge', (c) => (c.kind === 'light' ? c.points + (c.points > 1 ? ' pts' : ' pt') : c.kind === 'socket' ? c.points + ' PC' : c.kind === 'sub' ? c.panelRef || 'TD' : c.kind === 'pv' ? f1(c.power / 1000) + ' kWc' : c.power >= 1000 ? f1(c.power / 1000) + ' kW' : Math.round(c.power) + ' W')],
     ['ΔU', (c) => f1(c.dUpct) + ' %']];
   if (tri) rowsT.splice(3, 0, ['Phase', (c) => (c.phase === '3P' ? '3P+N' : c.phase || '—')]);
   const t0 = UNI.table, rh = UNI.row, tx0 = 22, tx1 = F.xEnd + colW / 2;
