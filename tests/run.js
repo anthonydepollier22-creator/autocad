@@ -972,6 +972,54 @@ r = run(`(function(){
 })()`);
 check('Câblage du tableau en triphasé : L1 / L2 / L3 / N (peigne à 4 barres), chaque circuit sur sa phase, départs 3P+N', r.cols && r.p3 && r.phases);
 
+// Tableau divisionnaire : départ en tête sous l'AGCP, ID 30 mA dans le TD, ΔU et Icc depuis l'origine
+r = run(`(function(){
+  var b = boardTemplate(90, { heating: true, cooktop: true }), f = boardAddCircuit(b, 'sub', { name: 'Garage', length: 30 });
+  var d = designInstallation([], [], b), F = d.circuits.find(function(c){ return c.kind === 'sub'; }), down = d.circuits.filter(function(c){ return c.panel === F.id; });
+  var light = down.find(function(c){ return c.kind === 'light'; });
+  var own = (2 * RHO_CU * light.length * (light.power / U_NOM)) / light.S / U_NOM * 100;
+  var uni = unifilarSVGs(d, { title: 'TD' }), wir = boardWiringSVGs(d, {}), front = boardFrontSVG(d, {}), lab = boardLabelsSVG(d, {});
+  var mat = materialList([], [], d).lines, sch = boardToSchematic(d, {});
+  var errs = d.checks.filter(function(c){ return c.level === 'err'; }).map(function(c){ return c.msg; });
+  return { ref: d.panels.length === 1 && d.panels[0].ref === 'TD1' && F.rcd === null && F.length === 30 && down.length === 2 && down.every(function(c){ return c.panelRef === 'TD1' && d.rcds.find(function(r){ return r.id === c.rcd; }).panel === F.id; }),
+    dU: Math.abs(light.dUpct - (own + F.dUpct)) < 1e-9 && F.dUpct > 0, lmax: Math.abs(calcLmaxOf(light) - (calcLmax(1.5, 16, 'C') - 1.5 * 30 / 10)) < 1e-9,
+    errs: errs, uni: uni.length === 2 && uni[0].indexOf('vers TD1, folio 2') > 0 && uni[1].indexOf('Tableau divisionnaire TD1') > 0 && uni[1].indexOf('>QS<') > 0 && uni[1].indexOf('Interrupteur-') > 0,
+    wir: wir.length === 2 && wir[1].indexOf('Câblage du tableau divisionnaire TD1') > 0 && wir[0].indexOf('→ TD1') > 0,
+    front: front.indexOf('Tableau divisionnaire TD1 — Garage') > 0 && front.split('>QS<').length === 2, lab: lab.indexOf('TD1 · Rangée 1') > 0 && lab.indexOf('Principal · Rangée 1') > 0,
+    mat: mat.some(function(l){ return /Interrupteur-sectionneur 2P 40 A \\(tête TD1\\)/.test(l.name); }) && mat.some(function(l){ return /3G10 mm² \\(ligne TD1\\)/.test(l.name) && l.qty === 33; }) && !mat.some(function(l){ return /ICTA préfilée 3G10/.test(l.name); }),
+    sch: sch.components.some(function(c){ return c.type === 'switch' && c.label === 'QS'; }) && sch.wires.some(function(w){ return w.points.length === 6; }),
+    inst: d.installed === d.circuits.filter(function(c){ return c.kind !== 'sub'; }).reduce(function(s, c){ return s + c.power; }, 0), dxf: /EOF\\s*$/.test(unifilarDXF(d, {})) };
+})()`);
+check('Tableau divisionnaire : départ en tête (AGCP), ID du TD, ΔU cumulée et Lmax réduite par la ligne ; unifilaire, câblage, face avant, étiquettes, métré, schéma éditable', r.ref && r.dU && r.lmax && !r.errs.length && r.uni && r.wir && r.front && r.lab && r.mat && r.sch && r.inst && r.dxf, r.errs.join(' | ') || JSON.stringify(r).slice(0, 200));
+r = run(`(function(){
+  var b = boardTemplate(60), f = boardAddCircuit(b, 'sub', { name: 'Atelier', P: 12000 });
+  var d1 = designInstallation([], [], b), c1 = d1.checks.filter(function(c){ return c.ref === f.id; }).map(function(c){ return c.level; });
+  b.rcds.forEach(function(r){ if (r.panel === f.id) r.panel = null; }); // TD sans ID
+  f.P = 0; f.rcd = b.rcds[0].id;                                           // départ sous un ID 30 mA
+  var d2 = designInstallation([], [], b), c2 = d2.checks.filter(function(c){ return c.ref === f.id; });
+  return { over: c1.indexOf('err') >= 0, noId: c2.some(function(c){ return c.level === 'err' && /aucun interrupteur différentiel 30 mA dans le tableau divisionnaire/.test(c.msg); }), sel: c2.some(function(c){ return c.level === 'warn' && /sélectivité/.test(c.msg); }) };
+})()`);
+check('Tableau divisionnaire : 12 kW sur un départ 32 A, TD sans ID 30 mA, départ sous un ID (pas de sélectivité) → signalés', r.over && r.noId && r.sel, JSON.stringify(r));
+r = run(`(function(){
+  var b = boardTemplate(200, { heating: true, cooktop: true, ev: true }); for (var i = 0; i < 20; i++) boardAddCircuit(b, 'socket', { name: 'Prises ' + (i + 9) });
+  boardAddCircuit(b, 'sub', { name: 'Garage' });
+  var d = designInstallation([], [], b), pages = boardLabelsSVGs(d, {}), rows = boardPanels(d).reduce(function(s, P){ return s + boardModules(d, P.id).rows.length; }, 0);
+  return { rows: rows, n: pages.length, ok: pages.length === Math.ceil(rows / 6) && pages.every(function(p){ return p.indexOf('height="210mm"') > 0; }) && pages[pages.length - 1].indexOf('TD1 · Rangée 1') > 0 && pages[0].indexOf('feuille 1 / ' + pages.length) > 0 };
+})()`);
+check('Étiquettes : six rangées par feuille A4 à l’échelle 1, tableau principal puis TD', r.ok && r.n > 1, `${r.rows} rangées → ${r.n} feuilles`);
+r = run(`(function(){
+  var h = buildHouse('t3'), d0 = designInstallation(h.components, h.wires), b = boardFromDesign(d0);
+  var wm = b.circuits.find(function(c){ return c.appliance === 'washer'; }), f = boardAddCircuit(b, 'sub', { name: 'Buanderie', length: 12 });
+  wm.rcd = b.rcds.find(function(r){ return r.panel === f.id; }).id; wm.typeA = false;
+  var dev = h.components.find(function(c){ return c.id === wm.devices[0]; }); dev.on = true;
+  var d = designInstallation(h.components, h.wires, b), sim = new InstallSim(); sim.setDesign(d);
+  var s1 = sim.step(0.1, h.components, h.wires), I1 = s1.circuits.find(function(c){ return c.id === f.id; }).I, Iw = s1.circuits.find(function(c){ return c.id === wm.id; }).I;
+  sim.toggleBreaker(f.id);
+  var s2 = sim.step(0.1, h.components, h.wires), w2 = s2.circuits.find(function(c){ return c.id === wm.id; });
+  return { I1: I1, Iw: Iw, same: Iw > 5 && Math.abs(I1 - Iw) < 1e-9, cut: !w2.live && w2.I === 0, tot: Math.abs(s1.I - s1.circuits.filter(function(c){ return c.id !== f.id; }).reduce(function(s, c){ return s + c.I; }, 0)) < 1e-9 };
+})()`);
+check('Simulation : le départ du TD porte le courant de ses circuits (sans le compter deux fois) ; l’ouvrir coupe le TD', r.same && r.cut && r.tot, `${r.Iw && r.Iw.toFixed(1)} A`);
+
 // Dossier technique : sommaire et folios numérotés à la suite
 r = run(`(function(){
   var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), T = technicalSet(d, { title: 'T5' }, h.components, h.wires);

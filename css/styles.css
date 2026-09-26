@@ -557,7 +557,8 @@ body.light .board { background: linear-gradient(#e6e9ef, #dadfe7); }
 }
 .dm:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0, 0, 0, 0.3); }
 .dm:active { transform: scale(0.96); }
-.dm-agcp, .dm-rcd { width: 60px; flex: 0 0 auto; }
+.dm-agcp, .dm-rcd, .dm-head { width: 60px; flex: 0 0 auto; }
+.dm-head { background: rgba(124, 58, 237, 0.12); cursor: default; }
 .dm-agcp { background: #fff4e3; }
 .dm-rcd { background: #edf3ff; }
 .dm-lever { width: 12px; height: 19px; border-radius: 3px; background: #c9cfd8; position: relative; margin-bottom: 3px; }
@@ -992,7 +993,7 @@ body.light .day-sec { --dc7: #4a3aa7; }
 .bd-table select[data-cf="kind"] { width: 92px; }
 .bd-table select[data-cf="In"] { width: 62px; }
 .bd-table select[data-cf="S"] { width: 74px; }
-.bd-table select[data-cf="rcd"] { width: 56px; }
+.bd-table select[data-cf="rcd"] { width: 82px; }
 .bd-table select[data-cf="phase"] { width: 62px; }
 .bd-table select.bd-auto { color: var(--muted); font-style: italic; }
 .bd-table th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding: 7px 6px; background: var(--surface-2); position: sticky; top: 0; }
@@ -1004,6 +1005,15 @@ body.light .day-sec { --dc7: #4a3aa7; }
 .bd-table tr.err td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
 .bd-table tr.warn td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
 .bd-table tr.bd-rcd.err td { box-shadow: inset 3px 0 0 var(--danger); }
+/* Tableau divisionnaire : bandeau, ID du TD, départ */
+.bd-table tr.bd-tdh td { background: rgba(124, 58, 237, 0.11); padding: 9px 8px; border-top: 2px solid rgba(124, 58, 237, 0.55); }
+.bd-table tr.bd-tdh b { color: #7c3aed; margin-right: 6px; }
+.bd-table tr.bd-tdh em { font-style: normal; font-weight: 600; }
+.bd-table tr.bd-tdh .btn-ghost { margin-left: 10px; padding: 3px 9px; font-size: 12px; }
+.bd-table tr.bd-tdh.err td { box-shadow: inset 3px 0 0 var(--danger); }
+.bd-table tbody.bd-inTd tr.bd-rcd td { box-shadow: inset 3px 0 0 rgba(124, 58, 237, 0.6); }
+.bd-table tbody.bd-inTd tr.bd-rcd.err td { box-shadow: inset 3px 0 0 var(--danger); }
+.bd-tdref { color: #7c3aed; font-weight: 700; font-size: 12px; white-space: nowrap; }
 .bd-id { width: 50px; font-weight: 700; }
 .bd-idc { white-space: nowrap; }
 .bd-move { display: inline-flex; flex-direction: column; vertical-align: middle; margin-left: 2px; }

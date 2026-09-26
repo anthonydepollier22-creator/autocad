@@ -24,7 +24,7 @@ function selfCheckList(report, design) {
   }
   if (design && design.ok) {
     add('Calibre de chaque disjoncteur adapté à la section', chk(/n’est pas protégé|au plus/).some((x) => x.level === 'err') ? 'err' : 'ok');
-    add('Tous les circuits sous interrupteur différentiel 30 mA', design.circuits.every((c) => c.rcd) ? 'ok' : 'err');
+    add('Tous les circuits sous interrupteur différentiel 30 mA', design.circuits.every((c) => c.rcd || c.kind === 'sub') ? 'ok' : 'err'); // départ de TD : ID dans le TD
     add('Différentiel type A pour la plaque de cuisson et le lave-linge', chk(/type A/).some((x) => x.level === 'err') ? 'err' : 'ok');
     add('Chute de tension (3 % éclairage, 5 % autres usages)', design.circuits.every((c) => c.ok !== false) ? 'ok' : 'warn');
     add('Longueur protégée contre les courts-circuits (note de calcul)', chk(/protégés — un court-circuit/).length ? 'err' : 'ok');

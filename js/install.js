@@ -473,17 +473,59 @@ function designInstallation(components, wires, board) {
     if (!ct.ok) design.issues.push({ level: 'warn', msg: `${ct.id} ${ct.name} : chute de tension ${ct.dUpct.toFixed(1).replace('.', ',')} % > ${ct.limit} % — augmenter la section ou scinder le circuit.` });
   }
 
+  // Tableaux divisionnaires (tableau personnalisé) : un départ « sub » en tête du tableau
+  // principal (sous l'AGCP) alimente les ID dont « panel » est son repère, et leurs circuits
+  design.panels = [];
+  if (B) {
+    const feeders = circuits.filter((c) => c.kind === 'sub');
+    const rcdPanel = new Map((B.rcds || []).map((r) => [String(r.id), r.panel && feeders.some((f) => f.id === r.panel) ? String(r.panel) : null]));
+    feeders.forEach((f, i) => {
+      f.panelRef = 'TD' + (i + 1);
+      design.panels.push({ id: f.id, ref: f.panelRef, name: f.name, feeder: f });
+    });
+    for (const ct of circuits) {
+      const p = ct.kind === 'sub' ? null : rcdPanel.get(ct.rcd) || null;
+      if (p) { ct.panel = p; ct.panelRef = feeders.find((f) => f.id === p).panelRef; }
+    }
+    // puissance du départ : saisie, sinon puissance probable du tableau divisionnaire
+    for (const f of feeders) {
+      const down = circuits.filter((c) => c.panel === f.id);
+      const sum = (fn) => down.filter(fn).reduce((s, c) => s + (c.power || 0), 0);
+      f.Pauto = Math.round(0.65 * sum((c) => c.kind === 'heating') + 0.5 * sum((c) => c.appliance === 'water_heater')
+        + 0.3 * sum((c) => c.appliance === 'cooktop' || c.appliance === 'oven') + 0.2 * sum((c) => ['washer', 'dishwasher', 'dryer'].includes(c.appliance))
+        + 0.3 * sum((c) => c.appliance === 'ev_charger') + 0.5 * sum((c) => c.kind === 'light')
+        + 0.5 * sum((c) => (c.kind === 'dedicated' || c.kind === 'other') && !['water_heater', 'cooktop', 'oven', 'washer', 'dishwasher', 'dryer', 'ev_charger'].includes(c.appliance))
+        + (down.some((c) => c.kind === 'socket') ? 800 : 0));
+      f.power = f.Pin > 0 ? f.Pin : f.Pauto;
+      f.points = down.length;
+      f.limit = down.some((c) => c.kind === 'light') ? 3 : 5; // le départ entame la chute de tension des circuits aval
+      f.dU = (2 * RHO_CU * f.length * (f.power / U_NOM)) / f.S;
+      f.dUpct = (f.dU / U_NOM) * 100;
+      f.ok = f.dUpct <= f.limit;
+    }
+  }
+
   // Triphasé : phase de chaque circuit (équilibrage des puissances pour ceux qui n'en ont pas),
   // chute de tension des départs 3P+N sous 400 V : ΔU = √3·ρ·L·I / S
   if (design.supply.phases === 3) {
     const load = { L1: 0, L2: 0, L3: 0 };
-    for (const ct of circuits) {
+    // tableau divisionnaire monophasé : ses circuits suivent la phase de son départ
+    const monoFeed = (ct) => { const f = ct.panel && circuits.find((x) => x.id === ct.panel); return f && f.phase !== '3P' ? f : null; };
+    const units = circuits.filter((c) => (c.kind !== 'sub' || c.phase !== '3P') && !monoFeed(c));
+    for (const ct of units) {
+      if (ct.kind === 'sub') continue;
       if (ct.phase === '3P') { for (const k in load) load[k] += ct.power / 3; }
       else if (ct.phase) load[ct.phase] += ct.power;
     }
-    for (const ct of circuits.filter((c) => !c.phase).sort((a, b) => b.power - a.power)) {
+    for (const ct of units.filter((c) => c.kind === 'sub' && c.phase)) load[ct.phase] += circuits.filter((x) => x.panel === ct.id).reduce((s, x) => s + x.power, 0);
+    const unitP = (ct) => (ct.kind === 'sub' ? circuits.filter((x) => x.panel === ct.id).reduce((s, x) => s + x.power, 0) : ct.power);
+    for (const ct of units.filter((c) => !c.phase).sort((a, b) => unitP(b) - unitP(a))) {
       const k = Object.keys(load).sort((a, b) => load[a] - load[b])[0];
-      ct.phase = k; ct.phaseAuto = true; load[k] += ct.power;
+      ct.phase = k; ct.phaseAuto = true; load[k] += unitP(ct);
+    }
+    for (const ct of circuits) {
+      const f = monoFeed(ct);
+      if (f && ct.phase !== '3P') { ct.phase = f.phase; ct.phaseAuto = true; }
     }
     design.phaseLoad = load;
     for (const ct of circuits) {
@@ -494,10 +536,24 @@ function designInstallation(components, wires, board) {
       ct.ok = ct.dUpct <= ct.limit;
     }
   }
+  // Circuits d'un tableau divisionnaire : chute de tension comptée depuis l'origine (départ
+  // compris) ; impédance amont (L/S du départ) pour le court-circuit minimal en bout de ligne
+  for (const f of design.panels.map((p) => p.feeder)) {
+    f.Ib = f.power / (f.phase === '3P' ? Math.sqrt(3) * U_TRI : U_NOM);
+    for (const ct of circuits.filter((c) => c.panel === f.id)) {
+      ct.dUfeed = f.dUpct;
+      ct.dUpct += f.dUpct;
+      ct.ok = ct.dUpct <= ct.limit;
+      ct.feedRS = f.length / f.S;
+    }
+  }
 
   if (B) {
     // Différentiels du tableau personnalisé ; un circuit sans différentiel reste signalé
-    for (const r of B.rcds || []) design.rcds.push({ id: String(r.id), In: +r.In || 40, type: r.type || 'AC', sens: +r.sens || 30, circuits: [] });
+    for (const r of B.rcds || []) {
+      const panel = r.panel && design.panels.some((p) => p.id === String(r.panel)) ? String(r.panel) : null;
+      design.rcds.push({ id: String(r.id), In: +r.In || 40, type: r.type || 'AC', sens: +r.sens || 30, circuits: [], panel });
+    }
     for (const ct of circuits) {
       const r = design.rcds.find((x) => x.id === ct.rcd);
       if (r) r.circuits.push(ct.id); else ct.rcd = null;
@@ -534,7 +590,7 @@ function designInstallation(components, wires, board) {
 
   // Puissance installée / probable → abonnement et réglage du disjoncteur de branchement
   const sum = (f) => circuits.filter(f).reduce((s, c) => s + c.power, 0);
-  design.installed = circuits.reduce((s, c) => s + c.power, 0);
+  design.installed = circuits.reduce((s, c) => s + (c.kind === 'sub' ? 0 : c.power), 0); // un départ de TD compte par ses circuits
   const cook = sum((c) => c.appliance === 'cooktop' || c.appliance === 'oven');
   const laundry = sum((c) => ['washer', 'dishwasher', 'dryer'].includes(c.appliance));
   design.probable = 0.65 * sum((c) => c.kind === 'heating') + 0.5 * sum((c) => c.appliance === 'water_heater')
@@ -643,7 +699,8 @@ class InstallSim {
     for (const c of components) comp[c.id] = c;
     const lights = this._lightDemand(components, wires);
     const a = this.agcp;
-    const live = (ct) => a.closed && (!this.rcds[ct.rcd] || this.rcds[ct.rcd].closed) && this.breakers[ct.id].closed;
+    // circuit d'un tableau divisionnaire : son départ doit aussi être fermé
+    const live = (ct) => a.closed && (!this.rcds[ct.rcd] || this.rcds[ct.rcd].closed) && this.breakers[ct.id].closed && (!ct.panel || !this.breakers[ct.panel] || this.breakers[ct.panel].closed);
 
     // Puissance demandée par appareil (W, sous 230 V)
     const demand = {};
@@ -662,9 +719,12 @@ class InstallSim {
     const circ = [], dev = {};
     let Itot = 0, Ptot = 0;
     const Iph = { L1: 0, L2: 0, L3: 0 }; // triphasé : la phase la plus chargée fait déclencher l'AGCP
-    for (const ct of d.circuits) {
+    // les départs de tableau divisionnaire en dernier : ils portent le courant de leurs circuits
+    const order = d.circuits.filter((c) => c.kind !== 'sub').concat(d.circuits.filter((c) => c.kind === 'sub'));
+    for (const ct of order) {
       const on = live(ct);
       let I = 0, P = 0, Umin = U_NOM;
+      if (ct.kind === 'sub' && on) for (const x of circ) if (x.panel === ct.id) { I += x.I; P += x.P; }
       if (on) {
         // courant dans chaque tronçon = somme des appareils en aval
         const edgeI = new Map();
@@ -720,8 +780,8 @@ class InstallSim {
         b.closed = false; b.tripped = true;
         this.log(`Surcharge sur ${ct.id} ${ct.name} : ${I.toFixed(1).replace('.', ',')} A pour ${ct.In} A → déclenchement thermique.`, 'warn');
       }
-      circ.push({ id: ct.id, I: live(ct) ? I : 0, P: live(ct) ? P : 0, Umin, heat: b.heat, live: live(ct) });
-      if (live(ct)) {
+      circ.push({ id: ct.id, I: live(ct) ? I : 0, P: live(ct) ? P : 0, Umin, heat: b.heat, live: live(ct), panel: ct.panel || null });
+      if (live(ct) && ct.kind !== 'sub') {
         Itot += I; Ptot += P;
         if (ct.phase === '3P') { for (const k in Iph) Iph[k] += I / 3; } else Iph[ct.phase || 'L1'] += I;
       }

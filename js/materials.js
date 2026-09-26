@@ -13,6 +13,7 @@ const MAT_PRICES = {
   breaker: { 2: 9, 6: 9, 10: 8, 16: 8, 20: 8.5, 25: 10, 32: 11.5, 40: 15, 50: 24, 63: 28 },
   surge: 69, contactor: 22, teleruptor: 18,
   tri: { rcd: 2.6, breaker3P: 45, surge: 145 }, // triphasé : ID 4P (≈ 2,6 × le prix 2P), disjoncteurs 3P+N
+  isolator: { 40: 18, 63: 24, 80: 45, 100: 55 }, // interrupteur-sectionneur de tête d'un tableau divisionnaire (2P)
   comb: 8.5,            // peigne d'alimentation, par rangée
   link: { 10: 2.9, 16: 4.4, 25: 6.8 }, // conducteur de liaison AGCP → tableau, €/m
   earthBar: 14,         // bornier de terre / répartiteur
@@ -77,11 +78,21 @@ function materialList(components, wires, design) {
       add('Tableau', `Conducteurs de liaison AGCP → tableau ${S} mm² (H07V-R)`, n * 1.5, 'm', P.link[S] || 4, `${n} conducteurs de 1,5 m`);
     }
     add('Tableau', 'Bornier de terre et répartiteur', 1, 'u', P.earthBar);
+    // Tableaux divisionnaires : coffret, interrupteur-sectionneur de tête, peignes, bornier de terre
+    for (const T of design.panels || []) {
+      const MP = typeof boardModules === 'function' ? boardModules(design, T.id) : null;
+      if (!MP) break;
+      const f = T.feeder, four = f.phase === '3P', In = boardSubSwitch(f.In);
+      add('Tableau', `Coffret ${T.ref} ${MP.rowsCount} rangée${MP.rowsCount > 1 ? 's' : ''} (13 modules) — ${T.name}`, 1, 'u', P.rowPanel[Math.min(MP.rowsCount, 5)], `${MP.used} modules occupés sur ${MP.rowsCount * 13}`);
+      add('Tableau', `Interrupteur-sectionneur ${four ? '4P' : '2P'} ${In} A (tête ${T.ref})`, 1, 'u', Math.round((P.isolator[In] || 24) * (four ? 2.2 : 1)));
+      add('Tableau', `Peigne d’alimentation (${T.ref})`, MP.rowsCount, 'u', P.comb);
+      add('Tableau', `Bornier de terre (${T.ref})`, 1, 'u', P.earthBar);
+    }
     add('Tableau', 'Prise de terre : piquet, câble 16 mm², barrette', 1, 'lot', P.earthKit);
 
     // --- Câbles et conduits : longueurs des circuits + 10 % de chutes --------
     const bySection = {};
-    for (const c of design.circuits) if (c.phase !== '3P') bySection[c.S] = (bySection[c.S] || 0) + c.length;
+    for (const c of design.circuits) if (c.phase !== '3P' && c.kind !== 'sub') bySection[c.S] = (bySection[c.S] || 0) + c.length;
     for (const S of Object.keys(bySection).map(Number).sort((a, b) => a - b)) {
       add('Câbles et conduits', `Gaine ICTA préfilée 3G${String(S).replace('.', ',')} mm²`, Math.ceil(bySection[S] * 1.1), 'm', P.cable[S] || 1.2, `${Math.round(bySection[S])} m mesurés + 10 %`);
     }
@@ -89,6 +100,10 @@ function materialList(components, wires, design) {
     for (const c of design.circuits) if (c.phase === '3P') bySection5[c.S] = (bySection5[c.S] || 0) + c.length;
     for (const S of Object.keys(bySection5).map(Number).sort((a, b) => a - b)) {
       add('Câbles et conduits', `Câble U1000 R2V 5G${String(S).replace('.', ',')} mm² (triphasé)`, Math.ceil(bySection5[S] * 1.1), 'm', (P.cable[S] || 1.2) * 1.6, `${Math.round(bySection5[S])} m mesurés + 10 %`);
+    }
+    // ligne de chaque tableau divisionnaire : câble rigide (enterré sous fourreau TPC vers une annexe)
+    for (const c of design.circuits.filter((x) => x.kind === 'sub' && x.phase !== '3P')) {
+      add('Câbles et conduits', `Câble U1000 R2V 3G${String(c.S).replace('.', ',')} mm² (ligne ${c.panelRef || 'TD'})`, Math.ceil(Math.round(c.length * 110) / 100), 'm', Math.round((P.cable[c.S] || 1.2) * 1.3 * 100) / 100, `${Math.round(c.length)} m + 10 % ; sous fourreau TPC rouge s’il est enterré`);
     }
   }
   const conduitLen = wires.filter((w) => w.kind === 'conduit').reduce((s, w) => {

@@ -22,7 +22,7 @@ const BOARD_S = [1.5, 2.5, 4, 6, 10, 16];
 const BOARD_S_MAX_IN = { 1.5: 16, 2.5: 20, 4: 25, 6: 32, 10: 40, 16: 63 }; // disjoncteur maximal par section (cuivre)
 const BOARD_RCD_IN = [25, 40, 63];
 const BOARD_RCD_TYPES = ['AC', 'A', 'F', 'B'];
-const BOARD_KINDS = { light: 'Éclairage', socket: 'Prises', heating: 'Chauffage', dedicated: 'Spécialisé', other: 'Autre' };
+const BOARD_KINDS = { light: 'Éclairage', socket: 'Prises', heating: 'Chauffage', dedicated: 'Spécialisé', other: 'Autre', sub: 'Tableau divisionnaire' };
 
 // Circuits types (NF C 15-100) : ajout en un clic dans le tableau
 const BOARD_PRESETS = [
@@ -48,7 +48,11 @@ const BOARD_PRESETS = [
   { key: 'outdoor', name: 'Extérieur (prises, éclairage)', kind: 'socket', In: 16, S: 2.5, points: 2, P: 500 },
   { key: 'comms', name: 'Tableau de communication', kind: 'dedicated', In: 16, S: 1.5, points: 1, P: 50 },
   { key: 'other', name: 'Autre circuit', kind: 'other', In: 16, S: 1.5, points: 1, P: 1000 },
+  // départ en tête du tableau (sous l'AGCP 500 mA) vers un tableau divisionnaire et ses propres ID 30 mA
+  { key: 'sub', name: 'Tableau divisionnaire', kind: 'sub', In: 32, S: 10, points: 0, P: 0 },
 ];
+// Interrupteur-sectionneur de tête d'un tableau divisionnaire : calibre au moins égal au départ
+function boardSubSwitch(In) { return [40, 63, 80, 100].find((x) => x >= In) || 100; }
 
 const _bNum = (v, d) => Number(v).toLocaleString('fr-FR', { minimumFractionDigits: d || 0, maximumFractionDigits: d || 0 });
 const _bS = (S) => String(S).replace('.', ',');
@@ -80,7 +84,7 @@ function boardFromDesign(design) {
   return {
     v: 1,
     supply: { kva: design.agcp ? design.agcp.kva : 9, phases: (design.supply && design.supply.phases) || 1, surge: !!(design.supply && design.supply.surge), area: Math.round(design.area || 0), ra: (design.supply && design.supply.ra) || null },
-    rcds: design.rcds.map((r) => ({ id: r.id, In: r.In, type: r.type, sens: r.sens || 30 })),
+    rcds: design.rcds.map((r) => ({ id: r.id, In: r.In, type: r.type, sens: r.sens || 30, panel: r.panel || null })),
     circuits: design.circuits.map((c) => ({
       id: c.id, name: c.name, kind: c.kind, In: c.In, S: c.S, curve: c.curve || 'C', rcd: c.rcd,
       devices: (c.devices || []).slice(), points: c.points, length: Math.round((c.length || 0) * 10) / 10,
@@ -127,6 +131,18 @@ function boardAddCircuit(board, key, over) {
     typeA: !!pr.typeA, typeF: !!pr.typeF, contactor: pr.contactor || null, teleruptor: false,
     phase: pr.phase && +(board.supply && board.supply.phases) === 3 ? pr.phase : null, ...(over || {}),
   };
+  if (pr.kind === 'sub') {
+    // départ direct sous l'AGCP, puis le tableau divisionnaire : un ID 30 mA, éclairage et prises
+    c.rcd = null;
+    if (!(over && over.length)) c.length = 20;
+    board.circuits.push(c);
+    const td = 'TD' + board.circuits.filter((x) => x.kind === 'sub').length;
+    const r = { id: boardNextId(board, 'ID'), In: 40, type: 'AC', sens: 30, panel: c.id };
+    board.rcds.push(r);
+    boardAddCircuit(board, 'light', { name: 'Éclairage ' + td, points: 2, P: 100, rcd: r.id });
+    boardAddCircuit(board, 'socket', { name: 'Prises ' + td, points: 3, rcd: r.id });
+    return c;
+  }
   c.rcd = c.rcd || boardPickRcd(board, c);
   board.circuits.push(c);
   return c;
@@ -137,7 +153,7 @@ function boardPickRcd(board, c) {
   const count = (r) => board.circuits.filter((x) => x.rcd === r.id).length;
   const need = c.typeF ? 'F' : c.typeA ? 'A' : null;
   // un circuit ordinaire va sur un ID type AC (un nouveau si tous sont pleins), pas sur l'ID type A ou F
-  const list = board.rcds.filter((r) => (need ? r.type === need || (need === 'A' && r.type === 'F') : r.type === 'AC') && count(r) < 8);
+  const list = board.rcds.filter((r) => !r.panel && (need ? r.type === need || (need === 'A' && r.type === 'F') : r.type === 'AC') && count(r) < 8); // tableau principal
   if (!list.length) {
     const r = { id: boardNextId(board, 'ID'), In: 40, type: need || 'AC', sens: 30 };
     board.rcds.push(r);
@@ -191,7 +207,15 @@ function checkBoard(design) {
     const max = BOARD_S_MAX_IN[c.S];
     if (max === undefined) push('warn', `${c.id} : section ${_bS(c.S)} mm² inhabituelle.`, c.id);
     else if (c.In > max) push('err', `${c.id} ${c.name} : ${c.In} A sur ${_bS(c.S)} mm² — le câble n’est pas protégé (${max} A au plus).`, c.id);
-    if (!c.rcd) push('err', `${c.id} ${c.name} : aucun interrupteur différentiel 30 mA en amont.`, c.id);
+    if (c.kind === 'sub') {
+      // départ de tableau divisionnaire : en tête (AGCP 500 mA sélectif), les ID 30 mA sont dans le TD
+      if (!rcds.some((r) => r.panel === c.id)) push('err', `${c.panelRef || c.id} ${c.name} : aucun interrupteur différentiel 30 mA dans le tableau divisionnaire.`, c.id);
+      const up = rcds.find((r) => r.id === c.rcd);
+      if (up && up.panel === c.id) push('err', `${c.id} ${c.name} : le départ ne peut pas être protégé par un ID de son propre tableau divisionnaire.`, c.id);
+      else if (up) push('warn', `${c.id} ${c.name} : départ sous ${up.id} 30 mA — pas de sélectivité avec les ID du tableau divisionnaire ; raccorder en tête, sous l’AGCP.`, c.id);
+      if (c.Ib > c.In + 1e-9) push('err', `${c.id} ${c.name} : ${_bNum(c.Ib, 1)} A appelés > ${c.In} A — calibre et section supérieurs.`, c.id);
+      for (const x of cs.filter((x) => x.panel === c.id && x.phase === '3P')) if (c.phase !== '3P') push('err', `${x.id} ${x.name} : départ triphasé dans un tableau divisionnaire alimenté en monophasé.`, x.id);
+    } else if (!c.rcd) push('err', `${c.id} ${c.name} : aucun interrupteur différentiel 30 mA en amont.`, c.id);
     if (c.kind === 'light') {
       if (c.points > 8) push('err', `${c.id} ${c.name} : ${c.points} points lumineux — 8 au plus par circuit.`, c.id);
       if (c.In > 16) push('err', `${c.id} ${c.name} : éclairage protégé à ${c.In} A — 16 A au plus.`, c.id);
@@ -212,8 +236,8 @@ function checkBoard(design) {
     // Note de calcul : courant admissible du câble (triphasé : 3 conducteurs chargés), longueur protégée
     const Iz3 = c.phase === '3P' && CALC_IZ[3][c.S];
     if (Iz3 && c.In > Iz3) push('err', `${c.id} ${c.name} : ${c.In} A sur ${boardCable(c.S, c.phase)} — Iz = ${_bNum(Iz3, 1)} A en triphasé, section supérieure.`, c.id);
-    const L = c.far || c.length || 0, Lmax = calcLmax(c.S, c.In, c.curve);
-    if (L > Lmax) push('err', `${c.id} ${c.name} : ${_bNum(L, 1)} m > ${_bNum(Lmax)} m protégés — un court-circuit en bout de ligne (≈ ${_bNum((0.8 * CALC_U0 * c.S) / (2 * CALC_RHO * L))} A) ne ferait pas déclencher le ${c.curve || 'C'}${c.In} (${(CALC_IM[c.curve || 'C'] || 10) * c.In} A) : section supérieure ou calibre inférieur.`, c.id);
+    const L = c.far || c.length || 0, Lmax = calcLmaxOf(c);
+    if (L > Lmax) push('err', `${c.id} ${c.name} : ${_bNum(L, 1)} m > ${_bNum(Lmax)} m protégés${c.feedRS ? ' (ligne du tableau divisionnaire comprise)' : ''} — un court-circuit en bout de ligne (≈ ${_bNum(calcIccMin(c, L))} A) ne ferait pas déclencher le ${c.curve || 'C'}${c.In} (${(CALC_IM[c.curve || 'C'] || 10) * c.In} A) : section supérieure ou calibre inférieur.`, c.id);
   }
   // Différentiels
   const byR = (r) => cs.filter((c) => c.rcd === r.id);
@@ -265,6 +289,9 @@ const CALC_U0 = 230;
 // Longueur maximale protégée (m) : défaut phase-neutre franc en bout de ligne,
 // tension ramenée à 80 % : Icc mini = 0,8·U0·S / (2·ρ·L) doit atteindre Im
 function calcLmax(S, In, curve) { return (0.8 * CALC_U0 * S) / (2 * CALC_RHO * (CALC_IM[curve || 'C'] || 10) * In); }
+// Circuit d'un tableau divisionnaire : la ligne d'alimentation (L/S du départ, feedRS) s'ajoute à la boucle
+function calcLmaxOf(c) { return Math.max(0, calcLmax(c.S, c.In, c.curve) - (c.feedRS || 0) * c.S); }
+function calcIccMin(c, L) { const rs = (L || 0) / c.S + (c.feedRS || 0); return rs > 0 ? (0.8 * CALC_U0) / (2 * CALC_RHO * rs) : null; }
 function calcNote(design) {
   const supply = design.supply || {};
   const rows = design.circuits.map((c) => {
@@ -273,9 +300,11 @@ function calcNote(design) {
     const Iz = CALC_IZ[three ? 3 : 2][c.S] || null;
     const Ib = c.kind === 'socket' ? c.In : (c.power || 0) / (three ? Math.sqrt(3) * U_TRI : CALC_U0);
     const Im = (CALC_IM[curve] || 10) * c.In;
-    const Lmax = calcLmax(c.S, c.In, curve);
-    const icc = L > 0 ? (0.8 * CALC_U0 * c.S) / (2 * CALC_RHO * L) : null;
-    const r = { id: c.id, name: c.name, phase: c.phase || null, kind: c.kind, P: c.power || 0, Ib, In: c.In, curve, S: c.S, cable: boardCable(c.S, c.phase), Iz, L, dU: c.dUpct, dUmax: c.limit, icc, Im, Lmax };
+    const Lmax = calcLmaxOf(c);
+    const icc = L > 0 || c.feedRS ? calcIccMin(c, L) : null;
+    // repère du tableau divisionnaire devant le nom (« TD1 · Prises ») ; départ : « → TD1 »
+    const name = c.kind === 'sub' ? `${c.name} → ${c.panelRef || 'TD'}` : c.panelRef ? `${c.panelRef} · ${c.name}` : c.name;
+    const r = { id: c.id, name, phase: c.phase || null, kind: c.kind, P: c.power || 0, Ib, In: c.In, curve, S: c.S, cable: boardCable(c.S, c.phase), Iz, L, dU: c.dUpct, dUmax: c.limit, icc, Im, Lmax, td: c.panelRef || null };
     r.okIz = Iz !== null && c.In <= Iz && Ib <= c.In + 1e-9;
     r.okL = L <= Lmax;
     r.okU = !(c.dUpct > c.limit);
@@ -292,15 +321,42 @@ function calcNote(design) {
 }
 
 const BOARD_ROW = 13;
-function boardModules(design) {
+// Tableaux : le principal (id null) puis les divisionnaires [{ id, ref, name, feeder }]
+function boardPanels(design) {
+  return [{ id: null, ref: '', name: 'Tableau principal', feeder: null }].concat(design.panels || []);
+}
+// Vue d'un seul tableau : ses ID et ses circuits (le principal garde les départs vers les TD)
+function boardPanelView(design, pid) {
+  const D = design.root || design;
+  if (!(D.panels && D.panels.length)) return D;
+  pid = pid || null;
+  const P = pid ? D.panels.find((p) => p.id === pid) : null;
+  return Object.assign({}, D, {
+    root: D, panelId: pid, panelOf: P,
+    rcds: D.rcds.filter((r) => (r.panel || null) === pid),
+    circuits: D.circuits.filter((c) => (c.panel || null) === pid),
+    supply: pid ? Object.assign({}, D.supply, { surge: false, rows: 0 }) : D.supply,
+  });
+}
+function boardModules(design, pid) {
+  design = boardPanelView(design, pid === undefined ? design.panelId || null : pid);
   const items = [];
+  const P = design.panelOf;
+  if (P) { // tête du tableau divisionnaire : interrupteur-sectionneur
+    const four = P.feeder.phase === '3P';
+    items.push({ kind: 'switch', w: four ? 4 : 2, ref: 'QS', text: 'Interrupteur-sectionneur', In: boardSubSwitch(P.feeder.In) });
+  }
   if (design.supply && design.supply.surge) {
     const tri = design.supply.phases === 3;
     items.push({ kind: 'breaker', w: tri ? 4 : 1, ref: 'QF', text: 'Disj. parafoudre', In: 10 });
     items.push({ kind: 'surge', w: tri ? 4 : 2, ref: 'PF', text: 'Parafoudre' });
   }
+  // départs vers les tableaux divisionnaires : en tête, sous l'AGCP (comme le parafoudre)
+  for (const c of design.circuits.filter((x) => x.kind === 'sub' && !design.rcds.some((r) => r.id === x.rcd))) {
+    items.push({ kind: 'breaker', w: c.phase === '3P' ? 4 : 1, ref: c.id, text: c.name, In: c.In, ct: c, phase: design.supply && design.supply.phases === 3 ? c.phase : null, feed: c.panelRef });
+  }
   const groups = design.rcds.map((r) => ({ r, cs: design.circuits.filter((c) => c.rcd === r.id) })).filter((g) => g.cs.length);
-  const loose = design.circuits.filter((c) => !design.rcds.some((r) => r.id === c.rcd));
+  const loose = design.circuits.filter((c) => c.kind !== 'sub' && !design.rcds.some((r) => r.id === c.rcd));
   if (loose.length) groups.push({ r: null, cs: loose });
   const rows = [[]];
   let used = 0;
@@ -334,29 +390,40 @@ function boardModules(design) {
 // ---------------------------------------------------------------------------
 const UNI = { W: 1190, H: 842, colW: 34, gap: 14, bus: 232, sub: 356, text: 646, table: 652, row: 12.8 };
 
-// Groupes « différentiel + circuits », répartis sur un ou plusieurs folios
+// Groupes « différentiel + circuits », répartis sur un ou plusieurs folios par tableau
+// (principal, puis chaque tableau divisionnaire) ; folio.local : rang dans son tableau
 function unifilarLayout(design) {
-  const groups = design.rcds.map((r) => ({ r, cs: design.circuits.filter((c) => c.rcd === r.id) })).filter((g) => g.cs.length);
-  const loose = design.circuits.filter((c) => !design.rcds.some((r) => r.id === c.rcd));
-  if (loose.length) groups.push({ r: null, cs: loose });
-  const right = UNI.W - 30, start = (k) => (k ? 120 : 180 + (design.supply && design.supply.surge ? 70 : 0));
-  const folios = [{ groups: [] }];
-  let x = start(0);
-  const maxCols = Math.floor((right - 120) / UNI.colW) - 1;
-  for (const g of groups) {
-    for (let i = 0; i < g.cs.length; i += maxCols) {
-      const cs = g.cs.slice(i, i + maxCols);
-      const w = Math.max(cs.length, 2) * UNI.colW;
-      if (x + w > right) { folios.push({ groups: [] }); x = start(folios.length - 1); }
-      folios[folios.length - 1].groups.push({ r: g.r, cs, x0: x, w, cont: i > 0 });
-      x += w + UNI.gap;
+  const folios = [], panelFolio = {}, feedFolio = {};
+  const right = UNI.W - 30, maxCols = Math.floor((right - 120) / UNI.colW) - 1;
+  for (const P of boardPanels(design)) {
+    const V = boardPanelView(design, P.id);
+    const groups = [];
+    const feeds = V.circuits.filter((c) => c.kind === 'sub' && !V.rcds.some((r) => r.id === c.rcd));
+    if (feeds.length) groups.push({ r: null, feed: true, cs: feeds });
+    groups.push(...V.rcds.map((r) => ({ r, cs: V.circuits.filter((c) => c.rcd === r.id) })).filter((g) => g.cs.length));
+    const loose = V.circuits.filter((c) => c.kind !== 'sub' && !V.rcds.some((r) => r.id === c.rcd));
+    if (loose.length) groups.push({ r: null, cs: loose });
+    const start = (local) => (local ? 120 : 180 + (V.supply && V.supply.surge ? 70 : 0));
+    panelFolio[P.id || ''] = folios.length;
+    let F = { groups: [], panel: P, view: V, local: 0 };
+    folios.push(F);
+    let x = start(0);
+    for (const g of groups) {
+      for (let i = 0; i < g.cs.length; i += maxCols) {
+        const cs = g.cs.slice(i, i + maxCols);
+        const w = Math.max(cs.length, 2) * UNI.colW;
+        if (x + w > right) { F = { groups: [], panel: P, view: V, local: F.local + 1 }; folios.push(F); x = start(F.local); }
+        F.groups.push({ r: g.r, feed: !!g.feed, cs, x0: x, w, cont: i > 0 });
+        if (g.feed) for (const c of cs) feedFolio[c.id] = folios.length - 1;
+        x += w + UNI.gap;
+      }
     }
   }
   for (const f of folios) {
     const last = f.groups[f.groups.length - 1];
     f.xEnd = last ? last.x0 + Math.max(last.cs.length, 1) * UNI.colW - UNI.colW / 2 : 300;
   }
-  return { folios };
+  return { folios, panelFolio, feedFolio };
 }
 
 // Symboles verticaux (CEI 60617) — x : axe, y : borne du haut, h : hauteur
@@ -428,6 +495,8 @@ function _uCartouche(ctx, design, meta, subtitle, k, nF) {
 
 function drawUnifilar(ctx, design, meta, folio) {
   const lay = unifilarLayout(design), k = folio || 0, F = lay.folios[k], nF = lay.folios.length;
+  const P = F.panel, V = F.view, first = F.local === 0, multi = lay.folios.some((f) => f.panel.id);
+  const fno = (i) => (meta && meta.sheets ? meta.sheet + i : i + 1); // numéro de folio affiché
   const { W, H, colW, bus, sub } = UNI;
   const ink = '#1a2230', mute = '#5b6b82', blue = '#1668c4', red = '#b3261e';
   const layer = (n) => { if ('layer' in ctx) ctx.layer = n; };
@@ -446,7 +515,7 @@ function drawUnifilar(ctx, design, meta, folio) {
 
   // Cadre et cartouche
   layer('CARTOUCHE');
-  _uCartouche(ctx, design, meta, 'Schéma unifilaire du tableau de répartition', k, nF);
+  _uCartouche(ctx, design, meta, P.id ? `Schéma unifilaire — tableau divisionnaire ${P.ref}` : 'Schéma unifilaire du tableau de répartition', k, nF);
   const d0 = design.agcp;
   const tri = design.supply && design.supply.phases === 3;
 
@@ -464,10 +533,40 @@ function drawUnifilar(ctx, design, meta, folio) {
     _uArrow(ctx, lx + 250, ly + 70); text('Départ', lx + 260, ly + 76, { size: 7.5 });
   }
 
+  // Titre du tableau quand l'installation en compte plusieurs
+  if (multi) {
+    layer('TEXTES');
+    text(P.id ? `Tableau divisionnaire ${P.ref} — ${fit(P.name, 40)}` : 'Tableau principal (répartition)', 200, 40, { bold: true, size: 13 });
+    if (P.id) text(`alimenté par ${P.feeder.id} (${P.feeder.curve || 'C'}${P.feeder.In}, folio ${fno(lay.feedFolio[P.feeder.id] || 0)}) · ${boardCable(P.feeder.S, P.feeder.phase)} · ${f1(P.feeder.length)} m`, 200, 54, { size: 8.5, color: mute });
+    else text(`${lay.folios.filter((f) => f.panel.id && f.local === 0).length} tableau${lay.folios.filter((f) => f.panel.id && f.local === 0).length > 1 ? 'x' : ''} divisionnaire${lay.folios.filter((f) => f.panel.id && f.local === 0).length > 1 ? 's' : ''} alimenté${lay.folios.filter((f) => f.panel.id && f.local === 0).length > 1 ? 's' : ''} en tête, sous l’AGCP`, 200, 54, { size: 8.5, color: mute });
+  }
   // Arrivée : réseau, compteur, disjoncteur de branchement (AGCP)
   layer('UNIFILAIRE');
   const sx = 70;
-  if (k === 0) {
+  if (first && P.id) {
+    // Tableau divisionnaire : arrivée du départ du tableau principal, interrupteur-sectionneur de tête
+    const f = P.feeder, four = f.phase === '3P';
+    text('Depuis le tableau principal', sx, 34, { align: 'center', size: 8, color: mute });
+    text(`${f.id} ${f.curve || 'C'}${f.In} · folio ${fno(lay.feedFolio[f.id] || 0)}`, sx, 44, { align: 'center', size: 8, color: mute });
+    _uLine(ctx, sx, 50, sx, 112, 2);
+    if (four) for (let i = 0; i < 4; i++) _uLine(ctx, sx - 5, 70 + i * 4, sx + 5, 66 + i * 4, 0.9);
+    layer('TEXTES');
+    text(boardCable(f.S, f.phase), sx + 12, 80, { size: 8, bold: true }); text(`${f1(f.length)} m`, sx + 12, 90, { size: 8, color: mute });
+    layer('UNIFILAIRE');
+    _uSwitch(ctx, sx, 112, 56);
+    text('QS', sx + 24, 128, { bold: true, size: 9 });
+    text('Interrupteur-', sx + 24, 139, { size: 8 }); text('sectionneur', sx + 24, 149, { size: 8 });
+    text(`${four ? '4P' : '2P'} ${boardSubSwitch(f.In)} A`, sx + 24, 159, { size: 8, color: mute });
+    _uLine(ctx, sx, 168, sx, bus, 2);
+    // Terre : bornier du TD relié à la borne principale par le conducteur de protection de la ligne
+    const ex = 44, ey = 470;
+    ctx.lineWidth = 1.2; ctx.strokeRect(ex - 22, ey, 44, 12);
+    for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(ex - 16 + i * 8, ey + 6, 2, 0, Math.PI * 2); ctx.stroke(); }
+    text(`Bornier de terre ${P.ref}`, ex - 22, ey - 6, { size: 7.5 });
+    _uLine(ctx, ex, ey + 12, ex, ey + 40, 1.4); _uEarth(ctx, ex, ey + 40);
+    text('Relié à la borne principale', ex + 14, ey + 50, { size: 7.5 }); text('par le PE de la ligne', ex + 14, ey + 60, { size: 7.5, color: mute });
+    text(`(conducteur vert / jaune ${_bS(f.S)} mm²)`, ex - 22, ey + 80, { size: 7, color: mute });
+  } else if (first) {
     text('Réseau public', sx, 34, { align: 'center', size: 8, color: mute }); text(tri ? '3 × 400 V ~ 50 Hz' : '230 V ~ 50 Hz', sx, 44, { align: 'center', size: 8, color: mute });
     _uLine(ctx, sx, 50, sx, 68, 2);
     ctx.lineWidth = 1.4; ctx.strokeRect(sx - 17, 68, 34, 24);
@@ -499,17 +598,17 @@ function drawUnifilar(ctx, design, meta, folio) {
     text('Conducteur de terre 16 mm² Cu', ex - 22, ey + 80, { size: 7, color: mute });
     text('Liaison équipotentielle principale', ex - 22, ey + 90, { size: 7, color: mute });
   } else {
-    text(`Suite du folio ${k}`, 30, bus - 8, { size: 8, color: mute });
+    text(`Suite du folio ${fno(k - 1)}`, 30, bus - 8, { size: 8, color: mute });
     _uLine(ctx, 30, bus, 100, bus, 2.4);
   }
   // Barre principale (jeu de barres / peigne)
-  const busX0 = k === 0 ? sx : 30;
+  const busX0 = first ? sx : 30;
   _uLine(ctx, busX0, bus, F.xEnd + 10, bus, 2.4);
   if (tri) { // barre 3P+N : quatre traits obliques
     for (let i = 0; i < 4; i++) _uLine(ctx, busX0 + 40 + i * 5, bus + 5, busX0 + 46 + i * 5, bus - 5, 1);
     layer('TEXTES'); text('3P+N', busX0 + 34, bus - 9, { size: 7.5, color: mute }); layer('UNIFILAIRE');
   }
-  if (k < nF - 1) { text(`Suite folio ${k + 2} →`, F.xEnd + 14, bus + 4, { size: 8, color: mute }); }
+  if (k < nF - 1 && lay.folios[k + 1].panel === P) { text(`Suite folio ${fno(k + 1)} →`, F.xEnd + 14, bus + 4, { size: 8, color: mute }); }
 
   // Différentiels et départs
   for (const g of F.groups) {
@@ -526,6 +625,12 @@ function drawUnifilar(ctx, design, meta, folio) {
       text(g.r.id + (g.cont ? ' (suite)' : ''), tx, bus + 34, { bold: true, size: 9, color: blue });
       text(`${g.r.In} A${tri ? ' 4P' : ''}`, tx, bus + 45, { size: 8 }); text(`${g.r.sens || 30} mA`, tx, bus + 55, { size: 8 });
       text(`type ${g.r.type}`, tx, bus + 65, { size: 8 });
+    } else if (g.feed) {
+      // départs vers les tableaux divisionnaires : protégés par l'AGCP 500 mA sélectif
+      layer('TEXTES');
+      text('Départs TD', xc + 6, bus + 34, { size: 7.5, bold: true }); text('sous l’AGCP', xc + 6, bus + 44, { size: 7, color: mute });
+      layer('UNIFILAIRE');
+      _uLine(ctx, xc, bus + 16, xc, bus + 72, 1.6);
     } else {
       layer('TEXTES');
       text('Sans différentiel !', xc + 6, bus + 40, { size: 8, bold: true, color: red });
@@ -550,7 +655,7 @@ function drawUnifilar(ctx, design, meta, folio) {
       _uLine(ctx, x, y, x, y + 10, 1.3); _uArrow(ctx, x, y + 10);
       if (c.phase === '3P') for (let i = 0; i < 4; i++) _uLine(ctx, x - 5, y - 26 + i * 4, x + 5, y - 30 + i * 4, 0.9); // 3 phases + neutre
       layer('TEXTES');
-      const detail = `${boardCable(c.S, c.phase)} · ${f1(c.length)} m` + (c.rooms ? ' · ' + c.rooms : '');
+      const detail = `${boardCable(c.S, c.phase)} · ${f1(c.length)} m` + (c.kind === 'sub' ? ` · vers ${c.panelRef || 'TD'}, folio ${fno(lay.panelFolio[c.id] || 0)}` : c.rooms ? ' · ' + c.rooms : '');
       text(fit(c.name, 30), x - 2, UNI.text, { rot: -Math.PI / 2, bold: true, size: 8.5 });
       text(fit(detail, 40), x + 8, UNI.text, { rot: -Math.PI / 2, size: 7, color: mute });
     });
@@ -558,8 +663,8 @@ function drawUnifilar(ctx, design, meta, folio) {
 
   // Nomenclature des départs
   layer('CARTOUCHE');
-  const rowsT = [['Repère', (c) => c.id], ['Protection', (c) => `${c.curve || 'C'}${c.In} A`], ['Différentiel', (c) => c.rcd || '—'], ['Câble', (c) => boardCable(c.S, c.phase)],
-    ['Longueur', (c) => f1(c.length) + ' m'], ['Charge', (c) => (c.kind === 'light' ? c.points + ' pts' : c.kind === 'socket' ? c.points + ' PC' : c.power >= 1000 ? f1(c.power / 1000) + ' kW' : Math.round(c.power) + ' W')],
+  const rowsT = [['Repère', (c) => c.id], ['Protection', (c) => `${c.curve || 'C'}${c.In} A`], ['Différentiel', (c) => c.rcd || (c.kind === 'sub' ? 'AGCP' : '—')], ['Câble', (c) => boardCable(c.S, c.phase)],
+    ['Longueur', (c) => f1(c.length) + ' m'], ['Charge', (c) => (c.kind === 'light' ? c.points + ' pts' : c.kind === 'socket' ? c.points + ' PC' : c.kind === 'sub' ? c.panelRef || 'TD' : c.power >= 1000 ? f1(c.power / 1000) + ' kW' : Math.round(c.power) + ' W')],
     ['ΔU', (c) => f1(c.dUpct) + ' %']];
   if (tri) rowsT.splice(3, 0, ['Phase', (c) => (c.phase === '3P' ? '3P+N' : c.phase || '—')]);
   const t0 = UNI.table, rh = UNI.row, tx0 = 22, tx1 = F.xEnd + colW / 2;
@@ -575,8 +680,11 @@ function drawUnifilar(ctx, design, meta, folio) {
       layer('CARTOUCHE');
       _uLine(ctx, x - colW / 2, t0, x - colW / 2, t0 + rowsT.length * rh, 0.4);
       layer('TEXTES');
-      rowsT.forEach(([, f], r) => text(f(c), x, t0 + r * rh + 9.5, { size: 6.8, align: 'center', bold: r === 0, color: r === 6 && c.ok === false ? red : ink }));
+      rowsT.forEach(([, f], r) => text(f(c), x, t0 + r * rh + 9.5, { size: 6.8, align: 'center', bold: r === 0, color: r === rowsT.length - 1 && c.ok === false ? red : ink }));
     });
+  }
+  if (P.id && first) { // sous le bornier de terre du TD, à gauche des départs
+    [`ΔU comptée depuis l’origine :`, `ligne ${P.feeder.id} comprise (${f1(P.feeder.dUpct)} %) ;`, 'Icc mini avec l’impédance', 'de cette ligne (note de calcul).'].forEach((l, i) => text(l, 22, 584 + i * 10, { size: 7, color: mute }));
   }
   ctx.restore();
 }
@@ -646,7 +754,7 @@ function drawCalcNote(ctx, design, meta, folio) {
     ['Pouvoir de coupure', '3 kA au moins en aval du disjoncteur de branchement (NF EN 60898-1 « 3000 »)'],
     ['Câbles', `cuivre isolé PVC en conduit encastré, méthode B, 30 °C, ${N.tri ? '2 ou 3' : '2'} conducteurs chargés`],
     ['Puissance probable', `${f1((N.probable || 0) / 1000)} kW (foisonnement appliqué)`],
-    ['Longueur L', 'jusqu’à l’appareil le plus éloigné du circuit (mesurée sur le plan)'],
+    ['Longueur L', (design.panels || []).length ? 'jusqu’à l’appareil le plus éloigné ; TD : ΔU et Icc comptés depuis l’AGCP (départ compris)' : 'jusqu’à l’appareil le plus éloigné du circuit (mesurée sur le plan)'],
   ];
   text('Hypothèses', bx + 8, by + 15, { bold: true, size: 9.5 });
   hyp.forEach(([h, v], i) => { if (h) text(h, bx + 8, by + 32 + i * 13, { size: 8, bold: true }); text(v, bx + 118, by + 32 + i * 13, { size: 8 }); });
@@ -935,8 +1043,9 @@ function _technicalSeries(design, components, wires) {
     if (design.net && design.net.edges.length) S.push({ title: 'Plan de câblage', what: 'Cheminement de chaque circuit dans les goulottes, jusqu’aux appareils', n: 1,
       svg: (m) => planFolioSVG(design, m, components, wires, true), draw: (ctx, m) => _planPlaceholder(ctx, design, m, 'Plan de câblage — cheminement des circuits') });
   }
-  S.push({ title: 'Schéma unifilaire', what: 'Arrivée, AGCP, différentiels, disjoncteurs, nomenclature des départs', n: unifilarLayout(design).folios.length, draw: (ctx, m, k) => drawUnifilar(ctx, design, m, k) });
-  S.push({ title: 'Câblage du tableau', what: 'Liaison AGCP, peignes, départs, bornier de terre', n: boardWiringFolios(design), draw: (ctx, m, k) => drawBoardWiring(ctx, design, m, k) });
+  const td = (design.panels || []).length ? `, ${design.panels.map((p) => p.ref).join(', ')}` : '';
+  S.push({ title: 'Schéma unifilaire', what: (td ? 'Tableau principal' + td + ' : ' : 'Arrivée, AGCP, ') + 'différentiels, disjoncteurs, nomenclature des départs', n: unifilarLayout(design).folios.length, draw: (ctx, m, k) => drawUnifilar(ctx, design, m, k) });
+  S.push({ title: 'Câblage du tableau', what: td ? 'Tableau principal' + td + ' : liaisons, peignes, départs, borniers de terre' : 'Liaison AGCP, peignes, départs, bornier de terre', n: boardWiringFolios(design), draw: (ctx, m, k) => drawBoardWiring(ctx, design, m, k) });
   S.push({ title: 'Note de calcul', what: 'Ib, In, Iz, ΔU, Icc mini, longueur maximale protégée, bilan de puissance', n: calcNoteFolios(design), draw: (ctx, m, k) => drawCalcNote(ctx, design, m, k) });
   const lc = lightingControls(design, components, wires);
   S.push({ title: 'Schémas développés', what: 'Commandes d’éclairage pièce par pièce', n: devFolios(lc), draw: (ctx, m, k) => drawDeveloped(ctx, design, m, lc, k) });
@@ -1090,9 +1199,9 @@ function drawBoardFront(ctx, design, meta) {
   text(`${design.agcp.setting} A · 500 mA · ${design.agcp.kva} kVA`, left + 40, 39, { size: 2.8 });
   box(left + 30, 42, 20, 11, '#fff', ink, 0.4); text('I / O', left + 40, 49.5, { size: 2.6 });
   text('Gaine technique logement (GTL)', left + 88, 34, { size: 2.8, align: 'left', color: mute });
-  // Rangées
-  M.rows.forEach((row, r) => {
-    const y = top + r * pitch;
+  // Rangées d'un tableau à partir de y0 (le principal, puis chaque tableau divisionnaire)
+  const drawRows = (M, y0) => M.rows.forEach((row, r) => {
+    const y = y0 + r * pitch;
     box(left - 6, y - 6, BOARD_ROW * mw + 12, 74, '#fbfcfe', '#c4ccd9', 0.4);
     ctx.fillStyle = '#9aa4b2'; ctx.beginPath(); ctx.rect(left - 4, y + 20, BOARD_ROW * mw + 8, 4); ctx.fill(); // rail DIN
     text(`Rangée ${r + 1}`, left - 4, y - 8, { size: 2.8, align: 'left', color: mute });
@@ -1100,17 +1209,17 @@ function drawBoardFront(ctx, design, meta) {
     const slots = row.reduce((s, m) => s + m.w, 0);
     for (const m of row) {
       const w = m.w * mw - 0.8;
-      const fill = m.kind === 'rcd' ? '#e8f0fd' : m.kind === 'surge' ? '#fff4e0' : m.kind === 'contactor' || m.kind === 'teleruptor' ? '#eef7ef' : '#ffffff';
+      const fill = m.kind === 'rcd' ? '#e8f0fd' : m.kind === 'surge' ? '#fff4e0' : m.kind === 'contactor' || m.kind === 'teleruptor' ? '#eef7ef' : m.kind === 'switch' || m.feed ? '#f4effb' : '#ffffff';
       box(x + 0.4, y, w, 44, fill, ink, 0.45);
       // manette
       box(x + w / 2 - 2.6 + 0.4, y + 14, 5.2, 12, m.kind === 'rcd' ? blue : '#2b3342', null, 0.2);
       text(m.ref, x + w / 2 + 0.4, y + 6.5, { size: 3, bold: true, color: m.kind === 'rcd' ? blue : ink });
-      const sub = m.kind === 'breaker' ? `C${m.In}${m.phase ? ' · ' + (m.phase === '3P' ? '3P+N' : m.phase) : ''}` : m.kind === 'rcd' ? m.text : m.kind === 'surge' ? 'Type 2' : m.kind === 'contactor' ? 'HC' : 'TL';
+      const sub = m.kind === 'breaker' ? `C${m.In}${m.phase ? ' · ' + (m.phase === '3P' ? '3P+N' : m.phase) : ''}` : m.kind === 'rcd' ? m.text : m.kind === 'surge' ? 'Type 2' : m.kind === 'switch' ? `${m.In} A` : m.kind === 'contactor' ? 'HC' : 'TL';
       text(sub, x + w / 2 + 0.4, y + 34, { size: 2.8 });
       if (m.kind === 'rcd') { ctx.beginPath(); ctx.arc(x + w - 4, y + 38.5, 1.6, 0, Math.PI * 2); ctx.strokeStyle = ink; ctx.lineWidth = 0.3; ctx.stroke(); text('T', x + w - 4, y + 39.5, { size: 2 }); }
       // étiquette sous l'appareil
       box(x + 0.4, y + 48, w, 14, '#fff', '#c4ccd9', 0.3);
-      const fitL = m.kind === 'rcd' ? { lines: [`${m.rcd.sens || 30} mA`, `type ${m.rcd.type}`], size: 2.4 } : _bFitLines(m.text, w - 1.5, 2.4, 1.6);
+      const fitL = m.kind === 'rcd' ? { lines: [`${m.rcd.sens || 30} mA`, `type ${m.rcd.type}`], size: 2.4 } : m.feed ? _bFitLines('→ ' + m.feed + ' ' + m.text, w - 1.5, 2.4, 1.4) : _bFitLines(m.text, w - 1.5, 2.4, 1.6);
       fitL.lines.forEach((l, i) => text(l, x + w / 2 + 0.4, y + 53.5 + i * (fitL.size + 1.6), { size: fitL.size }));
       x += m.w * mw;
     }
@@ -1120,6 +1229,7 @@ function drawBoardFront(ctx, design, meta) {
       x += mw;
     }
   });
+  drawRows(M, top);
   // Coffret de communication, sous le tableau dans la GTL (plan avec prises RJ45)
   let Hn = top + M.rows.length * pitch + 4;
   const V = meta && meta.vdi;
@@ -1132,6 +1242,17 @@ function drawBoardFront(ctx, design, meta) {
     for (const [t, bw] of parts) { box(x, y + 12, bw, 22, '#ffffff', '#0f766e', 0.4); text(t, x + bw / 2, y + 25, { size: 2.8 }); x += bw + 6; }
     text(`${V.ports} prise${V.ports > 1 ? 's' : ''} RJ45 en étoile (catégorie 6) · DTIo de l’opérateur à proximité`, left + 4, y + 41, { size: 2.6, color: mute, align: 'left' });
     Hn = y + 52;
+  }
+  // Tableaux divisionnaires : leur coffret sous le tableau principal (ou sous le coffret de communication)
+  let yEnd = V && V.ports ? Hn : top + (M.rows.length - 1) * pitch + 70;
+  for (const P of design.panels || []) {
+    const MP = boardModules(design, P.id), y0 = yEnd + 18, f = P.feeder;
+    ctx.save(); ctx.strokeStyle = '#c4ccd9'; ctx.lineWidth = 0.4; ctx.beginPath(); ctx.moveTo(left - 6, y0 - 8); ctx.lineTo(left + BOARD_ROW * mw + 6, y0 - 8); ctx.stroke(); ctx.restore();
+    text(`Tableau divisionnaire ${P.ref} — ${P.name}`, left, y0 + 2, { bold: true, size: 4.4, align: 'left' });
+    text(`Coffret ${MP.label} · ${MP.used} modules · réserve ${MP.reservePct} % — alimenté par ${f.id} (C${f.In}, ${boardCable(f.S, f.phase)}, ${_bNum(f.length, 1)} m)`, left, y0 + 8.5, { size: 3, align: 'left', color: mute });
+    drawRows(MP, y0 + 24);
+    Hn = y0 + 24 + MP.rows.length * pitch + 4;
+    yEnd = y0 + 24 + (MP.rows.length - 1) * pitch + 70;
   }
   ctx.restore();
   return { W, H: Hn };
@@ -1150,11 +1271,22 @@ function boardFrontSVG(design, meta) {
 // Section des conducteurs de liaison AGCP → tableau selon le réglage (A)
 function boardLinkSection(setting) { return setting <= 45 ? 10 : setting <= 60 ? 16 : 25; }
 const BW = { mw: 26, gap: 14, rowH: 212, colW: 478, top: 150, x0: 208 }; // module 26 pt, rangée, colonne
-function boardWiringFolios(design) { return Math.max(1, Math.ceil(boardModules(design).rows.filter((r) => r.length).length / 4)); }
+// Folios de câblage : quatre rangées par folio, tableau principal puis chaque divisionnaire
+function _wiringPages(design) {
+  const out = [];
+  for (const P of boardPanels(design)) {
+    const n = Math.max(1, Math.ceil(boardModules(design, P.id).rows.filter((r) => r.some((m) => m.kind !== 'switch')).length / 4));
+    for (let k = 0; k < n; k++) out.push({ P, k });
+  }
+  return out;
+}
+function boardWiringFolios(design) { return _wiringPages(design).length; }
 function drawBoardWiring(ctx, design, meta, folio) {
-  const M = boardModules(design), rows = M.rows.map((r, i) => ({ r, i })).filter((x) => x.r.length);
-  const k = folio || 0, nF = boardWiringFolios(design), mine = rows.slice(k * 4, k * 4 + 4);
-  const tri = design.supply && design.supply.phases === 3;
+  const pages = _wiringPages(design), pg = pages[folio || 0] || pages[0], P = pg.P, f = P.feeder;
+  // l'interrupteur-sectionneur de tête d'un TD est dessiné dans le cadre d'arrivée
+  const M = boardModules(design, P.id), rows = M.rows.map((r, i) => ({ r: r.filter((m) => m.kind !== 'switch'), i })).filter((x) => x.r.length);
+  const k = pg.k, mine = rows.slice(k * 4, k * 4 + 4);
+  const tri = design.supply && design.supply.phases === 3 && (!f || f.phase === '3P');
   const ink = '#1a2230', mute = '#5b6b82', N = '#1668c4', PE = '#2e9e46', PEy = '#e0b400';
   // conducteurs actifs : phase + neutre, ou L1 (marron), L2 (noir), L3 (gris) + neutre
   const COND = tri ? [['L1', '#8a5a2b'], ['L2', '#1a1a1a'], ['L3', '#8d949e'], ['N', N]] : [['L', '#b3261e'], ['N', N]];
@@ -1169,7 +1301,7 @@ function drawBoardWiring(ctx, design, meta, folio) {
   };
   const wire = (color, pts, w) => { ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = w || 1.4; ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); };
   const dot = (x, y, c) => { ctx.save(); ctx.fillStyle = c || ink; ctx.beginPath(); ctx.arc(x, y, 1.7, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
-  const isHead = (m) => m.kind === 'rcd' || (m.kind === 'breaker' && m.ref === 'QF');
+  const isHead = (m) => m.kind === 'rcd' || (m.kind === 'breaker' && (m.ref === 'QF' || m.feed));
   // bornes d'un appareil : [nom du conducteur, x] — 4 pôles sur un appareil 4P, sinon phase + neutre
   const terms = (p) => {
     const four = tri && (p.m.kind === 'rcd' || p.m.kind === 'surge' || p.m.w >= 4 || (p.m.kind === 'breaker' && p.m.ref === 'QF'));
@@ -1178,22 +1310,29 @@ function drawBoardWiring(ctx, design, meta, folio) {
     return [[ph, p.x + p.w * 0.3], ['N', p.x + p.w * 0.7]];
   };
   const one = mine.length <= 2, sc = one ? 1.45 : 1;
-  const S = boardLinkSection(design.agcp.setting), mw = BW.mw * sc, gapW = BW.gap * sc, rowH = one ? 290 : BW.rowH;
+  const S = f ? f.S : boardLinkSection(design.agcp.setting), mw = BW.mw * sc, gapW = BW.gap * sc, rowH = one ? 290 : BW.rowH;
   ctx.save(); ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   layer('CARTOUCHE');
-  _uCartouche(ctx, design, meta, 'Câblage du tableau de répartition', k, nF);
+  _uCartouche(ctx, design, meta, f ? `Câblage du tableau divisionnaire ${P.ref}` : 'Câblage du tableau de répartition', folio || 0, pages.length);
   layer('TEXTES');
-  text('Câblage du tableau', 30, 46, { bold: true, size: 17 });
-  text(`Arrivée du disjoncteur de branchement en tête de chaque interrupteur différentiel (conducteurs de ${S} mm²), peignes ${tri ? 'L1 / L2 / L3 / N' : 'phase / neutre'}, départs des circuits, bornier de terre`, 30, 62, { size: 8, color: mute });
+  text(f ? `Câblage du tableau divisionnaire ${P.ref}` : 'Câblage du tableau', 30, 46, { bold: true, size: 17 });
+  text(f ? `${P.name} — arrivée ${boardCable(f.S, f.phase)} depuis ${f.id} sur l’interrupteur-sectionneur QS, puis en tête de chaque interrupteur différentiel, peignes ${tri ? 'L1 / L2 / L3 / N' : 'phase / neutre'}, départs, bornier de terre`
+    : `Arrivée du disjoncteur de branchement en tête de chaque interrupteur différentiel (conducteurs de ${S} mm²), peignes ${tri ? 'L1 / L2 / L3 / N' : 'phase / neutre'}, départs des circuits, bornier de terre`, 30, 62, { size: 8, color: mute });
   const leg = (tri ? [['L1 (marron)', col('L1')], ['L2 (noir)', col('L2')], ['L3 (gris)', col('L3')]] : [['Phase', col('L')]]).concat([['Neutre (bleu)', N], ['Terre (vert / jaune)', PE]]);
   leg.forEach(([t, c], i) => { const x = UNI.W - 30 - (leg.length - i) * 112; layer('SCHEMA'); wire(c, [[x, 42], [x + 20, 42]], 2); layer('TEXTES'); text(t, x + 25, 45, { size: 8 }); });
   // Disjoncteur de branchement (AGCP) et colonne de distribution vers les têtes de groupe
   const ax = 30, ay = 84;
   layer('SCHEMA'); ctx.lineWidth = 1.2; ctx.strokeRect(ax, ay, 122, 44);
   layer('TEXTES');
-  text('AGCP (GTL)', ax + 8, ay + 14, { bold: true, size: 8.5 });
-  text(`${tri ? '4P' : '2P'} ${design.agcp.setting} A · 500 mA`, ax + 8, ay + 26, { size: 8 });
-  text(`${design.agcp.kva} kVA — gestionnaire de réseau`, ax + 8, ay + 37, { size: 7, color: mute });
+  if (f) {
+    text(`QS — tête ${P.ref}`, ax + 8, ay + 14, { bold: true, size: 8.5 });
+    text(`${tri ? '4P' : '2P'} ${boardSubSwitch(f.In)} A · inter-sectionneur`, ax + 8, ay + 26, { size: 8 });
+    text(`depuis ${f.id} C${f.In} · ${boardCable(f.S, f.phase)}`, ax + 8, ay + 37, { size: 7, color: mute });
+  } else {
+    text('AGCP (GTL)', ax + 8, ay + 14, { bold: true, size: 8.5 });
+    text(`${tri ? '4P' : '2P'} ${design.agcp.setting} A · 500 mA`, ax + 8, ay + 26, { size: 8 });
+    text(`${design.agcp.kva} kVA — gestionnaire de réseau`, ax + 8, ay + 37, { size: 7, color: mute });
+  }
   const busX = (i) => ax + 146 + i * 8;
   const col0 = mine.filter((_, n) => one || n % 2 === 0), yEnd = col0.length ? BW.top + (col0.length - 1) * rowH + 4 + nC * 4 : ay + 30;
   layer('SCHEMA');
@@ -1225,7 +1364,7 @@ function drawBoardWiring(ctx, design, meta, folio) {
         if (cl === 0) { const yy = y0 + 1 + bi * 3.5; wire(col(nm), [[busX(bi), yy], [tx, yy], [tx, yb]], 1.5); dot(busX(bi), yy, col(nm)); }
         else wire(col(nm), [[tx, y0 - 16 + i * 2], [tx, yb]], 1.5);
       });
-      if (cl !== 0) { layer('TEXTES'); text(`depuis l’AGCP, ${S} mm²`, ht[ht.length - 1][1] + 4, y0 - 10, { size: 6.5, color: mute }); layer('SCHEMA'); }
+      if (cl !== 0) { layer('TEXTES'); text(`depuis ${f ? 'QS' : 'l’AGCP'}, ${S} mm²`, ht[ht.length - 1][1] + 4, y0 - 10, { size: 6.5, color: mute }); layer('SCHEMA'); }
       // disjoncteur de déconnexion → parafoudre, ou sortie de l'ID → peigne des disjoncteurs du groupe
       const pf = g.head.m.ref === 'QF' && pos.find((q) => q.m.kind === 'surge');
       const last = g.items.length ? g.items[g.items.length - 1] : pf;
@@ -1271,7 +1410,8 @@ function drawBoardWiring(ctx, design, meta, folio) {
         wire(PE, [[tP, yt + 3], [tP, yo]], 1); dot(tP, yt + 1, PE); wire(PE, [[tP - 2, yo - 3], [tP, yo], [tP + 2, yo - 3]], 0.9);
         layer('TEXTES');
         text(`${m.ct.id} · ${boardCable(m.ct.S, m.ct.phase)}`, tP + 2.5, yo + 5, { size: fs(6.5), rot: Math.PI / 2, bold: true });
-        text(m.ct.name.length > 20 ? m.ct.name.slice(0, 19) + '…' : m.ct.name, tP - 5.5 * sc, yo + 5, { size: fs(6), rot: Math.PI / 2, color: mute });
+        const nm = (m.feed ? '→ ' + m.feed + ' ' : '') + m.ct.name;
+        text(nm.length > 20 ? nm.slice(0, 19) + '…' : nm, tP - 5.5 * sc, yo + 5, { size: fs(6), rot: Math.PI / 2, color: mute });
       } else if (m.kind === 'contactor' || m.kind === 'teleruptor') {
         layer('TEXTES');
         text(m.kind === 'contactor' ? 'cde HC' : 'bobine', p.x + p.w / 2, yb + 39 * sc, { size: fs(5.5), align: 'center', color: mute });
@@ -1282,7 +1422,8 @@ function drawBoardWiring(ctx, design, meta, folio) {
   });
   layer('TEXTES');
   const yb2 = UNI.H - 15 - 62 - 28;
-  text(`Bornier de terre relié à la barrette de coupure puis au piquet (conducteur de terre 16 mm² cuivre) ; liaison AGCP → têtes de groupe en ${S} mm² (${tri ? 'trois phases et neutre' : 'phase et neutre'}) ; peignes adaptés au calibre des différentiels.`, 30, yb2 - 13, { size: 8, color: mute });
+  text(f ? `Bornier de terre du ${P.ref} relié à la borne principale de terre par le conducteur de protection de la ligne (${_bS(f.S)} mm²) ; liaison QS → têtes de groupe en ${S} mm² ; peignes adaptés au calibre des différentiels.`
+    : `Bornier de terre relié à la barrette de coupure puis au piquet (conducteur de terre 16 mm² cuivre) ; liaison AGCP → têtes de groupe en ${S} mm² (${tri ? 'trois phases et neutre' : 'phase et neutre'}) ; peignes adaptés au calibre des différentiels.`, 30, yb2 - 13, { size: 8, color: mute });
   text(`${tri ? 'Chaque circuit monophasé sur la phase indiquée (équilibrage des phases) ; ' : ''}phase et neutre d’un circuit sous le même disjoncteur.`, 30, yb2, { size: 8, color: mute });
   text('Schéma de principe : l’ordre de raccordement exact dépend du matériel (peignes horizontaux ou verticaux, borniers à connexion rapide) — suivre la notice du fabricant.', 30, yb2 + 13, { size: 7.5, color: mute });
   ctx.restore();
@@ -1302,22 +1443,32 @@ function boardWiringDXF(design, meta) {
   return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: n * (UNI.H + 60) }, { U: 1 / 0.3528, insunits: 4, layers: [['SCHEMA', 7], ['TEXTES', 2], ['CARTOUCHE', 8]] });
 }
 
-// Étiquettes de repérage à imprimer à l'échelle 1 (A4 portrait) et à découper
-function boardLabelsSVG(design, meta) {
-  const M = boardModules(design);
-  const mw = 18, left = 20, W = 297, pitchY = 26; // A4 paysage : une rangée de 13 modules (234 mm) tient à l'échelle 1
-  const H = Math.max(210, 40 + M.rows.length * pitchY + 20);
+// Étiquettes de repérage à imprimer à l'échelle 1 (A4 paysage) et à découper :
+// une rangée de 13 modules (234 mm) par bande, six bandes par feuille, les TD à la suite
+const LABEL_ROWS = 6;
+function _labelRows(design) {
+  const panels = boardPanels(design).map((P) => ({ P, M: boardModules(design, P.id) }));
+  const multi = panels.length > 1, list = [];
+  for (const { P, M } of panels) M.rows.forEach((row, r) => list.push({ row, title: (multi ? (P.id ? P.ref + ' · ' : 'Principal · ') : '') + `Rangée ${r + 1}` }));
+  return list;
+}
+function boardLabelsPages(design) { return Math.max(1, Math.ceil(_labelRows(design).length / LABEL_ROWS)); }
+function boardLabelsSVGs(design, meta) { const out = []; for (let k = 0; k < boardLabelsPages(design); k++) out.push(boardLabelsSVG(design, meta, k)); return out; }
+function boardLabelsSVG(design, meta, page) {
+  const all = _labelRows(design), nP = Math.max(1, Math.ceil(all.length / LABEL_ROWS)), k = Math.min(page || 0, nP - 1);
+  const list = all.slice(k * LABEL_ROWS, (k + 1) * LABEL_ROWS);
+  const mw = 18, left = 20, W = 297, pitchY = 26, H = 210;
   const ctx = new SVGContext();
   const text = (t, x, y, o) => {
     o = o || {};
     ctx.save(); ctx.fillStyle = o.color || '#1a2230'; ctx.font = `${o.bold ? 'bold ' : ''}${o.size || 3}px sans-serif`;
     ctx.textAlign = o.align || 'center'; ctx.fillText(t, x, y); ctx.restore();
   };
-  text('Étiquettes du tableau — ' + ((meta && meta.title) || 'installation'), left, 18, { bold: true, size: 5, align: 'left' });
+  text('Étiquettes du tableau — ' + ((meta && meta.title) || 'installation') + (nP > 1 ? ` (feuille ${k + 1} / ${nP})` : ''), left, 18, { bold: true, size: 5, align: 'left' });
   text('À imprimer à 100 % (sans « ajuster à la page ») : un module = 18 mm. Découper le long des pointillés.', left, 25, { size: 3, align: 'left', color: '#5b6b82' });
-  M.rows.forEach((row, r) => {
+  list.forEach(({ row, title }, r) => {
     const y = 36 + r * pitchY;
-    text(`Rangée ${r + 1}`, left, y - 2, { size: 2.6, align: 'left', color: '#5b6b82' });
+    text(title, left, y - 2, { size: 2.6, align: 'left', color: '#5b6b82' });
     ctx.save(); ctx.setLineDash([1.2, 1]); ctx.strokeStyle = '#5b6b82'; ctx.lineWidth = 0.25;
     ctx.strokeRect(left, y, BOARD_ROW * mw, 14);
     ctx.restore();
@@ -1327,7 +1478,7 @@ function boardLabelsSVG(design, meta) {
       ctx.strokeStyle = '#1a2230'; ctx.lineWidth = 0.2;
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 14); ctx.stroke();
       text(m.ref, x + w / 2, y + 4.5, { bold: true, size: 3 });
-      const label = m.kind === 'rcd' ? `${m.rcd.In} A ${m.rcd.sens || 30} mA type ${m.rcd.type}` : m.text;
+      const label = m.kind === 'rcd' ? `${m.rcd.In} A ${m.rcd.sens || 30} mA type ${m.rcd.type}` : m.kind === 'switch' ? `Coupure générale ${m.In} A` : m.feed ? `→ ${m.feed} ${m.text}` : m.text;
       const f = _bFitLines(label, w - 1.5, 2.3, 1.5);
       f.lines.forEach((l, i) => text(l, x + w / 2, y + 8.6 + i * (f.size + 1.2), { size: f.size }));
       x += w;
@@ -1361,34 +1512,56 @@ function boardToSchematic(design, meta) {
     comps.push({ id: id(), type: 'ground', x, y: 640, rot: 0, label: '', value: '' }); wire(x, 600, x, 620);
     x += 120;
   }
-  const groups = design.rcds.map((r) => ({ r, cs: design.circuits.filter((c) => c.rcd === r.id) })).filter((g) => g.cs.length);
-  const loose = design.circuits.filter((c) => !design.rcds.some((r) => r.id === c.rcd));
-  if (loose.length) groups.push({ r: null, cs: loose });
   const loadType = (c) => (c.kind === 'light' ? 'lamp' : c.kind === 'socket' ? 'socket' : ['vmc', 'hvac'].includes(c.appliance) || /pompe|clim|vmc/i.test(c.name) ? 'motor' : 'resistor_iec');
   const cut = (t) => (t.length > 20 ? t.slice(0, 19) + '…' : t);
-  let xEnd = x;
-  for (const g of groups) {
-    const xs = g.cs.map((c, i) => x + 20 + i * COL);
-    const xc = Math.round((xs[0] + xs[xs.length - 1]) / 2 / 20) * 20;
-    if (g.r) { put('rcd', xc, 440, g.r.id, `${g.r.In} A ${g.r.type}`, { closed: true }); wire(xc, BUS, xc, 400); wire(xc, 480, xc, SUB); }
-    else wire(xc, BUS, xc, SUB);
-    if (xs.length > 1) wire(xs[0], SUB, xs[xs.length - 1], SUB);
-    g.cs.forEach((c, i) => {
-      const cx = xs[i];
-      put('breaker', cx, 640, c.id, `${c.curve || 'C'}${c.In}${tri && c.phase ? ' ' + (c.phase === '3P' ? '3P+N' : c.phase) : ''}`, { closed: true });
-      wire(cx, SUB, cx, 600);
-      let y = 680;
-      if (c.contactor || c.teleruptor) {
-        put(c.contactor ? 'contactor' : 'teleruptor', cx, 760, c.contactor ? 'KM' : 'KL', c.contactor ? 'HC' : '');
-        wire(cx, 680, cx, 720); y = 800;
-      }
-      put(loadType(c), cx, y + 120, '', cut(c.name));
-      wire(cx, y, cx, y + 80);
-    });
-    x = xs[xs.length - 1] + 100;
-    xEnd = Math.max(xEnd, xs[xs.length - 1]);
-  }
+  const feeds = []; // départs vers les TD : [{ c, x }]
+  // Groupes d'un tableau (ID + disjoncteurs + récepteurs) à partir de x ; renvoie l'abscisse du dernier départ
+  const drawGroups = (V, x) => {
+    const groups = [];
+    const fd = V.circuits.filter((c) => c.kind === 'sub' && !V.rcds.some((r) => r.id === c.rcd));
+    if (fd.length) groups.push({ r: null, cs: fd, feed: true });
+    groups.push(...V.rcds.map((r) => ({ r, cs: V.circuits.filter((c) => c.rcd === r.id) })).filter((g) => g.cs.length));
+    const loose = V.circuits.filter((c) => c.kind !== 'sub' && !V.rcds.some((r) => r.id === c.rcd));
+    if (loose.length) groups.push({ r: null, cs: loose });
+    let xEnd = x;
+    for (const g of groups) {
+      const xs = g.cs.map((c, i) => x + 20 + i * COL);
+      const xc = Math.round((xs[0] + xs[xs.length - 1]) / 2 / 20) * 20;
+      if (g.r) { put('rcd', xc, 440, g.r.id, `${g.r.In} A ${g.r.type}`, { closed: true }); wire(xc, BUS, xc, 400); wire(xc, 480, xc, SUB); }
+      else wire(xc, BUS, xc, SUB);
+      if (xs.length > 1) wire(xs[0], SUB, xs[xs.length - 1], SUB);
+      g.cs.forEach((c, i) => {
+        const cx = xs[i];
+        put('breaker', cx, 640, c.id, `${c.curve || 'C'}${c.In}${tri && c.phase ? ' ' + (c.phase === '3P' ? '3P+N' : c.phase) : ''}`, { closed: true });
+        wire(cx, SUB, cx, 600);
+        if (c.kind === 'sub') { feeds.push({ c, x: cx }); return; }
+        let y = 680;
+        if (c.contactor || c.teleruptor) {
+          put(c.contactor ? 'contactor' : 'teleruptor', cx, 760, c.contactor ? 'KM' : 'KL', c.contactor ? 'HC' : '');
+          wire(cx, 680, cx, 720); y = 800;
+        }
+        put(loadType(c), cx, y + 120, '', cut(c.name));
+        wire(cx, y, cx, y + 80);
+      });
+      x = xs[xs.length - 1] + 100;
+      xEnd = Math.max(xEnd, xs[xs.length - 1]);
+    }
+    return xEnd;
+  };
+  const xEnd = drawGroups(boardPanelView(design, null), x);
   wire(X0, BUS, xEnd, BUS); // jeu de barres
+  // Tableaux divisionnaires, à droite : ligne du départ sous les récepteurs, interrupteur-sectionneur, jeu de barres
+  let xt = xEnd + 200;
+  (design.panels || []).forEach((P, i) => {
+    const fd = feeds.find((q) => q.c.id === P.id);
+    const yL = 1080 + i * 40, xr = xt - 60;
+    if (fd) wires.push({ id: id(), points: [{ x: fd.x, y: 680 }, { x: fd.x, y: yL }, { x: xr, y: yL }, { x: xr, y: 160 }, { x: xt, y: 160 }, { x: xt, y: 200 }] });
+    put('switch', xt, 240, 'QS', `${P.ref} ${boardSubSwitch(P.feeder.In)} A`, { closed: true });
+    wire(xt, 280, xt, BUS);
+    const xe = drawGroups(boardPanelView(design, P.id), xt);
+    wire(xt, BUS, Math.max(xe, xt + 40), BUS);
+    xt = Math.max(xe, xt + 40) + 220;
+  });
   return {
     version: 1,
     meta: { title: ((meta && meta.title) || 'Installation') + ' — schéma unifilaire', author: (meta && meta.author) || '' },

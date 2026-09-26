@@ -76,22 +76,41 @@ function initBoardUI(app) {
     const checks = d.checks || [];
     const flag = (ref) => { const l = checks.filter((c) => c.ref === ref && (c.level === 'err' || c.level === 'warn')); return l.length ? { cls: l.some((c) => c.level === 'err') ? 'err' : 'warn', tip: l.map((c) => c.msg).join('\n') } : null; };
     const opt = (list, v, fmt) => list.map((x) => `<option value="${x}"${+v === +x || v === x ? ' selected' : ''}>${fmt ? fmt(x) : x}</option>`).join('');
-    const rcdOpts = (v) => `<option value=""${!v ? ' selected' : ''}>—</option>` + d.rcds.map((r) => `<option value="${esc(r.id)}"${r.id === v ? ' selected' : ''}>${esc(r.id)}</option>`).join('');
+    const pref = (r) => { const p = r.panel && (d.panels || []).find((x) => x.id === r.panel); return p ? ' · ' + p.ref : ''; };
+    const rcdOpts = (v) => `<option value=""${!v ? ' selected' : ''}>—</option>` + d.rcds.map((r) => `<option value="${esc(r.id)}"${r.id === v ? ' selected' : ''}>${esc(r.id + pref(r))}</option>`).join('');
     h += '<div class="bd-scroll"><table class="bd-table"><thead><tr><th>Repère</th><th>Désignation</th><th>Type</th><th>Calibre</th><th>Section</th><th>Charge</th><th>Long.</th>' + (tri ? '<th>Ph.</th>' : '') + '<th>ID</th><th><span class="sr-only">Actions</span></th></tr></thead>';
-    const groups = d.rcds.map((r) => ({ r, cs: d.circuits.filter((c) => c.rcd === r.id) }));
-    const loose = d.circuits.filter((c) => !d.rcds.some((r) => r.id === c.rcd));
+    // tableau principal (départs TD en tête, ID, circuits sans ID), puis chaque tableau divisionnaire
+    const groups = [];
+    const feeds = d.circuits.filter((c) => c.kind === 'sub' && !d.rcds.some((r) => r.id === c.rcd));
+    if (feeds.length) groups.push({ r: null, feed: true, cs: feeds });
+    groups.push(...d.rcds.filter((r) => !r.panel).map((r) => ({ r, cs: d.circuits.filter((c) => c.rcd === r.id) })));
+    const loose = d.circuits.filter((c) => c.kind !== 'sub' && !d.rcds.some((r) => r.id === c.rcd));
     if (loose.length) groups.push({ r: null, cs: loose });
+    for (const P of d.panels || []) {
+      groups.push({ panel: P, cs: [] });
+      groups.push(...d.rcds.filter((r) => r.panel === P.id).map((r) => ({ r, cs: d.circuits.filter((c) => c.rcd === r.id) })));
+    }
+    const ncol = tri ? 10 : 9;
     for (const g of groups) {
+      if (g.panel) {
+        const fp = flag(g.panel.id);
+        h += `<tbody class="bd-td"><tr class="bd-tdh ${fp ? fp.cls : ''}"${fp ? ` title="${esc(fp.tip)}"` : ''}><td colspan="${ncol}"><b>${esc(g.panel.ref)}</b> Tableau divisionnaire <em>${esc(g.panel.name)}</em>` +
+          `<span class="bd-count">alimenté par ${esc(g.panel.id)} · ${g.panel.feeder.curve || 'C'}${g.panel.feeder.In} · ${esc(boardCable(g.panel.feeder.S, g.panel.feeder.phase))} · interrupteur-sectionneur ${boardSubSwitch(g.panel.feeder.In)} A</span>` +
+          `<button type="button" class="btn-ghost" data-bact="rcd" data-panel="${esc(g.panel.id)}">+ ID dans ${esc(g.panel.ref)}</button></td></tr></tbody>`;
+        continue;
+      }
       const f = g.r && flag(g.r.id);
-      h += `<tbody data-rcd="${g.r ? esc(g.r.id) : ''}"><tr class="bd-rcd ${f ? f.cls : ''}"${f ? ` title="${esc(f.tip)}"` : ''}><td colspan="${tri ? 10 : 9}">`;
-      if (g.r) {
+      h += `<tbody data-rcd="${g.r ? esc(g.r.id) : ''}"${g.r && g.r.panel ? ' class="bd-inTd"' : ''}><tr class="bd-rcd ${f ? f.cls : ''}"${f ? ` title="${esc(f.tip)}"` : ''}><td colspan="${ncol}">`;
+      if (g.feed) h += '<b>Départs en tête</b> vers les tableaux divisionnaires — protégés par l’AGCP 500 mA sélectif, les ID 30 mA sont dans chaque TD';
+      else if (g.r) {
         h += `<b>${esc(g.r.id)}</b> Interrupteur différentiel <select data-rf="In" aria-label="Calibre">${opt(BOARD_RCD_IN, g.r.In, (x) => x + ' A')}</select> 30 mA type <select data-rf="type" aria-label="Type">${opt(BOARD_RCD_TYPES, g.r.type)}</select>` +
           `<span class="bd-count">${g.cs.length}/8 circuits</span>` + (g.cs.length ? '' : '<button type="button" class="bd-x" data-ract="del" title="Supprimer ce différentiel">Supprimer</button>');
       } else h += '<b class="bad">Sans différentiel 30 mA</b> — rattache ces circuits à un ID';
       h += '</td></tr>';
       for (const c of g.cs) {
         const fc = flag(c.id);
-        const load = c.devices.length ? `<span class="bd-ro" title="D’après le plan">${c.kind === 'light' ? c.points + (c.points > 1 ? ' pts' : ' pt') : c.kind === 'socket' ? c.points + ' PC' : num(c.power) + ' W'}</span>`
+        const load = c.kind === 'sub' ? `<input type="number" min="0" step="100" data-cf="P" value="${c.Pin > 0 ? Math.round(c.Pin) : ''}" placeholder="${Math.round(c.Pauto || 0)}" aria-label="Puissance du tableau divisionnaire" title="Puissance appelée par le tableau divisionnaire (vide : puissance probable de ses circuits)"><em>W</em>`
+          : c.devices.length ? `<span class="bd-ro" title="D’après le plan">${c.kind === 'light' ? c.points + (c.points > 1 ? ' pts' : ' pt') : c.kind === 'socket' ? c.points + ' PC' : num(c.power) + ' W'}</span>`
           : c.kind === 'light' || c.kind === 'socket' ? `<input type="number" min="0" max="30" data-cf="points" value="${c.points}" aria-label="Points"><em>${c.kind === 'light' ? 'pts' : 'PC'}</em>`
             : `<input type="number" min="0" step="100" data-cf="P" value="${Math.round(c.power)}" aria-label="Puissance"><em>W</em>`;
         const len = c.devices.length ? `<span class="bd-ro" title="Mesurée sur le plan">${num(c.length, 1)} m</span>` : `<input type="number" min="1" max="200" step="0.5" data-cf="length" value="${num(c.length, 1).replace(/\s/g, '').replace(',', '.')}" aria-label="Longueur"><em>m</em>`;
@@ -104,8 +123,8 @@ function initBoardUI(app) {
           `<td class="bd-load">${load}</td><td class="bd-load">${len}</td>` +
           (tri ? `<td><select data-cf="phase" aria-label="Phase" class="${c.phaseAuto ? 'bd-auto' : ''}" title="${c.phaseAuto ? 'Phase choisie pour équilibrer' : 'Phase'}">${['L1', 'L2', 'L3', '3P'].map((p) => `<option value="${p}"${c.phase === p ? ' selected' : ''}>${p === '3P' ? '3P+N' : p}</option>`).join('')}</select></td>` : '') +
           `<td><select data-cf="rcd" aria-label="Différentiel">${rcdOpts(c.rcd)}</select></td>` +
-          `<td class="bd-acts"><button type="button" data-cact="hc" aria-pressed="${c.contactor ? 'true' : 'false'}" title="Contacteur jour / nuit (heures creuses)">HC</button>` +
-          `<button type="button" data-cact="tl" aria-pressed="${c.teleruptor ? 'true' : 'false'}" title="Télérupteur">TL</button>` +
+          `<td class="bd-acts">` + (c.kind === 'sub' ? `<span class="bd-tdref">→ ${esc(c.panelRef || 'TD')}</span>` : `<button type="button" data-cact="hc" aria-pressed="${c.contactor ? 'true' : 'false'}" title="Contacteur jour / nuit (heures creuses)">HC</button>` +
+          `<button type="button" data-cact="tl" aria-pressed="${c.teleruptor ? 'true' : 'false'}" title="Télérupteur">TL</button>`) +
           '<button type="button" data-cact="del" class="bd-x" title="Supprimer le circuit">✕</button></td></tr>';
       }
       h += '</tbody>';
@@ -152,14 +171,13 @@ function initBoardUI(app) {
       svg = pages[st.folio];
       $('bd-folios').hidden = pages.length < 2;
       $('bd-folio-lbl').textContent = `Folio ${st.folio + 1} / ${pages.length}`;
-    } else if (st.view === 'calc' || st.view === 'dev' || st.view === 'vdi' || st.view === 'elev' || st.view === 'wiring') {
-      const pages = st.view === 'calc' ? calcNoteSVGs(d, meta()) : st.view === 'dev' ? devSVGs(d) : st.view === 'elev' ? elevPages(d) : st.view === 'wiring' ? boardWiringSVGs(d, meta()) : vdiPages(d);
+    } else if (st.view === 'calc' || st.view === 'dev' || st.view === 'vdi' || st.view === 'elev' || st.view === 'wiring' || st.view === 'labels') {
+      const pages = st.view === 'calc' ? calcNoteSVGs(d, meta()) : st.view === 'dev' ? devSVGs(d) : st.view === 'elev' ? elevPages(d) : st.view === 'wiring' ? boardWiringSVGs(d, meta()) : st.view === 'labels' ? boardLabelsSVGs(d, meta()) : vdiPages(d);
       st.folio = Math.min(st.folio, pages.length - 1);
       svg = pages[st.folio];
       $('bd-folios').hidden = pages.length < 2;
       $('bd-folio-lbl').textContent = `Folio ${st.folio + 1} / ${pages.length}`;
-    } else if (st.view === 'front') svg = boardFrontSVG(d, meta());
-    else svg = boardLabelsSVG(d, meta());
+    } else svg = boardFrontSVG(d, meta());
     modal.querySelector('[data-bx="csv"]').hidden = st.view !== 'calc';
     sheet.innerHTML = svg.replace(/width="[^"]*mm" height="[^"]*mm"/, `style="width:${Math.round(st.zoom * 100)}%;height:auto"`);
     modal.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === st.view));
@@ -183,8 +201,13 @@ function initBoardUI(app) {
         const c = findC(b, id);
         if (!c) return;
         if (['In', 'S', 'points', 'P', 'length'].includes(f)) v = Math.max(0, +v || 0);
+        const was = c.kind;
         c[f] = v;
         if (f === 'rcd' && !v) c.rcd = null;
+        // tableau divisionnaire : ses ID suivent le repère du départ ; un départ se raccorde en tête
+        if (f === 'id') (b.rcds || []).forEach((r) => { if (r.panel === id) r.panel = v; });
+        if (f === 'kind' && v === 'sub') c.rcd = null;
+        if (f === 'kind' && was === 'sub' && v !== 'sub') (b.rcds || []).forEach((r) => { if (r.panel === id) r.panel = null; });
       });
     } else if (t.dataset.rf && tb) {
       const id = tb.dataset.rcd, f = t.dataset.rf;
@@ -213,7 +236,7 @@ function initBoardUI(app) {
         if (!c) return;
         if (a === 'hc') c.contactor = c.contactor ? null : 'hc';
         else if (a === 'tl') c.teleruptor = !c.teleruptor;
-        else if (a === 'del') b.circuits.splice(i, 1);
+        else if (a === 'del') { b.circuits.splice(i, 1); if (c.kind === 'sub') b.rcds.forEach((r) => { if (r.panel === c.id) r.panel = null; }); } // ses ID reviennent au tableau principal
         else {
           // échange avec le circuit voisin du même différentiel
           const same = b.circuits.map((x, k) => [x, k]).filter(([x]) => x.rcd === c.rcd).map(([, k]) => k);
@@ -230,8 +253,9 @@ function initBoardUI(app) {
         const key = $('bd-preset').value;
         let added = null;
         mutate((b) => { added = boardAddCircuit(b, key); });
-        if (added) showToast(`<b>${esc(added.id)}</b> ${esc(added.name)} ajouté sous ${esc(added.rcd || '—')}.`, 2500);
-      } else if (a === 'rcd') mutate((b) => { b.rcds.push({ id: boardNextId(b, 'ID'), In: 40, type: 'AC', sens: 30 }); });
+        if (added) showToast(added.kind === 'sub' ? `<b>${esc(added.id)}</b> départ en tête vers un <b>tableau divisionnaire</b> (un ID 30 mA, éclairage et prises) : renomme-le, ajuste sa longueur et ses circuits.`
+          : `<b>${esc(added.id)}</b> ${esc(added.name)} ajouté sous ${esc(added.rcd || '—')}.`, added.kind === 'sub' ? 5000 : 2500);
+      } else if (a === 'rcd') mutate((b) => { b.rcds.push({ id: boardNextId(b, 'ID'), In: 40, type: 'AC', sens: 30, panel: bt.dataset.panel || null }); });
       else if (a === 'distribute') {
         let n = 0;
         mutate((b) => { n = boardDistribute(b, editor.components, design()); });
@@ -263,7 +287,7 @@ function initBoardUI(app) {
     const k = b.dataset.bx;
     if (k === 'svg') {
       const folio = (pages) => pages[st.folio] || pages[0];
-      const svg = st.view === 'uni' ? unifilarSVG(d, meta()) : st.view === 'calc' ? folio(calcNoteSVGs(d, meta())) : st.view === 'dev' ? folio(devSVGs(d)) : st.view === 'vdi' ? folio(vdiPages(d)) : st.view === 'elev' ? folio(elevPages(d)) : st.view === 'wiring' ? folio(boardWiringSVGs(d, meta())) : st.view === 'front' ? boardFrontSVG(d, meta()) : boardLabelsSVG(d, meta());
+      const svg = st.view === 'uni' ? unifilarSVG(d, meta()) : st.view === 'calc' ? folio(calcNoteSVGs(d, meta())) : st.view === 'dev' ? folio(devSVGs(d)) : st.view === 'vdi' ? folio(vdiPages(d)) : st.view === 'elev' ? folio(elevPages(d)) : st.view === 'wiring' ? folio(boardWiringSVGs(d, meta())) : st.view === 'front' ? boardFrontSVG(d, meta()) : folio(boardLabelsSVGs(d, meta()));
       const what = { uni: 'unifilaire', calc: 'note de calcul', dev: 'schémas développés', vdi: 'communication', elev: 'élévations', wiring: 'câblage du tableau', front: 'face avant', labels: 'étiquettes' }[st.view];
       download(new Blob([svg], { type: 'image/svg+xml' }), fileName(base() + ' - ' + what + '.svg'));
     } else if (k === 'dxf') {
@@ -310,7 +334,7 @@ function initBoardUI(app) {
     const strip = (s) => s.replace(/width="[^"]*mm" height="[^"]*mm"/, '');
     // dossier technique : sommaire puis folios numérotés à la suite
     const pages = technicalSet(d, meta(), editor.components, editor.wires).pages.map((s) => `<section class="a3">${strip(s)}</section>`).join('');
-    const front = boardFrontSVG(d, meta()), labels = boardLabelsSVG(d, meta());
+    const front = boardFrontSVG(d, meta()), labels = boardLabelsSVGs(d, meta());
     const mm = (s) => { const m = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(s); return m ? [+m[1], +m[2]] : [210, 297]; };
     const [fw, fh] = mm(front);
     const html = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>' + esc(base()) + ' — tableau électrique</title><style>' +
@@ -320,8 +344,9 @@ function initBoardUI(app) {
       `.a4p{page:a4p;width:194mm}.a4p svg{width:${Math.min(194, fw)}mm;height:auto;display:block}` +
       '.a4l{page:a4l;width:297mm;height:210mm}.a4l svg{width:297mm;height:auto;display:block}' +
       '@media print{body{background:#fff}section{margin:0}}</style></head><body>' + pages +
-      `<section class="a4p">${front.replace(/width="[^"]*mm" height="[^"]*mm"/, fh > 280 ? 'style="width:100%;height:auto"' : '')}</section>` +
-      `<section class="a4l">${labels.replace(/height="[^"]*mm"/, '')}</section>` +
+      // face avant réduite pour tenir sur la page (tableau principal et divisionnaires) ; étiquettes à l'échelle 1
+      `<section class="a4p">${front.replace(/width="[^"]*mm" height="[^"]*mm"/, `style="width:${Math.min(194, fw, (279 * fw) / fh).toFixed(1)}mm;height:auto"`)}</section>` +
+      labels.map((l) => `<section class="a4l">${l.replace(/height="[^"]*mm"/, '')}</section>`).join('') +
       '<script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script></body></html>';
     win.document.open(); win.document.write(html); win.document.close();
   }

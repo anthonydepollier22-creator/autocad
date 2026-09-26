@@ -1283,11 +1283,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Nouveautés : une fois par version (pas quand on arrive par un lien de démo)
   try {
-    const NEWS = '1.11';
+    const NEWS = '1.12';
     if (localStorage.getItem('electricad-news') !== NEWS) {
       localStorage.setItem('electricad-news', NEWS);
       if (!location.search) {
-        setTimeout(() => showToast('<b>Nouveau</b> en 3D (Implanter) : tracer une <b>cloison placo</b>, percer une <b>porte</b>, nommer la <b>pièce</b>, puis <b>Compléter NF</b> ; implantation en <b>visite</b>, Ctrl+Z. Tableau : <b>Dossier DXF</b> complet ; onglet Norme : <b>autocontrôle</b> à cocher.', 9000), 1200);
+        setTimeout(() => showToast('<b>Nouveau</b> : <b>tableaux divisionnaires</b> (garage, atelier) — bouton Tableau, « + Circuit » → Tableau divisionnaire : ses ID, son unifilaire, son câblage, sa face avant, ΔU et Icc depuis l’origine. En 3D : <b>cloison placo</b>, <b>porte</b>, <b>Compléter NF</b>.', 9000), 1200);
       }
     }
   } catch (_) { /* stockage indisponible */ }

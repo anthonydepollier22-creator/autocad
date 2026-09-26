@@ -122,7 +122,7 @@ function initHouseUI(app) {
       bindActions();
       return;
     }
-    const kinds = { light: 'Éclairage', socket: 'Prises', heating: 'Chauffage', dedicated: 'Spécialisé' };
+    const kinds = { light: 'Éclairage', socket: 'Prises', heating: 'Chauffage', dedicated: 'Spécialisé', other: 'Autre', sub: 'Tableau divisionnaire' };
     let h = '<div class="inst-actions">' +
       '<button data-act="implant" title="Ajoute l’appareillage NF C 15-100 manquant puis retrace les goulottes">Implanter</button>' +
       '<button data-act="conduits" title="Retrace toutes les goulottes depuis le tableau">Goulottes</button>' +
@@ -147,10 +147,18 @@ function initHouseUI(app) {
       '<span class="dm-lever"></span><b>AGCP</b><em>' + d.agcp.setting + ' A</em></button>' +
       `<div class="board-info"><b>Abonnement ${d.agcp.kva} kVA${d.custom ? ' <em class="bd-badge">personnalisé</em>' : ''}</b><span>${d.circuits.length} circuits · ${d.rcds.length} différentiels 30 mA · ${Math.round(d.cableTotal)} m de câble · réserve ${d.reserve} modules</span>` +
       `<button class="bd-open" data-act="board">Modifier le tableau · folios</button></div></div>`;
+    // départs des tableaux divisionnaires (en tête, sous l'AGCP) : couper le départ coupe tout le TD
+    const feeds = d.circuits.filter((c) => c.kind === 'sub');
+    if (feeds.length) {
+      h += '<div class="board-row"><span class="dm dm-head" title="Départs en tête, sous l’AGCP"><b>TD</b><em>départs</em></span><div class="board-mods">';
+      for (const c of feeds) h += `<button class="dm" data-ct="${c.id}" title="${esc(c.id + ' ' + c.name)} → ${c.panelRef}&#10;${c.In} A · ${String(c.S).replace('.', ',')} mm² · ${c.length.toFixed(1).replace('.', ',')} m"><span class="dm-lever"></span><b>${c.id}</b><em>${c.In} A</em><i class="dm-load"><u data-load="${c.id}"></u></i><small>→ ${esc(c.panelRef || 'TD')}</small></button>`;
+      h += '</div></div>';
+    }
     for (const r of d.rcds) {
       const cs = d.circuits.filter((c) => c.rcd === r.id);
       if (!cs.length) continue;
-      h += `<div class="board-row"><button class="dm dm-rcd" data-rcd="${r.id}" title="Interrupteur différentiel ${r.In} A 30 mA type ${r.type}"><span class="dm-lever"></span><b>${r.id}</b><em>${r.In} A · ${r.type}</em></button><div class="board-mods">`;
+      const tdRef = r.panel && (d.panels || []).find((p) => p.id === r.panel);
+      h += `<div class="board-row"><button class="dm dm-rcd" data-rcd="${r.id}" title="Interrupteur différentiel ${r.In} A 30 mA type ${r.type}${tdRef ? ' — tableau divisionnaire ' + tdRef.ref : ''}"><span class="dm-lever"></span><b>${r.id}${tdRef ? ' · ' + tdRef.ref : ''}</b><em>${r.In} A · ${r.type}</em></button><div class="board-mods">`;
       for (const c of cs) {
         h += `<button class="dm" data-ct="${c.id}" title="${esc(c.id + ' ' + c.name + ' — ' + c.rooms)}&#10;${c.In} A · ${String(c.S).replace('.', ',')} mm² · ${c.length.toFixed(1).replace('.', ',')} m · ΔU ${c.dUpct.toFixed(1).replace('.', ',')} %">` +
           `<span class="dm-lever"></span><b>${c.id}</b><em>${c.In} A</em><i class="dm-load"><u data-load="${c.id}"></u></i><small>${esc(c.name)}</small></button>`;

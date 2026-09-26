@@ -200,6 +200,14 @@ l'éditeur du tableau, **avec ou sans plan** :
   section, 6 en cuisine, 4 500 W de chauffage par circuit, plaque et lave-linge sous
   type A, borne sous type F, 8 circuits par différentiel, nombre d'ID selon la
   surface, circuit sans 30 mA, chute de tension, abonnement, 20 % de réserve ;
+- **Tableaux divisionnaires** (garage, atelier, annexe) : un départ « Tableau
+  divisionnaire » en tête du tableau principal, sous l'AGCP 500 mA sélectif (pas sous un
+  ID 30 mA : aucune sélectivité), alimente un TD avec son interrupteur-sectionneur de
+  tête, ses propres ID 30 mA et ses circuits. La chute de tension des circuits du TD
+  est comptée depuis l'origine (ligne comprise) et le court-circuit minimal en bout de
+  ligne ajoute l'impédance de la ligne (Lmax réduite). En triphasé, un TD monophasé
+  suit la phase de son départ, un TD 3P+N équilibre ses circuits. Chaque TD a ses
+  folios (unifilaire, câblage), sa face avant, ses étiquettes et son coffret au métré ;
 - **Folio unifilaire normalisé** (A3 paysage, symboles CEI 60617) : réseau, compteur,
   disjoncteur de branchement 500 mA, parafoudre, borne principale et prise de terre,
   jeu de barres, différentiels, disjoncteurs, contacteurs, désignations verticales,
@@ -738,7 +746,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-179 vérifications sans dépendance : valeurs numériques de chaque simulation
+183 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
@@ -751,7 +759,7 @@ magnétique, différentiel, disjoncteur de branchement, énergie, va-et-vient), 
 montée et descente de l'escalier en visite, visite guidée jusqu'à l'étage), la vue en
 coupe, la course du soleil selon la saison, les interactions de l'éditeur 2D (fin d'un
 mur au double-clic, à `Entrée` ou en fermant le contour, mise à l'échelle du calque),
-**le plan d'implantation** (légende, repères de circuits), **les murs placo / maçonnés** (matériaux, boîtes au métré, montants en 3D), **le tableau et l'unifilaire** (tableau personnalisé identique à l'automatique,
+**le plan d'implantation** (légende, repères de circuits), **les murs placo / maçonnés** (matériaux, boîtes au métré, montants en 3D), **le tableau et l'unifilaire** (tableaux divisionnaires : ΔU et Icc depuis l'origine, folios par tableau, simulation du départ ; tableau personnalisé identique à l'automatique,
 contrôles NF, circuit sans différentiel en simulation, appareils ajoutés puis
 répartis, tableau sans plan, triphasé équilibré, face avant, folios, DXF, métré), **l'éclairement** (formule du plafonnier, lumière confinée à sa pièce, appliques
 jusqu'à l'objectif), les exports SVG et DXF et **l'import DXF** (aller-retour des 6 maisons, plans
