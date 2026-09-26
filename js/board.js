@@ -925,35 +925,69 @@ function developedDXF(design, meta, components, wires) {
 // Dossier technique : les folios A3 dans l'ordre, numérotés à la suite, et
 // leur sommaire (folio 1)
 // ---------------------------------------------------------------------------
-function technicalSet(design, meta, components, wires) {
+// Séries de folios du dossier, dans l'ordre : dessin (SVG et DXF) ou page SVG seule (plans)
+function _technicalSeries(design, components, wires) {
   const hasPlan = wires.some((w) => w.kind === 'wall'), rj = components.some((c) => c.type === 'rj45');
-  const sets = [];
+  const S = [];
   if (hasPlan && typeof buildSVG === 'function') {
-    sets.push(['Plan d’implantation', 'Appareillage, goulottes, cotes, légende et repères de circuits', (m) => [planFolioSVG(design, m, components, wires)]]);
-    if (design.net && design.net.edges.length) sets.push(['Plan de câblage', 'Cheminement de chaque circuit dans les goulottes, jusqu’aux appareils', (m) => [planFolioSVG(design, m, components, wires, true)]]);
+    S.push({ title: 'Plan d’implantation', what: 'Appareillage, goulottes, cotes, légende et repères de circuits', n: 1,
+      svg: (m) => planFolioSVG(design, m, components, wires), draw: (ctx, m) => _planPlaceholder(ctx, design, m, 'Plan d’implantation') });
+    if (design.net && design.net.edges.length) S.push({ title: 'Plan de câblage', what: 'Cheminement de chaque circuit dans les goulottes, jusqu’aux appareils', n: 1,
+      svg: (m) => planFolioSVG(design, m, components, wires, true), draw: (ctx, m) => _planPlaceholder(ctx, design, m, 'Plan de câblage — cheminement des circuits') });
   }
-  sets.push(
-    ['Schéma unifilaire', 'Arrivée, AGCP, différentiels, disjoncteurs, nomenclature des départs', (m) => unifilarSVGs(design, m)],
-    ['Câblage du tableau', 'Liaison AGCP, peignes, départs, bornier de terre', (m) => boardWiringSVGs(design, m)],
-    ['Note de calcul', 'Ib, In, Iz, ΔU, Icc mini, longueur maximale protégée, bilan de puissance', (m) => calcNoteSVGs(design, m)],
-    ['Schémas développés', 'Commandes d’éclairage pièce par pièce', (m) => developedSVGs(design, m, components, wires)],
-  );
-  if (hasPlan && typeof elevationSVGs === 'function') sets.push(['Élévations des murs', 'Hauteurs de pose de l’appareillage, pièce par pièce', (m) => elevationSVGs(design, m, components, wires)]);
-  if (rj && typeof vdiSVGs === 'function') sets.push(['Communication (VDI)', 'Coffret grade 2TV, câblage en étoile catégorie 6', (m) => vdiSVGs(design, m, components, wires)]);
-  // premier passage : nombre de folios de chaque série ; second : numérotation continue
-  const counts = sets.map(([, , f]) => f(meta).length);
-  const total = 1 + counts.reduce((a, b) => a + b, 0);
+  S.push({ title: 'Schéma unifilaire', what: 'Arrivée, AGCP, différentiels, disjoncteurs, nomenclature des départs', n: unifilarLayout(design).folios.length, draw: (ctx, m, k) => drawUnifilar(ctx, design, m, k) });
+  S.push({ title: 'Câblage du tableau', what: 'Liaison AGCP, peignes, départs, bornier de terre', n: boardWiringFolios(design), draw: (ctx, m, k) => drawBoardWiring(ctx, design, m, k) });
+  S.push({ title: 'Note de calcul', what: 'Ib, In, Iz, ΔU, Icc mini, longueur maximale protégée, bilan de puissance', n: calcNoteFolios(design), draw: (ctx, m, k) => drawCalcNote(ctx, design, m, k) });
+  const lc = lightingControls(design, components, wires);
+  S.push({ title: 'Schémas développés', what: 'Commandes d’éclairage pièce par pièce', n: devFolios(lc), draw: (ctx, m, k) => drawDeveloped(ctx, design, m, lc, k) });
+  if (hasPlan && typeof elevations === 'function') {
+    const E = elevations(components, wires);
+    S.push({ title: 'Élévations des murs', what: 'Hauteurs de pose de l’appareillage, pièce par pièce', n: elevLayout(E).length, draw: (ctx, m, k) => drawElevations(ctx, design, m, E, k) });
+  }
+  if (rj && typeof vdiDesign === 'function') {
+    const V = vdiDesign(components, wires);
+    S.push({ title: 'Communication (VDI)', what: 'Coffret grade 2TV, câblage en étoile catégorie 6', n: vdiFolios(V), draw: (ctx, m, k) => drawVDI(ctx, design, m, V, k) });
+  }
+  // numérotation continue : sommaire au folio 1
   let sheet = 2;
-  const entries = [], pages = [];
-  sets.forEach(([title, what, f], i) => {
-    entries.push({ title, what, from: sheet, to: sheet + counts[i] - 1 });
-    pages.push(...f({ ...meta, sheet, sheets: total }));
-    sheet += counts[i];
+  for (const x of S) { x.from = sheet; x.to = sheet + x.n - 1; sheet += x.n; }
+  return { S, hasPlan, total: sheet - 1, entries: S.map((x) => ({ title: x.title, what: x.what, from: x.from, to: x.to })) };
+}
+const _folioWrap = (inner) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${UNI.W} ${UNI.H}" width="420mm" height="297mm" font-family="sans-serif"><rect width="${UNI.W}" height="${UNI.H}" fill="#fff"/>${inner}</svg>`;
+function technicalSet(design, meta, components, wires) {
+  const T = _technicalSeries(design, components, wires), pages = [];
+  const cover = new SVGContext();
+  drawSommaire(cover, design, { ...meta, sheet: 1, sheets: T.total }, T.entries, T.hasPlan);
+  pages.push(_folioWrap(cover.out.join('')));
+  for (const x of T.S) {
+    const m = { ...meta, sheet: x.from, sheets: T.total };
+    if (x.svg) { pages.push(x.svg(m)); continue; }
+    for (let k = 0; k < x.n; k++) { const ctx = new SVGContext(); x.draw(ctx, m, k); pages.push(_folioWrap(ctx.out.join(''))); }
+  }
+  return { pages, entries: T.entries, total: T.total };
+}
+// Le dossier technique en un seul DXF : les folios côte à côte (millimètres) ; les
+// plans y sont remplacés par un renvoi au DXF du plan, à l'échelle réelle
+function technicalDXF(design, meta, components, wires) {
+  const T = _technicalSeries(design, components, wires), ctx = new DXFContext(), step = UNI.W + 80;
+  let i = 0;
+  const at = (fn) => { ctx.save(); ctx.translate(i * step, 0); fn(); ctx.restore(); i++; };
+  at(() => drawSommaire(ctx, design, { ...meta, sheet: 1, sheets: T.total }, T.entries, T.hasPlan));
+  for (const x of T.S) {
+    const m = { ...meta, sheet: x.from, sheets: T.total };
+    for (let k = 0; k < x.n; k++) at(() => x.draw(ctx, m, k));
+  }
+  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: i * step, maxY: UNI.H }, {
+    U: 1 / 0.3528, insunits: 4, layers: [['UNIFILAIRE', 7], ['SCHEMA', 7], ['TEXTES', 2], ['CARTOUCHE', 8]],
   });
-  const ctx = new SVGContext();
-  drawSommaire(ctx, design, { ...meta, sheet: 1, sheets: total }, entries, hasPlan);
-  const cover = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${UNI.W} ${UNI.H}" width="420mm" height="297mm" font-family="sans-serif"><rect width="${UNI.W}" height="${UNI.H}" fill="#fff"/>${ctx.out.join('')}</svg>`;
-  return { pages: [cover, ...pages], entries, total };
+}
+function _planPlaceholder(ctx, design, meta, title) {
+  _uCartouche(ctx, design, meta, title, 0, 1);
+  ctx.save(); ctx.fillStyle = '#1a2230'; ctx.font = 'bold 16px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText(title, 60, 120);
+  ctx.font = '11px sans-serif'; ctx.fillStyle = '#5b6b82';
+  ctx.fillText('À l’échelle réelle dans le DXF du plan : barre d’outils → DXF (calques MURS, ELECTRICITE, GOULOTTES, CIRCUITS…).', 60, 146);
+  ctx.restore();
 }
 // Plan d'implantation dans un folio A3 : le plan (légende, repères) mis à l'échelle
 // de la zone utile, sous le cartouche du dossier

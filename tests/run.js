@@ -981,6 +981,14 @@ r = run(`(function(){
 })()`);
 check('Dossier technique : sommaire (folio 1), plan d’implantation, plan de câblage (un tracé par circuit), unifilaire, câblage, note, développés, élévations, communication numérotés à la suite', r.n === r.total && r.seq && r.cover && r.plan && r.last, r.nums.join(' '));
 
+// Dossier technique en un seul DXF
+r = run(`(function(){
+  var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), T = technicalSet(d, { title: 'T5' }, h.components, h.wires), dxf = technicalDXF(d, { title: 'T5' }, h.components, h.wires);
+  var nums = []; for (var k = 1; k <= T.total; k++) if (dxf.indexOf('\\n' + k + ' / ' + T.total + '\\r') >= 0 || dxf.indexOf('\\n' + k + ' / ' + T.total + '\\n') >= 0) nums.push(k);
+  return { total: T.total, nums: nums.length, layers: ['UNIFILAIRE', 'SCHEMA', 'TEXTES', 'CARTOUCHE'].every(function(l){ return dxf.indexOf(l) > 0; }), eof: /EOF\\s*$/.test(dxf) };
+})()`);
+check('Dossier technique en un seul DXF : tous les folios côte à côte, cartouches numérotés', r.nums === r.total && r.layers && r.eof, `${r.nums} / ${r.total} folios`);
+
 // Communication (VDI) : coffret en GTL, étoile catégorie 6 le long des goulottes
 r = run(`(function(){
   var h = buildHouse('t5'), v = vdiDesign(h.components, h.wires), rj = h.components.filter(function(c){ return c.type === 'rj45'; });

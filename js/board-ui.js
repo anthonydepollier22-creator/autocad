@@ -279,6 +279,10 @@ function initBoardUI(app) {
         download(new Blob([unifilarDXF(d, meta())], { type: 'application/dxf' }), fileName(base() + ' - unifilaire.dxf'));
         showToast('Schéma unifilaire exporté en <b>DXF</b> (millimètres, calques UNIFILAIRE, TEXTES, CARTOUCHE).', 3500);
       }
+    } else if (k === 'dxfall') {
+      const T = technicalSet(d, meta(), editor.components, editor.wires);
+      download(new Blob([technicalDXF(d, meta(), editor.components, editor.wires)], { type: 'application/dxf' }), fileName(base() + ' - dossier technique.dxf'));
+      showToast(`Dossier technique exporté en <b>DXF</b> : ${T.total} folios côte à côte (millimètres, cartouches numérotés).`, 4000);
     } else if (k === 'csv') {
       download(new Blob(['\ufeff' + calcNoteCSV(d)], { type: 'text/csv;charset=utf-8' }), fileName(base() + ' - note de calcul.csv'));
     } else if (k === 'print') printAll(d);
