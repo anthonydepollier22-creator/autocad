@@ -148,6 +148,8 @@ function buildSVG(components, wires, symbols, meta) {
   for (const j of computeJunctions(components, wires, symbols)) {
     ctx.out.push(`<circle cx="${j.x}" cy="${j.y}" r="3.5" fill="#111"/>`);
   }
+  // Plan de câblage : tracé des circuits dans les goulottes (fourni par board.js)
+  if (meta && meta.routesSVG) ctx.out.push(meta.routesSVG);
   // Composants + étiquettes (surface des pièces calculée ici : l'export ne dépend pas de l'écran)
   const areas = {};
   if (isPlan) for (const r of computeRooms(components, wires).rooms) if (!r.leaked && r.sharedWith === null) areas[r.id] = r.area;

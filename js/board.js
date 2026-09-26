@@ -928,7 +928,10 @@ function developedDXF(design, meta, components, wires) {
 function technicalSet(design, meta, components, wires) {
   const hasPlan = wires.some((w) => w.kind === 'wall'), rj = components.some((c) => c.type === 'rj45');
   const sets = [];
-  if (hasPlan && typeof buildSVG === 'function') sets.push(['Plan d’implantation', 'Appareillage, goulottes, cotes, légende et repères de circuits', (m) => [planFolioSVG(design, m, components, wires)]]);
+  if (hasPlan && typeof buildSVG === 'function') {
+    sets.push(['Plan d’implantation', 'Appareillage, goulottes, cotes, légende et repères de circuits', (m) => [planFolioSVG(design, m, components, wires)]]);
+    if (design.net && design.net.edges.length) sets.push(['Plan de câblage', 'Cheminement de chaque circuit dans les goulottes, jusqu’aux appareils', (m) => [planFolioSVG(design, m, components, wires, true)]]);
+  }
   sets.push(
     ['Schéma unifilaire', 'Arrivée, AGCP, différentiels, disjoncteurs, nomenclature des départs', (m) => unifilarSVGs(design, m)],
     ['Câblage du tableau', 'Liaison AGCP, peignes, départs, bornier de terre', (m) => boardWiringSVGs(design, m)],
@@ -954,14 +957,42 @@ function technicalSet(design, meta, components, wires) {
 }
 // Plan d'implantation dans un folio A3 : le plan (légende, repères) mis à l'échelle
 // de la zone utile, sous le cartouche du dossier
-function planFolioSVG(design, meta, components, wires) {
-  const plan = buildSVG(components, wires, SYMBOLS, { ...meta, legend: true, tags: circuitTags(design), noCartouche: true });
+function planFolioSVG(design, meta, components, wires, routes) {
+  const plan = buildSVG(components, wires, SYMBOLS, { ...meta, legend: true, tags: circuitTags(design), noCartouche: true, routesSVG: routes ? routesSVG(design, components) : '' });
   const vb = /viewBox="([^"]+)"/.exec(plan)[1], inner = plan.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '');
   const ctx = new SVGContext();
-  _uCartouche(ctx, design, meta, 'Plan d’implantation', 0, 1);
+  _uCartouche(ctx, design, meta, routes ? 'Plan de câblage — cheminement des circuits' : 'Plan d’implantation', 0, 1);
   const H = UNI.H - 15 - 62 - 20;
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${UNI.W} ${UNI.H}" width="420mm" height="297mm" font-family="sans-serif"><rect width="${UNI.W}" height="${UNI.H}" fill="#fff"/>` +
     `<svg x="22" y="22" width="${UNI.W - 44}" height="${H}" viewBox="${vb}" preserveAspectRatio="xMidYMid meet">${inner}</svg>${ctx.out.join('')}</svg>`;
+}
+// Plan de câblage : le cheminement de chaque circuit dans les goulottes, à sa
+// couleur (décalé pour distinguer les câbles d'une même goulotte), puis la
+// descente jusqu'à chaque appareil
+function routesSVG(design, components) {
+  if (!design.net || !design.route) return '';
+  const net = design.net, colors = typeof CABLE_COLORS !== 'undefined' ? CABLE_COLORS : ['#ffb020', '#4f9dff', '#35d07f', '#ff5d7a'];
+  const byId = {}, n = design.circuits.length, f = (v) => Math.round(v * 10) / 10;
+  for (const c of components) byId[c.id] = c;
+  let out = '';
+  design.circuits.forEach((ct, k) => {
+    const off = (k - (n - 1) / 2) * 2.4;
+    let d = '';
+    for (const ei of ct.edges || []) {
+      const e = net.edges[ei];
+      if (!e || e.riser) continue;
+      const a = net.pos[e.a], b = net.pos[e.b], L = Math.hypot(b.x - a.x, b.y - a.y) || 1, nx = -(b.y - a.y) / L, ny = (b.x - a.x) / L;
+      d += `M${f(a.x + nx * off)} ${f(a.y + ny * off)}L${f(b.x + nx * off)} ${f(b.y + ny * off)}`;
+    }
+    for (const id of ct.devices || []) {
+      const r = design.route[id], c = byId[id];
+      if (!r || r.off || r.node === undefined || !c) continue;
+      const p = net.pos[r.node];
+      d += `M${f(p.x)} ${f(p.y)}L${f(c.x)} ${f(c.y)}`;
+    }
+    if (d) out += `<path d="${d}" fill="none" stroke="${colors[k % colors.length]}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-opacity="0.92"/>`;
+  });
+  return out;
 }
 function drawSommaire(ctx, design, meta, entries, hasPlan) {
   const ink = '#1a2230', mute = '#5b6b82';
