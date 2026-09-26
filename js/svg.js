@@ -169,7 +169,10 @@ function buildSVG(components, wires, symbols, meta) {
   if (legend && legend.length) {
     const lx = planRight + 20;
     let y = minY + 20;
-    ctx.out.push(`<rect x="${lx - 10}" y="${y - 12}" width="${LW - 30}" height="${legend.length * 34 + (tags ? 30 + tags.list.length * 20 : 0) + 44}" fill="#fafbfc" stroke="#1a2230" stroke-width="1"/>`);
+    // murs du plan : cloisons sèches (montants) et maçonnerie (hachures)
+    const mats = typeof wallMaterial === 'function' ? wires.filter((w) => w.kind === 'wall').map((w) => WALL_MATS[wallMaterial(w).mat]) : [];
+    const wallKinds = [mats.some((m) => m.hollow) && ['placo', 'Cloison sèche (montants tous les 60 cm)'], mats.some((m) => !m.hollow) && ['parpaing', 'Maçonnerie']].filter(Boolean);
+    ctx.out.push(`<rect x="${lx - 10}" y="${y - 12}" width="${LW - 30}" height="${legend.length * 34 + (tags ? 30 + tags.list.length * 20 : 0) + (wallKinds.length ? 30 + wallKinds.length * 22 : 0) + 44}" fill="#fafbfc" stroke="#1a2230" stroke-width="1"/>`);
     ctx.out.push(`<text x="${lx}" y="${y + 8}" font-family="sans-serif" font-size="15" font-weight="bold" fill="#1a2230">Légende</text>`);
     y += 36;
     for (const it of legend) {
@@ -182,6 +185,17 @@ function buildSVG(components, wires, symbols, meta) {
       ctx.out.push(`<text x="${lx + 44}" y="${y}" font-family="sans-serif" font-size="11.5" fill="#1a2230">${_esc(it.name)}</text>`);
       ctx.out.push(`<text x="${lx + LW - 50}" y="${y}" font-family="sans-serif" font-size="11.5" font-weight="bold" fill="#1a2230" text-anchor="end">× ${it.count}</text>`);
       y += 34;
+    }
+    if (wallKinds.length) {
+      ctx.out.push(`<text x="${lx}" y="${y + 6}" font-family="sans-serif" font-size="13" font-weight="bold" fill="#1a2230">Murs</text>`);
+      y += 26;
+      for (const [mat, label] of wallKinds) {
+        const w = { kind: 'wall', mat, points: [{ x: lx, y: y - 4 }, { x: lx + 64, y: y - 4 }] };
+        ctx.out.push(`<path d="M${lx} ${y - 4}L${lx + 64} ${y - 4}" stroke="#1f2733" stroke-width="9"/>`);
+        ctx.out.push(`<path d="${wallMarks(w).map(([x1, y1, x2, y2]) => `M${ctx._n(x1)} ${ctx._n(y1)}L${ctx._n(x2)} ${ctx._n(y2)}`).join('')}" stroke="#ffffff" stroke-width="1.1"/>`);
+        ctx.out.push(`<text x="${lx + 76}" y="${y}" font-family="sans-serif" font-size="11" fill="#1a2230">${_esc(label)}</text>`);
+        y += 22;
+      }
     }
     if (tags) {
       ctx.out.push(`<text x="${lx}" y="${y + 6}" font-family="sans-serif" font-size="13" font-weight="bold" fill="#1a2230">Circuits</text>`);
