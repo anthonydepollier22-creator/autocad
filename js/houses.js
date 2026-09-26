@@ -863,7 +863,7 @@ function autoImplant(doc, opts) {
     // 5. Prises de courant
     const need = t ? room.type.sockets(room.area) : 1;
     let placed = have(new Set(['socket_wall']));
-    const put = (s) => { _addDevice(ctx, 'socket_wall', s.x, s.y, _rotDevice(s.nx, s.ny)); placed++; };
+    const put = (s) => { placed++; return _addDevice(ctx, 'socket_wall', s.x, s.y, _rotDevice(s.nx, s.ny)); };
     // plan de travail : 4 prises en cuisine (2 ailleurs), jamais au-dessus de la plaque ni de l'évier
     const counters = doc.components.filter((c) => c.type === 'counter' && inRoom(c) === i);
     if (counters.length) {
@@ -875,7 +875,7 @@ function autoImplant(doc, opts) {
       const want = t === 'cuisine' ? 4 : 2;
       let pick = _spread(top, want, [], t === 'cuisine' ? 20 : 40);
       if (pick.length < want && t === 'cuisine') pick = _spread(top, want, [], 10); // plan de travail court : prises jumelées
-      for (const s of pick) put(s);
+      for (const s of pick) put(s).h = 110; // au-dessus du plan de travail
     }
     // appareils branchés sur prise : une prise à portée
     for (const c of doc.components) {

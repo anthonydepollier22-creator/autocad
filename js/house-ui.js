@@ -1666,6 +1666,7 @@ function initHouseUI(app) {
         calcNoteSVGs: d && d.ok ? calcNoteSVGs(d, editor.meta) : [],
         developedSVGs: d && d.ok ? developedSVGs(d, editor.meta, editor.components, editor.wires) : [],
         vdiSVGs: d && d.ok && editor.components.some((c) => c.type === 'rj45') ? vdiSVGs(d, editor.meta, editor.components, editor.wires) : [],
+        elevationSVGs: d && d.ok ? elevationSVGs(d, editor.meta, editor.components, editor.wires) : [],
         materials: d && d.ok ? materialList(editor.components, editor.wires, d) : null,
         images: hasPlan() ? dossierImages(d) : [],
         day: dayData,

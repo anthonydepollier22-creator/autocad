@@ -13,7 +13,7 @@ const vm = require('vm');
 const ROOT = path.join(__dirname, '..');
 const sb = { Math, JSON, console, TextEncoder, TextDecoder, performance };
 vm.createContext(sb);
-for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'day', 'materials', 'svg', 'dxf', 'board', 'vdi', 'viz3d', 'gl3d', 'export3d', 'dossier']) {
+for (const f of ['symbols', 'netlist', 'plan', 'simulate', 'digital', 'examples', 'houses', 'install', 'day', 'materials', 'svg', 'dxf', 'board', 'vdi', 'elev', 'viz3d', 'gl3d', 'export3d', 'dossier']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f + '.js'), 'utf8'), sb, { filename: f + '.js' });
 }
 const run = (code) => vm.runInContext(code, sb);
@@ -956,6 +956,23 @@ r = run(`(function(){
 })()`);
 check('Communication : une prise RJ45 par port du coffret (GTL), liens mesurés sur les goulottes, remontées et lovage compris', r.ok && r.longer && /Séjour/.test(r.rooms), `${r.total.toFixed(0)} m · ${r.rooms}`);
 check('Communication : lien de plus de 90 m refusé ; métré (coffret 2TV, câble catégorie 6 + 10 %, cordons) ; folio A3 SVG et DXF', /RJ9.*> 90 m/.test(r.err) && r.mat && r.svg && r.dxf, r.err);
+
+// Élévations : chaque appareil mural sur la bonne face, à sa hauteur, vu depuis la pièce
+r = run(`(function(){
+  var h = buildHouse('t3'), E = elevations(h.components, h.wires), info = computeRooms(h.components, h.wires);
+  var wall = h.components.filter(function(c){ return ELEV_TYPES.has(c.type); });
+  var all = [], badRoom = 0;
+  E.forEach(function(R){ R.faces.forEach(function(f){ f.devs.forEach(function(d){ all.push(d); var i = roomAt(info, d.c.x, d.c.y); if (i >= 0 && info.rooms[i].name !== R.name && !d.c.ctrl) badRoom++; }); }); });
+  var sw = all.find(function(d){ return d.c.type === 'switch_sa'; }), top = all.filter(function(d){ return d.c.type === 'socket_wall' && d.c.h === 110; });
+  var inRange = all.every(function(d){ var f = E.flatMap(function(R){ return R.faces; }).find(function(ff){ return ff.devs.indexOf(d) >= 0; }); return d.x >= -1 && d.x <= f.len + 1; });
+  var kitchen = E.find(function(R){ return R.name === 'Cuisine'; });
+  var counter = kitchen.faces.some(function(f){ return f.opens.some(function(o){ return o.kind === 'counter'; }); });
+  var d = designInstallation(h.components, h.wires), svgs = elevationSVGs(d, { title: 'T3' }, h.components, h.wires), dxf = elevationDXF(d, {}, h.components, h.wires);
+  return { n: all.length, total: wall.length, badRoom: badRoom, sw: sw.h, top: top.length, inRange: inRange, counter: counter, dirs: kitchen.faces.map(function(f){ return f.dir; }).join(','),
+    svg: svgs.length >= 2 && svgs[0].indexOf('Élévations') > 0 && svgs.join('').indexOf('Mur nord') > 0, dxf: dxf.indexOf('SCHEMA') > 0 };
+})()`);
+check('Élévations : chaque appareil mural sur une face de sa pièce, dans la longueur du mur, à sa hauteur (interrupteur 110, plan de travail 110)', r.n === r.total && r.badRoom === 0 && r.sw === 110 && r.top === 4 && r.inRange && r.counter, `${r.n} appareils · cuisine : ${r.dirs}`);
+check('Élévations : folios A3 SVG et DXF', r.svg && r.dxf);
 
 // ---------------------------------------------------------------------------
 group('Murs : placo, maçonnerie, implantation en 3D');
