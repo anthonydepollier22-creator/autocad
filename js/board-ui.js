@@ -134,6 +134,7 @@ function initBoardUI(app) {
           (c.kind === 'sub' ? `<span class="bd-tdref">→ ${esc(c.panelRef || 'TD')}</span>` : c.kind === 'pv' ? '<span class="bd-tdref" title="Circuit de production : onduleur photovoltaïque">☀ onduleur</span>' : `<button type="button" data-cact="hc" aria-pressed="${c.contactor === 'hc' ? 'true' : 'false'}" title="Contacteur jour / nuit (heures creuses)">HC</button>` +
           `<button type="button" data-cact="ih" aria-pressed="${c.contactor === 'ih' ? 'true' : 'false'}" title="Interrupteur horaire (programmation : éclairage extérieur, chauffe-eau sans contact heures creuses…)">IH</button>` +
           `<button type="button" data-cact="tl" aria-pressed="${c.teleruptor ? 'true' : 'false'}" title="Télérupteur">TL</button>`) +
+          (c.kind === 'sub' ? '' : '<button type="button" data-cact="dup" title="Dupliquer le circuit (mêmes réglages, sans les appareils du plan)">⧉</button>') +
           '<button type="button" data-cact="del" class="bd-x" title="Supprimer le circuit">✕</button></td></tr>';
       }
       h += '</tbody>';
@@ -249,6 +250,12 @@ function initBoardUI(app) {
         if (a === 'hc') c.contactor = c.contactor === 'hc' ? null : 'hc';
         else if (a === 'ih') c.contactor = c.contactor === 'ih' ? null : 'ih';
         else if (a === 'bur') c.buried = !c.buried;
+        else if (a === 'dup') {
+          // copie juste après, sous le même différentiel ; nom numéroté (« Four » → « Four 2 », « Prises 2 » → « Prises 4 » s'il y a déjà 3)
+          const m = /^(.*?)\s+(\d+)$/.exec(c.name), base = m ? m[1] : c.name;
+          const nums = b.circuits.map((x) => (x.name === base ? 1 : x.name.startsWith(base + ' ') && /^\d+$/.test(x.name.slice(base.length + 1)) ? +x.name.slice(base.length + 1) : 0));
+          b.circuits.splice(i + 1, 0, { ...c, id: boardNextId(b, 'C'), name: base + ' ' + (Math.max(1, ...nums) + 1), devices: [], length: c.length || 15 });
+        }
         else if (a === 'tl') c.teleruptor = !c.teleruptor;
         else if (a === 'del') { b.circuits.splice(i, 1); if (c.kind === 'sub') b.rcds.forEach((r) => { if (r.panel === c.id) r.panel = null; }); } // ses ID reviennent au tableau principal
         else {
