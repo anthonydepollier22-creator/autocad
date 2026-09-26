@@ -438,7 +438,10 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   72/48** (montants de l'ossature tous les 60 cm), carreau de plâtre, brique,
   parpaing, béton, ossature bois, et **doublage placo** côté pièce des façades ; « Mur
   placo / maçonné » change le mur visé, « Doublage » ajoute ou retire celui d'une façade (aussi dans les propriétés d'un mur en 2D, où
-  le plan marque les montants de placo tous les 60 cm et hachure la maçonnerie). Le
+  le plan marque les montants de placo tous les 60 cm et hachure la maçonnerie). Sur une
+  cloison sèche, une boîte visée sur un **montant** est décalée de quelques centimètres
+  (axe à 6 cm au moins du montant : boîte Ø 67 mm, montant de 48 mm), et l'infobulle
+  le signale avant le clic. Le
   métré en déduit les **boîtes d'encastrement** : cloison sèche (placo), **étanches à
   l'air** dans le doublage (RE 2020) ou maçonnerie. Tout reste annulable et le tableau
   se met à jour ;
@@ -758,7 +761,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-187 vérifications sans dépendance : valeurs numériques de chaque simulation
+188 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

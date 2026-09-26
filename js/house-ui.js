@@ -1356,9 +1356,15 @@ function initHouseUI(app) {
     if (hit.kind !== 'wall') return null;
     // appareil mural : boîte à 20 cm de l'axe ; radiateur : dos contre la face du mur
     const furn = k === 'radiator', off = furn ? Math.max(WALL_BACK, hit.w.t / 2 + 2) - SYMBOLS.radiator.bbox.y : 20;
-    const w = hit.w, x = w.a.x + hit.ux * hit.t + hit.nx * off, y = w.a.y + hit.uz * hit.t + hit.nz * off;
-    const wire = editor.wires.find((q) => q.id === w.wid);
-    return { x: Math.round(x), y: Math.round(y), rot: furn ? _rotBack(hit.nx, hit.nz) : _rotDevice(hit.nx, hit.nz), room: roomNameAt(x, y), mat: wire ? wallMaterial(wire) : null };
+    const w = hit.w, wire = editor.wires.find((q) => q.id === w.wid), mat = wire ? wallMaterial(wire) : null;
+    // cloison sèche : la boîte d'encastrement ne tombe pas sur un montant (décalée de quelques cm)
+    let t = hit.t, stud = null;
+    if (mat && mat.hollow && !furn && k !== 'panel_sub' && typeof studShift === 'function') {
+      stud = studShift(t, Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y));
+      if (stud) t = stud.t;
+    }
+    const x = w.a.x + hit.ux * t + hit.nx * off, y = w.a.y + hit.uz * t + hit.nz * off;
+    return { x: Math.round(x), y: Math.round(y), rot: furn ? _rotBack(hit.nx, hit.nz) : _rotDevice(hit.nx, hit.nz), room: roomNameAt(x, y), mat, stud };
   }
   // Pièce sous le point visé au sol : { index, étiquette (composant room) ou null, nom actuel }
   const ROOM_CYCLE = ['Chambre', 'Bureau', 'Salle d’eau', 'WC', 'Dressing', 'Cellier', 'Séjour', 'Cuisine', 'Entrée', 'Dégagement', 'Buanderie'];
@@ -1498,7 +1504,8 @@ function initHouseUI(app) {
     }
     implantChanged(`Pose : <b>${esc(SYMBOLS[k].name)}</b> ${esc(c.label)}${tg.room ? ' — ' + esc(tg.room) : ''}` +
       (IMPLANT[k].ceil ? ' (plafond)' : IMPLANT[k].furn ? `, contre ${tg.mat ? esc(tg.mat.label.toLowerCase()) : 'le mur'} (sortie de câble à 30 cm)`
-        : ` à ${h}, ${tg.mat ? esc(tg.mat.label.toLowerCase()) + (tg.mat.hollow ? ' → boîte cloison sèche' : ' → boîte maçonnerie') : ''}`) + '. Annulable (Ctrl+Z).');
+        : ` à ${h}, ${tg.mat ? esc(tg.mat.label.toLowerCase()) + (tg.mat.hollow ? ' → boîte cloison sèche' : ' → boîte maçonnerie') : ''}`) +
+      (tg.stud ? ` ; décalée de ${Math.max(1, Math.round(tg.stud.by))} cm pour ne pas tomber sur un montant` : '') + '. Annulable (Ctrl+Z).');
   }
   const WALL_H = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light']); // hauteur réglable
   function implantHover(id, p) {
@@ -1537,7 +1544,7 @@ function initHouseUI(app) {
         if (tg) h = `<b>${esc(IMPLANT[k].label)}</b>${tg.room ? ' · ' + esc(tg.room) : ''}` +
           (IMPLANT[k].ceil ? '<span>au plafond, à l’aplomb</span>' : k === 'panel_sub' ? `<span>${tg.mat ? esc(tg.mat.label) : ''}</span><span>coffret à 1,50 m, ${tg.mat && tg.mat.hollow ? 'fixé sur rail ou platine (cloison sèche)' : 'chevilles maçonnerie'} — les appareils de la pièce en partiront</span>`
             : IMPLANT[k].furn ? `<span>${tg.mat ? esc(tg.mat.label) : ''}</span><span>sortie de câble à 30 cm, ${tg.mat && tg.mat.hollow ? 'fixation cloison sèche' : 'chevilles maçonnerie'}</span>`
-            : `<span>à ${implantH() || Math.round((MOUNT_H[k] || 0.3) * 100)} cm · ${tg.mat ? esc(tg.mat.label) : ''}</span><span>${tg.mat && tg.mat.doublage ? 'boîte étanche à l’air (doublage)' : tg.mat && tg.mat.hollow ? 'boîte cloison sèche' : 'boîte maçonnerie'}</span>`);
+            : `<span>à ${implantH() || Math.round((MOUNT_H[k] || 0.3) * 100)} cm · ${tg.mat ? esc(tg.mat.label) : ''}</span><span>${tg.mat && tg.mat.doublage ? 'boîte étanche à l’air (doublage)' : tg.mat && tg.mat.hollow ? 'boîte cloison sèche' : 'boîte maçonnerie'}${tg.stud ? ` — montant : décalée de ${Math.max(1, Math.round(tg.stud.by))} cm` : ''}</span>`);
       }
     }
     cv3.style.cursor = h ? 'crosshair' : '';

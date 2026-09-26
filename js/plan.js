@@ -67,6 +67,21 @@ function wallMaterial(w) {
 }
 // Repères du matériau sur le trait d'un mur (plan 2D) : montants tous les 60 cm
 // pour une cloison sèche (placo, ossature bois), hachures à 45° pour la maçonnerie
+// Cloison sèche : montants de 48 mm tous les 60 cm depuis le début du mur (comme en 3D).
+// Une boîte d'encastrement Ø 67 mm ne se pose pas sur un montant : son axe reste à
+// 6 cm au moins de celui du montant (3,35 cm de rayon + 2,4 cm de demi-montant).
+const STUD_STEP = 60, STUD_CLEAR = 6;
+// Abscisse t (cm, depuis le début du segment de longueur L) décalée hors des montants ; null si déjà libre
+function studShift(t, L) {
+  const studs = [0];
+  for (let s = STUD_STEP; s < L - 10; s += STUD_STEP) studs.push(s);
+  studs.push(L);
+  const near = studs.reduce((b, s) => (Math.abs(t - s) < Math.abs(t - b) ? s : b), studs[0]);
+  if (Math.abs(t - near) >= STUD_CLEAR) return null;
+  // du côté où l'on a visé ; à une extrémité, vers l'intérieur du mur
+  const dir = near === 0 ? 1 : near === L ? -1 : t >= near ? 1 : -1;
+  return { t: near + dir * STUD_CLEAR, by: Math.abs(near + dir * STUD_CLEAR - t) };
+}
 function wallMarks(w) {
   const m = WALL_MATS[wallMaterial(w).mat], out = [];
   for (let i = 0; i < w.points.length - 1; i++) {
@@ -74,7 +89,7 @@ function wallMarks(w) {
     if (L < 20) continue;
     const ux = (b.x - a.x) / L, uy = (b.y - a.y) / L, nx = -uy, ny = ux;
     if (m.hollow) {
-      for (let t = 30; t < L - 10; t += 60) out.push([a.x + ux * t + nx * 3.2, a.y + uy * t + ny * 3.2, a.x + ux * t - nx * 3.2, a.y + uy * t - ny * 3.2]);
+      for (let t = STUD_STEP; t < L - 10; t += STUD_STEP) out.push([a.x + ux * t + nx * 3.2, a.y + uy * t + ny * 3.2, a.x + ux * t - nx * 3.2, a.y + uy * t - ny * 3.2]);
     } else {
       for (let t = 8; t < L - 4; t += 12) out.push([a.x + ux * (t - 2.6) + nx * 3.2, a.y + uy * (t - 2.6) + ny * 3.2, a.x + ux * (t + 2.6) - nx * 3.2, a.y + uy * (t + 2.6) - ny * 3.2]);
     }

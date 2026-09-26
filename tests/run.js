@@ -1029,6 +1029,14 @@ r = run(`(function(){
 })()`);
 check('Dossier technique : sommaire (folio 1), plan d’implantation, plan de câblage (un tracé par circuit), unifilaire, câblage, note, développés, élévations, communication numérotés à la suite', r.n === r.total && r.seq && r.cover && r.plan && r.last, r.nums.join(' '));
 
+// Cloison sèche : une boîte d'encastrement ne tombe pas sur un montant (tous les 60 cm)
+r = run(`(function(){
+  var a = studShift(62, 300), b = studShift(57, 300), c = studShift(90, 300), d = studShift(2, 300), e = studShift(298, 300);
+  var w = { kind: 'wall', mat: 'placo', points: [{ x: 0, y: 0 }, { x: 250, y: 0 }] }, marks = wallMarks(w).map(function(m){ return Math.round(m[0]); });
+  return { a: a && a.t === 66 && Math.round(a.by) === 4, b: b && b.t === 54, c: c === null, d: d && d.t === 6, e: e && e.t === 294, marks: marks.join() };
+})()`);
+check('Cloison sèche : boîte décalée hors des montants (axe à 6 cm au moins), montants tous les 60 cm en 2D comme en 3D', r.a && r.b && r.c && r.d && r.e && r.marks === '60,120,180', JSON.stringify(r));
+
 // Tableau divisionnaire posé sur le plan : les appareils de sa pièce en partent (goulottes propres)
 r = run(`(function(){
   var h = buildHouse('t5'), info = computeRooms(h.components, h.wires);
