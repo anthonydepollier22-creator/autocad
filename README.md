@@ -159,6 +159,17 @@ L'installation est **conçue** puis **simulée en temps réel** :
 
 ![Tableau simulé](docs/screenshot-installation.png)
 
+### 🗺️ Plan d'implantation
+
+Le bouton **Repères** (onglet Tableau) affiche à côté de chaque appareil du plan le
+**repère de son circuit** (C1, C2…), aux couleurs des câbles de la vue Rayons X. Les
+exports du plan — **SVG**, **DXF** (calque `CIRCUITS`), **impression** et **dossier** —
+deviennent un vrai plan d'implantation : repères de circuits, surfaces des pièces et une
+**légende** des symboles électriques avec leurs **quantités**, suivie de la liste des
+circuits (repère, désignation, calibre).
+
+![Plan d'implantation : repères de circuits et légende](docs/screenshot-implantation.png)
+
 ### 🗂️ Tableau électrique et schéma unifilaire
 
 Le bouton **Tableau** (barre d'outils, ou **Unifilaire** dans l'onglet Tableau) ouvre
@@ -648,7 +659,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-154 vérifications sans dépendance : valeurs numériques de chaque simulation
+155 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
@@ -661,7 +672,7 @@ magnétique, différentiel, disjoncteur de branchement, énergie, va-et-vient), 
 montée et descente de l'escalier en visite, visite guidée jusqu'à l'étage), la vue en
 coupe, la course du soleil selon la saison, les interactions de l'éditeur 2D (fin d'un
 mur au double-clic, à `Entrée` ou en fermant le contour, mise à l'échelle du calque),
-**les murs placo / maçonnés** (matériaux, boîtes au métré, montants en 3D), **le tableau et l'unifilaire** (tableau personnalisé identique à l'automatique,
+**le plan d'implantation** (légende, repères de circuits), **les murs placo / maçonnés** (matériaux, boîtes au métré, montants en 3D), **le tableau et l'unifilaire** (tableau personnalisé identique à l'automatique,
 contrôles NF, circuit sans différentiel en simulation, appareils ajoutés puis
 répartis, tableau sans plan, triphasé équilibré, face avant, folios, DXF, métré), **l'éclairement** (formule du plafonnier, lumière confinée à sa pièce, appliques
 jusqu'à l'objectif), les exports SVG et DXF et **l'import DXF** (aller-retour des 6 maisons, plans

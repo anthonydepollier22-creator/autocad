@@ -11,7 +11,7 @@
 
 const DXF_LAYERS = [
   ['MURS', 7], ['MENUISERIES', 30], ['MOBILIER', 8], ['ELECTRICITE', 1], ['GOULOTTES', 9],
-  ['FILS', 5], ['PIECES', 3], ['REPERES', 2], ['COTES', 4], ['CARTOUCHE', 7], ['ESCALIER', 6],
+  ['FILS', 5], ['PIECES', 3], ['REPERES', 2], ['COTES', 4], ['CARTOUCHE', 7], ['ESCALIER', 6], ['CIRCUITS', 1],
 ];
 
 class DXFContext {
@@ -120,6 +120,11 @@ function buildDXF(components, wires, symbols, meta) {
       ctx.layer = 'REPERES'; ctx.font = '11px sans-serif'; ctx.textAlign = la.align; ctx.textBaseline = 'alphabetic';
       ctx.fillText(txt, la.x, la.y);
     }
+  }
+  // Repères de circuits
+  if (meta && meta.tags) {
+    ctx.layer = 'CIRCUITS';
+    for (const c of components) { const t = meta.tags.map[c.id]; if (t) drawCircuitTag(ctx, c, t, 1); }
   }
   // Cotations des murs
   if (isPlan) {

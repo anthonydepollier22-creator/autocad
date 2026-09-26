@@ -907,6 +907,19 @@ check('Matériaux par défaut : cloison placo 72/48 à l’intérieur, parpaing 
 check('Métré : boîtes cloison sèche, étanches à l’air (doublage RE 2020) et maçonnerie selon le mur', r.b0[0] > 0 && r.b0[1] > 0 && r.b0[2] === 0 && r.b1[0] === 0 && r.b1[2] === r.b0[0] && r.b1[1] === r.b0[1], `placo ${r.b0[0]} · étanches ${r.b0[1]} → maçonnerie ${r.b1[2]}`);
 check('3D (implantation) : murs teintés par matériau, doublage côté pièce, montants de placo tous les 60 cm', r.f1 > r.f0 && r.studs > 20 && r.nw, `${r.studs} faces de montants`);
 
+// Plan d'implantation : légende des symboles, repères de circuits (SVG, DXF)
+r = run(`(function(){
+  var d = buildHouse('t3'), des = designInstallation(d.components, d.wires), tags = circuitTags(des);
+  var svg = buildSVG(d.components, d.wires, SYMBOLS, { title: 'T3', legend: true, tags: tags });
+  var leg = planLegend(d.components, SYMBOLS), sockets = leg.find(function(l){ return l.type === 'socket_wall'; });
+  var nSock = d.components.filter(function(c){ return c.type === 'socket_wall'; }).length;
+  var tagged = d.components.filter(function(c){ return tags.map[c.id]; }).length, devs = des.circuits.reduce(function(s, c){ return s + c.devices.length; }, 0);
+  var dxf = buildDXF(d.components, d.wires, SYMBOLS, { title: 'T3', tags: tags });
+  var cLayer = (dxf.match(/\\r\\nCIRCUITS\\r\\n/g) || []).length;
+  return { legend: svg.indexOf('Légende') > 0 && svg.indexOf('Circuits') > 0, sockets: sockets && sockets.count === nSock, tagged: tagged === devs, noArea: svg.indexOf('— m²') < 0, cLayer: cLayer, n: tags.list.length };
+})()`);
+check('Plan d’implantation : légende (symboles et quantités), repère de circuit sur chaque appareil, surfaces, calque DXF CIRCUITS', r.legend && r.sockets && r.tagged && r.noArea && r.cLayer > 20, `${r.n} circuits · ${r.cLayer} entités DXF`);
+
 // ---------------------------------------------------------------------------
 group('Éclairement (lux)');
 r = run(`(function(){

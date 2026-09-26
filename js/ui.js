@@ -338,17 +338,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const a = document.createElement('a');
     a.href = url; a.download = 'schema.png'; a.click();
   });
+  // Plan d'implantation : légende des symboles et repères de circuits dans les exports
+  const planMeta = () => {
+    const plan = editor.wires.some((w) => w.kind === 'wall');
+    const d = plan && houseUI ? houseUI.design() : null;
+    return { ...editor.meta, date: new Date().toISOString().slice(0, 10), legend: plan, tags: d && d.ok ? circuitTags(d) : null };
+  };
   document.getElementById('btn-svg').addEventListener('click', () => {
-    const blob = new Blob([editor.exportSVG()], { type: 'image/svg+xml' });
+    const blob = new Blob([buildSVG(editor.components, editor.wires, SYMBOLS, planMeta())], { type: 'image/svg+xml' });
     download(blob, (editor.meta.title || 'schema') + '.svg');
   });
   document.getElementById('btn-dxf').addEventListener('click', () => {
     if (!editor.components.length && !editor.wires.length) { showToast('Rien à exporter : le plan est vide.'); return; }
-    const dxf = buildDXF(editor.components, editor.wires, SYMBOLS, { ...editor.meta, date: new Date().toISOString().slice(0, 10) });
+    const dxf = buildDXF(editor.components, editor.wires, SYMBOLS, planMeta());
     download(new Blob([dxf], { type: 'application/dxf' }), (editor.meta.title || 'plan') + '.dxf');
     showToast('Plan exporté en DXF (mètres, un calque par nature d’objet) : s’ouvre dans AutoCAD, LibreCAD, DraftSight, QCAD…', 4200);
   });
-  document.getElementById('btn-print').addEventListener('click', () => editor.print());
+  document.getElementById('btn-print').addEventListener('click', () => editor.print(buildSVG(editor.components, editor.wires, SYMBOLS, planMeta())));
 
   // Nom de fichier sûr partout (Windows, Android, systèmes sans UTF-8) : sans accents ni caractères interdits
   function fileName(name) {

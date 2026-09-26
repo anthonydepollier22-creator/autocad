@@ -97,7 +97,16 @@ function buildSVG(components, wires, symbols, meta) {
   if (!isFinite(minX)) { minX = 0; minY = 0; maxX = 400; maxY = 300; }
   const isPlan = wires.some((w) => w.kind === 'wall') && typeof computeRooms === 'function';
   const pad = isPlan ? 55 : 40; // marge plus large pour les cotations
+  // Plan : légende des symboles (et des circuits) à droite
+  const legend = isPlan && meta && meta.legend && typeof planLegend === 'function' ? planLegend(components, symbols) : null;
+  const tags = meta && meta.tags;
+  const LW = 320, planRight = maxX + pad;
   minX -= pad; minY -= pad; maxX += pad; maxY += pad + 60; // marge basse pour le cartouche
+  if (legend && legend.length) {
+    maxX += LW;
+    const need = minY + 40 + legend.length * 34 + (tags ? 30 + tags.list.length * 20 : 0) + 80;
+    if (need > maxY) maxY = need;
+  }
   const W = maxX - minX, H = maxY - minY;
 
   const ctx = new SVGContext();
@@ -136,17 +145,50 @@ function buildSVG(components, wires, symbols, meta) {
   for (const j of computeJunctions(components, wires, symbols)) {
     ctx.out.push(`<circle cx="${j.x}" cy="${j.y}" r="3.5" fill="#111"/>`);
   }
-  // Composants + étiquettes
+  // Composants + étiquettes (surface des pièces calculée ici : l'export ne dépend pas de l'écran)
+  const areas = {};
+  if (isPlan) for (const r of computeRooms(components, wires).rooms) if (!r.leaked && r.sharedWith === null) areas[r.id] = r.area;
   for (const c of components) {
     const sym = symbols[c.type];
-    ctx.save(); ctx.translate(c.x, c.y); ctx.rotate((c.rot * Math.PI) / 180);
+    ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(((c.rot || 0) * Math.PI) / 180);
     ctx.strokeStyle = '#111'; ctx.fillStyle = '#111'; ctx.lineWidth = 2;
-    sym.draw(ctx, c); ctx.restore();
+    sym.draw(ctx, c.type === 'room' ? { ...c, __area: areas[c.id] } : c); ctx.restore();
     const txt = [c.label, c.value].filter(Boolean).join(' ');
     if (txt && !sym.ownLabel) {
       const la = labelAnchor(c, sym);
       ctx.fillStyle = '#333'; ctx.font = '11px sans-serif'; ctx.textAlign = la.align; ctx.textBaseline = 'alphabetic';
       ctx.fillText(txt, la.x, la.y);
+    }
+  }
+
+  // Repères de circuits (plan d'implantation)
+  if (tags) for (const c of components) { const t = tags.map[c.id]; if (t) drawCircuitTag(ctx, c, t, 1); }
+  // Légende : symboles électriques et quantités, puis circuits
+  if (legend && legend.length) {
+    const lx = planRight + 20;
+    let y = minY + 20;
+    ctx.out.push(`<rect x="${lx - 10}" y="${y - 12}" width="${LW - 30}" height="${legend.length * 34 + (tags ? 30 + tags.list.length * 20 : 0) + 44}" fill="#fafbfc" stroke="#1a2230" stroke-width="1"/>`);
+    ctx.out.push(`<text x="${lx}" y="${y + 8}" font-family="sans-serif" font-size="15" font-weight="bold" fill="#1a2230">Légende</text>`);
+    y += 36;
+    for (const it of legend) {
+      const sym = symbols[it.type], sc = Math.min(0.5, 30 / Math.max(sym.bbox.w, sym.bbox.h));
+      ctx.save(); ctx.translate(lx + 18, y - 4); ctx.scale(sc, sc);
+      ctx.strokeStyle = '#111'; ctx.fillStyle = '#111'; ctx.lineWidth = 2;
+      ctx.translate(-(sym.bbox.x + sym.bbox.w / 2), -(sym.bbox.y + sym.bbox.h / 2));
+      sym.draw(ctx, { type: it.type, value: '', closed: true });
+      ctx.restore();
+      ctx.out.push(`<text x="${lx + 44}" y="${y}" font-family="sans-serif" font-size="11.5" fill="#1a2230">${_esc(it.name)}</text>`);
+      ctx.out.push(`<text x="${lx + LW - 50}" y="${y}" font-family="sans-serif" font-size="11.5" font-weight="bold" fill="#1a2230" text-anchor="end">× ${it.count}</text>`);
+      y += 34;
+    }
+    if (tags) {
+      ctx.out.push(`<text x="${lx}" y="${y + 6}" font-family="sans-serif" font-size="13" font-weight="bold" fill="#1a2230">Circuits</text>`);
+      y += 26;
+      for (const t of tags.list) {
+        ctx.out.push(`<rect x="${lx}" y="${y - 10}" width="22" height="12" fill="${t.color}" stroke="#1a2230" stroke-width="0.8"/>`);
+        ctx.out.push(`<text x="${lx + 30}" y="${y}" font-family="sans-serif" font-size="11" fill="#1a2230"><tspan font-weight="bold">${_esc(t.id)}</tspan> ${_esc(t.name)} — ${t.In} A</text>`);
+        y += 20;
+      }
     }
   }
 

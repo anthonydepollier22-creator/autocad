@@ -704,3 +704,39 @@ function boardToSchematic(design, meta) {
     components: comps, wires, counters: {},
   };
 }
+
+// ---------------------------------------------------------------------------
+// Plan d'implantation : repère de circuit de chaque appareil (couleur du câble
+// en rayons X) et légende des symboles électriques avec leurs quantités
+// ---------------------------------------------------------------------------
+function circuitTags(design) {
+  const colors = typeof CABLE_COLORS !== 'undefined' ? CABLE_COLORS : ['#ffb020', '#4f9dff', '#35d07f', '#ff5d7a', '#b18aec'];
+  const map = {}, list = [];
+  design.circuits.forEach((ct, k) => {
+    const color = colors[k % colors.length];
+    list.push({ id: ct.id, name: ct.name, In: ct.In, color });
+    for (const id of ct.devices || []) map[id] = { id: ct.id, color };
+  });
+  return { map, list };
+}
+const LEGEND_CATS = new Set(['Implantation élec.', 'Électroménager']);
+function planLegend(components, symbols) {
+  const count = {};
+  for (const c of components) {
+    const s = symbols[c.type];
+    if (s && LEGEND_CATS.has(s.category)) count[c.type] = (count[c.type] || 0) + 1;
+  }
+  return Object.keys(count).map((type) => ({ type, name: symbols[type].name, count: count[type], cat: symbols[type].category }))
+    .sort((a, b) => (a.cat === b.cat ? 0 : a.cat === 'Implantation élec.' ? -1 : 1) || a.name.localeCompare(b.name, 'fr'));
+}
+// Pastille « C3 » à côté d'un appareil (ctx : canvas, SVG ou DXF), taille k (1 = unités du plan)
+function drawCircuitTag(ctx, c, tag, k) {
+  k = k || 1;
+  const w = (tag.id.length * 7 + 8) * k, h = 13 * k, x = c.x + 16 * k, y = c.y - 24 * k;
+  ctx.save();
+  ctx.beginPath(); ctx.rect(x, y, w, h); ctx.fillStyle = tag.color; ctx.fill();
+  ctx.strokeStyle = '#1a2230'; ctx.lineWidth = 0.8 * k; ctx.stroke();
+  ctx.fillStyle = '#1a2230'; ctx.font = `bold ${10 * k}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText(tag.id, x + w / 2, y + h - 3 * k);
+  ctx.restore();
+}

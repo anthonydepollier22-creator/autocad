@@ -1038,6 +1038,9 @@ class Editor {
       ctx.fillText(txt, la.x, la.y);
       ctx.restore();
     }
+    // repère du circuit (plan d'implantation), lisible à tous les zooms
+    const tag = this.showTags && this.circuitTags && this.circuitTags[c.id];
+    if (tag && typeof drawCircuitTag === 'function') drawCircuitTag(ctx, c, tag, Math.max(1, 0.9 / this.view.scale));
 
     // poignée de sélection
     if (selected) {
@@ -1169,8 +1172,8 @@ class Editor {
     const date = new Date().toISOString().slice(0, 10);
     return buildSVG(this.components, this.wires, SYMBOLS, { ...this.meta, date });
   }
-  print() {
-    const svg = this.exportSVG();
+  print(svgIn) {
+    const svg = svgIn || this.exportSVG();
     const win = window.open('', '_blank');
     if (!win) return;
     win.document.write(`<!DOCTYPE html><html><head><title>${this.meta.title || 'Schéma'}</title>` +
