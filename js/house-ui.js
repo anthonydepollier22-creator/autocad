@@ -1210,6 +1210,7 @@ function initHouseUI(app) {
     if (v3.implant) showToast('<b>Implanter</b> : choisis un appareil puis clique un mur (ou le sol pour un point au plafond). Murs teintés selon leur matériau : placo (montants tous les 60 cm), maçonnerie, doublage.', 7000);
   });
   document.querySelectorAll('#v3-implant-kind button[data-k]').forEach((b) => b.addEventListener('click', () => setImplant(b.dataset.k)));
+  $('v3-autofill').addEventListener('click', () => { action('implant'); build3D(false); });
   $('v3-undo').addEventListener('click', () => { // tactile : pas de Ctrl+Z
     editor.undo(); ensureDesign(true); structKey = null; tick(0, true); build3D(false); showToast('Annulé.', 1200);
   });

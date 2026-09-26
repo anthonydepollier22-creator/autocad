@@ -407,7 +407,9 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   au plafond ; **Cloison** trace une nouvelle cloison placo en deux clics (droite,
   accrochée aux murs voisins) et **Porte** perce une ouverture de 80 cm dans le mur
   visé, battant côté pièce, et **Pièce** nomme la pièce visée (chaque clic passe au nom
-  suivant : Chambre, Bureau, Salle d'eau, WC…) — pour un projet de rénovation ; « Déplacer » (l'appareil, puis son nouveau mur)
+  suivant : Chambre, Bureau, Salle d'eau, WC…) — pour un projet de rénovation ;
+  **Compléter NF** pose ensuite l'appareillage exigé dans les pièces (nouvelles
+  comprises) et retrace les goulottes ; « Déplacer » (l'appareil, puis son nouveau mur)
   et « Retirer ». L'implantation marche aussi **en visite**, face au mur, à hauteur
   d'yeux. Survoler un appareil affiche sa hauteur : **↑ / ↓** (ou **+ / −** en visite)
   la règle par pas de 5 cm, directement en 3D ; **Ctrl+Z / Ctrl+Y** annulent et rétablissent sans quitter
