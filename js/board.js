@@ -835,7 +835,8 @@ function drawDeveloped(ctx, design, meta, list, folio) {
     // rails
     layer('SCHEMA');
     wire(DEV_COLORS.L, [[cx + 22, yL], [cx + cw - 14, yL]]); wire(DEV_COLORS.N, [[cx + 22, yN], [cx + cw - 14, yN]]);
-    layer('TEXTES'); text('L', cx + 10, yL + 3.5, { bold: true, size: 9, color: DEV_COLORS.L }); text('N', cx + 10, yN + 3.5, { bold: true, size: 9, color: DEV_COLORS.N });
+    const phName = ct.phase && ct.phase !== '3P' ? ct.phase : 'L'; // triphasé : phase du circuit
+    layer('TEXTES'); text(phName, cx + (phName.length > 1 ? 6 : 10), yL + 3.5, { bold: true, size: 9, color: DEV_COLORS.L }); text('N', cx + 10, yN + 3.5, { bold: true, size: 9, color: DEV_COLORS.N });
     // points lumineux en parallèle à partir de xs, alimentés par le retour à yBus
     const lamps = (xs, yBus, xFrom) => {
       const room = Math.max(1, Math.floor((cx + cw - 22 - xs) / 34) + 1), n = Math.min(g.lamps.length, room);
