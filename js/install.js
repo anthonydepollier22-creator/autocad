@@ -853,7 +853,7 @@ class InstallSim {
         if (!f || !on) continue;
         const r = d.route[id];
         if (f === 'short') {
-          const Zloop = Z_UP + (2 * RHO_CU * r.len) / ct.S;
+          const Zloop = Z_UP + (2 * RHO_CU * r.len) / ct.S + 2 * RHO_CU * (ct.feedRS || 0); // TD : ligne d'alimentation comprise
           const Icc = U_NOM / Zloop;
           const b = this.breakers[ct.id];
           if (Icc >= 10 * ct.In) {
