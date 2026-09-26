@@ -250,7 +250,7 @@ l'éditeur du tableau, **avec ou sans plan** :
   simulés comme les disjoncteurs) ; les étiquettes des symboles verticaux passent à
   droite ;
 - **Exports** : SVG, **DXF** (en millimètres, calques UNIFILAIRE / TEXTES / CARTOUCHE,
-  validé par ezdxf) et **Imprimer / PDF** : le **dossier technique** A3 — sommaire,
+  validé par ezdxf) et **Dossier technique · PDF** : le **dossier technique** A3 — sommaire,
   plan d'implantation (légende, repères de circuits), **plan de câblage** (cheminement
   de chaque circuit dans les goulottes, à sa couleur), unifilaire, câblage, note de calcul, schémas développés, élévations et
   communication, **numérotés à la suite** (folio 3 / 11) — suivi de la face avant et
