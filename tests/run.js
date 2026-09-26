@@ -941,6 +941,16 @@ r = run(`(function(){
 check('Schémas développés du R+1 : chaque point lumineux dessiné, simple allumage, va-et-vient (2 commandes), télérupteur (3 commandes et plus)', r.drawn === r.lamps && r.kinds.sa > 0 && r.vv && r.tlOk, `${r.lamps} points · ${Object.keys(r.kinds).map(function(k){ return r.kinds[k] + ' ' + k; }).join(', ')}`);
 check('Télérupteur posé au tableau pour 3 commandes (métré), folios A3 SVG et DXF (calque SCHEMA), schéma type sans plan', r.mat === r.tls && r.n >= 2 && r.svg && r.dxf && r.gen, `${r.mat} télérupteur(s) · ${r.n} folios`);
 
+// Câblage du tableau : arrivée en tête de chaque ID, peignes, départs, bornier de terre
+r = run(`(function(){
+  var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), svgs = boardWiringSVGs(d, { title: 'T5' }), all = svgs.join('');
+  var ids = d.circuits.every(function(c){ return all.indexOf('>' + c.id + ' · ') > 0; }), rcds = d.rcds.every(function(r){ return all.indexOf('>' + r.id + '<') > 0; });
+  var link = materialList(h.components, h.wires, d).lines.find(function(l){ return /liaison AGCP/.test(l.name); });
+  var dxf = boardWiringDXF(d, {});
+  return { sec: [boardLinkSection(45), boardLinkSection(60), boardLinkSection(90)], ids: ids, rcds: rcds, pe: all.indexOf('bornier de terre') > 0, link: link && link.qty === 3 && /25 mm²/.test(link.name) === (boardLinkSection(d.agcp.setting) === 25), dxf: dxf.indexOf('SCHEMA') > 0, n: svgs.length };
+})()`);
+check('Câblage du tableau : liaison AGCP en 10 / 16 / 25 mm² selon le réglage, chaque ID et chaque départ, bornier de terre ; métré ; SVG et DXF', r.sec.join() === '10,16,25' && r.ids && r.rcds && r.pe && r.link && r.dxf, `${r.n} folio(s)`);
+
 // Communication (VDI) : coffret en GTL, étoile catégorie 6 le long des goulottes
 r = run(`(function(){
   var h = buildHouse('t5'), v = vdiDesign(h.components, h.wires), rj = h.components.filter(function(c){ return c.type === 'rj45'; });

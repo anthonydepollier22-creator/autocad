@@ -4,7 +4,7 @@
  * À gauche, le tableau : abonnement, parafoudre, coffret, interrupteurs
  * différentiels et leurs circuits (repère, désignation, type, calibre,
  * section, charge, longueur, contacteur / télérupteur), contrôles NF C 15-100
- * en direct. À droite, l'aperçu : folio unifilaire, note de calcul, schémas
+ * en direct. À droite, l'aperçu : folio unifilaire, câblage, note de calcul, schémas
  * développés de l'éclairage, élévations des murs, communication (VDI), face
  * avant, étiquettes.
  * La première modification fige le tableau automatique en tableau
@@ -145,8 +145,8 @@ function initBoardUI(app) {
       svg = pages[st.folio];
       $('bd-folios').hidden = pages.length < 2;
       $('bd-folio-lbl').textContent = `Folio ${st.folio + 1} / ${pages.length}`;
-    } else if (st.view === 'calc' || st.view === 'dev' || st.view === 'vdi' || st.view === 'elev') {
-      const pages = st.view === 'calc' ? calcNoteSVGs(d, meta()) : st.view === 'dev' ? devSVGs(d) : st.view === 'elev' ? elevPages(d) : vdiPages(d);
+    } else if (st.view === 'calc' || st.view === 'dev' || st.view === 'vdi' || st.view === 'elev' || st.view === 'wiring') {
+      const pages = st.view === 'calc' ? calcNoteSVGs(d, meta()) : st.view === 'dev' ? devSVGs(d) : st.view === 'elev' ? elevPages(d) : st.view === 'wiring' ? boardWiringSVGs(d, meta()) : vdiPages(d);
       st.folio = Math.min(st.folio, pages.length - 1);
       svg = pages[st.folio];
       $('bd-folios').hidden = pages.length < 2;
@@ -256,13 +256,16 @@ function initBoardUI(app) {
     const k = b.dataset.bx;
     if (k === 'svg') {
       const folio = (pages) => pages[st.folio] || pages[0];
-      const svg = st.view === 'uni' ? unifilarSVG(d, meta()) : st.view === 'calc' ? folio(calcNoteSVGs(d, meta())) : st.view === 'dev' ? folio(devSVGs(d)) : st.view === 'vdi' ? folio(vdiPages(d)) : st.view === 'elev' ? folio(elevPages(d)) : st.view === 'front' ? boardFrontSVG(d, meta()) : boardLabelsSVG(d, meta());
-      const what = { uni: 'unifilaire', calc: 'note de calcul', dev: 'schémas développés', vdi: 'communication', elev: 'élévations', front: 'face avant', labels: 'étiquettes' }[st.view];
+      const svg = st.view === 'uni' ? unifilarSVG(d, meta()) : st.view === 'calc' ? folio(calcNoteSVGs(d, meta())) : st.view === 'dev' ? folio(devSVGs(d)) : st.view === 'vdi' ? folio(vdiPages(d)) : st.view === 'elev' ? folio(elevPages(d)) : st.view === 'wiring' ? folio(boardWiringSVGs(d, meta())) : st.view === 'front' ? boardFrontSVG(d, meta()) : boardLabelsSVG(d, meta());
+      const what = { uni: 'unifilaire', calc: 'note de calcul', dev: 'schémas développés', vdi: 'communication', elev: 'élévations', wiring: 'câblage du tableau', front: 'face avant', labels: 'étiquettes' }[st.view];
       download(new Blob([svg], { type: 'image/svg+xml' }), fileName(base() + ' - ' + what + '.svg'));
     } else if (k === 'dxf') {
       if (st.view === 'calc') {
         download(new Blob([calcNoteDXF(d, meta())], { type: 'application/dxf' }), fileName(base() + ' - note de calcul.dxf'));
         showToast('Note de calcul exportée en <b>DXF</b> (millimètres, calques TEXTES et CARTOUCHE).', 3500);
+      } else if (st.view === 'wiring') {
+        download(new Blob([boardWiringDXF(d, meta())], { type: 'application/dxf' }), fileName(base() + ' - câblage du tableau.dxf'));
+        showToast('Câblage du tableau exporté en <b>DXF</b> (millimètres, calques SCHEMA, TEXTES, CARTOUCHE).', 3500);
       } else if (st.view === 'elev') {
         download(new Blob([elevationDXF(d, meta(), editor.components, editor.wires)], { type: 'application/dxf' }), fileName(base() + ' - élévations.dxf'));
         showToast('Élévations exportées en <b>DXF</b> (millimètres, calques SCHEMA, TEXTES, CARTOUCHE).', 3500);
@@ -294,7 +297,7 @@ function initBoardUI(app) {
     const win = window.open('', '_blank');
     if (!win) { showToast('Autorise les fenêtres surgissantes pour imprimer.'); return; }
     const strip = (s) => s.replace(/width="[^"]*mm" height="[^"]*mm"/, '');
-    const pages = unifilarSVGs(d, meta()).concat(calcNoteSVGs(d, meta()), devSVGs(d), editor.wires.some((w) => w.kind === 'wall') ? elevPages(d) : [], editor.components.some((c) => c.type === 'rj45') ? vdiPages(d) : []).map((s) => `<section class="a3">${strip(s)}</section>`).join('');
+    const pages = unifilarSVGs(d, meta()).concat(boardWiringSVGs(d, meta()), calcNoteSVGs(d, meta()), devSVGs(d), editor.wires.some((w) => w.kind === 'wall') ? elevPages(d) : [], editor.components.some((c) => c.type === 'rj45') ? vdiPages(d) : []).map((s) => `<section class="a3">${strip(s)}</section>`).join('');
     const front = boardFrontSVG(d, meta()), labels = boardLabelsSVG(d, meta());
     const mm = (s) => { const m = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(s); return m ? [+m[1], +m[2]] : [210, 297]; };
     const [fw, fh] = mm(front);

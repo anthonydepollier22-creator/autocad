@@ -117,6 +117,7 @@ function buildDossier(o) {
     if (notes.length) h += '<ul class="checks">' + notes.map((i) => `<li class="${i.level}">${esc(i.msg)}</li>`).join('') + '</ul>';
     h += '</section>';
     if (o.boardFrontSVG) h += `<section class="page"><h2>Face avant du tableau</h2><div class="svg front">${o.boardFrontSVG}</div></section>`;
+    if (o.wiringSVGs && o.wiringSVGs.length) h += o.wiringSVGs.map((svg) => `<section class="page"><h2>Câblage du tableau</h2><div class="svg">${svg}</div></section>`).join('');
     if (o.developedSVGs && o.developedSVGs.length) h += o.developedSVGs.map((svg, k) => `<section class="page"><h2>Schémas développés de l’éclairage${o.developedSVGs.length > 1 ? ` (${k + 1}/${o.developedSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
     if (o.elevationSVGs && o.elevationSVGs.length) h += o.elevationSVGs.map((svg, k) => `<section class="page"><h2>Élévations des murs${o.elevationSVGs.length > 1 ? ` (${k + 1}/${o.elevationSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
     if (o.vdiSVGs && o.vdiSVGs.length) h += o.vdiSVGs.map((svg, k) => `<section class="page"><h2>Communication (VDI)${o.vdiSVGs.length > 1 ? ` (${k + 1}/${o.vdiSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');

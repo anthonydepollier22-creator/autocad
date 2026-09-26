@@ -14,6 +14,7 @@ const MAT_PRICES = {
   surge: 69, contactor: 22, teleruptor: 18,
   tri: { rcd: 2.6, breaker3P: 45, surge: 145 }, // triphasé : ID 4P (≈ 2,6 × le prix 2P), disjoncteurs 3P+N
   comb: 8.5,            // peigne d'alimentation, par rangée
+  link: { 10: 2.9, 16: 4.4, 25: 6.8 }, // conducteur de liaison AGCP → tableau, €/m
   earthBar: 14,         // bornier de terre / répartiteur
   earthKit: 48,         // piquet de terre, câble 16 mm², barrette de coupure
   cable: { 1.5: 0.82, 2.5: 1.18, 4: 2.1, 6: 3.25, 10: 5.6, 16: 8.9 }, // gaine ICTA préfilée 3G…, €/m
@@ -71,6 +72,10 @@ function materialList(components, wires, design) {
       add('Tableau', `Disjoncteur phase + neutre ${In} A courbe C`, byIn[In], 'u', P.breaker[In] || 9);
     }
     add('Tableau', 'Peigne d’alimentation', rows, 'u', P.comb);
+    if (typeof boardLinkSection === 'function' && design.agcp) {
+      const S = boardLinkSection(design.agcp.setting), n = tri ? 4 : 2; // phase(s) + neutre, 1,5 m chacun
+      add('Tableau', `Conducteurs de liaison AGCP → tableau ${S} mm² (H07V-R)`, n * 1.5, 'm', P.link[S] || 4, `${n} conducteurs de 1,5 m`);
+    }
     add('Tableau', 'Bornier de terre et répartiteur', 1, 'u', P.earthBar);
     add('Tableau', 'Prise de terre : piquet, câble 16 mm², barrette', 1, 'lot', P.earthKit);
 

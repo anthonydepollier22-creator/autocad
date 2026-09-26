@@ -424,9 +424,9 @@
         <div class="bd-head">
           <button type="button" class="btn-ghost" data-bx="svg" title="Télécharger la vue affichée en SVG">SVG</button>
           <button type="button" class="btn-ghost" data-bx="schema" title="Ouvrir le schéma unifilaire dans l'éditeur, symbole par symbole, pour le compléter librement">Dans l’éditeur</button>
-          <button type="button" class="btn-ghost" data-bx="dxf" title="Folio affiché (unifilaire, note de calcul, schémas développés, élévations, communication) en DXF (AutoCAD, LibreCAD…), en millimètres">DXF</button>
+          <button type="button" class="btn-ghost" data-bx="dxf" title="Folio affiché (unifilaire, câblage, note de calcul, schémas développés, élévations, communication) en DXF (AutoCAD, LibreCAD…), en millimètres">DXF</button>
           <button type="button" class="btn-ghost" data-bx="csv" title="Note de calcul en tableur (CSV, Excel)" hidden>CSV</button>
-          <button type="button" class="btn-primary" data-bx="print" title="Folios A3 (unifilaire, note de calcul, schémas développés, élévations, communication), face avant et étiquettes : imprimer ou enregistrer en PDF">Imprimer / PDF</button>
+          <button type="button" class="btn-primary" data-bx="print" title="Folios A3 (unifilaire, câblage, note de calcul, schémas développés, élévations, communication), face avant et étiquettes : imprimer ou enregistrer en PDF">Imprimer / PDF</button>
           <button id="board-close" class="icon-btn" title="Fermer" aria-label="Fermer">✕</button>
         </div>
       </header>
@@ -436,6 +436,7 @@
           <div class="bd-viewbar">
             <div class="seg" role="group" aria-label="Vue">
               <button type="button" data-view="uni" class="on">Unifilaire</button>
+              <button type="button" data-view="wiring" title="Câblage du tableau : arrivée, peignes phase / neutre, départs, bornier de terre">Câblage</button>
               <button type="button" data-view="front">Face avant</button>
               <button type="button" data-view="labels">Étiquettes</button>
               <button type="button" data-view="calc" title="Note de calcul : Ib, In, Iz, ΔU, Icc mini, longueur maximale protégée">Calcul</button>

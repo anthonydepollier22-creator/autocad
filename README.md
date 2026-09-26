@@ -203,6 +203,11 @@ l'éditeur du tableau, **avec ou sans plan** :
   jeu de barres, différentiels, disjoncteurs, contacteurs, désignations verticales,
   **nomenclature** (repère, protection, ID, câble 3G…, longueur, charge, ΔU), légende
   et **cartouche** ; plusieurs folios numérotés si le tableau est grand ;
+- **Câblage du tableau** (folio A3) : liaison du disjoncteur de branchement en tête
+  de chaque interrupteur différentiel (10, 16 ou 25 mm² selon son réglage), sortie
+  de l'ID vers le **peigne** phase / neutre des disjoncteurs, départ de chaque
+  circuit (phase, neutre, terre) et **bornier de terre**, conducteurs en couleur ;
+  le métré ajoute les conducteurs de liaison. Export SVG et DXF ;
 - **Note de calcul** (folio A3, méthode conventionnelle du guide UTE C 15-105) : pour
   chaque circuit Ib, protection, câble, **Iz** (méthode B, 2 ou 3 conducteurs chargés),
   longueur jusqu'à l'appareil le plus éloigné, **ΔU**, **Icc mini** en bout de ligne
@@ -241,13 +246,15 @@ l'éditeur du tableau, **avec ou sans plan** :
   simulés comme les disjoncteurs) ; les étiquettes des symboles verticaux passent à
   droite ;
 - **Exports** : SVG, **DXF** (en millimètres, calques UNIFILAIRE / TEXTES / CARTOUCHE,
-  validé par ezdxf) et **Imprimer / PDF** (folios A3 unifilaire, note de calcul, schémas
-  développés, élévations et communication, face avant, étiquettes A4) ; le
+  validé par ezdxf) et **Imprimer / PDF** (folios A3 unifilaire, câblage, note de calcul,
+  schémas développés, élévations et communication, face avant, étiquettes A4) ; le
   dossier du projet et le métré (coffret, parafoudre, contacteurs, ID 63 A…) suivent.
 
 ![Éditeur du tableau : circuits modifiables et aperçu du folio](docs/screenshot-tableau-editeur.png)
 
 ![Folio unifilaire A3 : symboles, nomenclature, cartouche](docs/screenshot-unifilaire.png)
+
+![Câblage du tableau : liaison AGCP, peignes, départs, bornier de terre](docs/screenshot-cablage-tableau.png)
 
 ![Note de calcul : Iz, ΔU, Icc mini et longueur maximale protégée par circuit](docs/screenshot-note-calcul.png)
 
@@ -709,7 +716,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-172 vérifications sans dépendance : valeurs numériques de chaque simulation
+173 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

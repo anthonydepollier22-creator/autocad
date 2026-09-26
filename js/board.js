@@ -983,6 +983,155 @@ function boardFrontSVG(design, meta) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}mm" height="${H}mm" font-family="sans-serif"><rect width="${W}" height="${H}" fill="#fff"/>${ctx.out.join('')}</svg>`;
 }
 
+// ---------------------------------------------------------------------------
+// Câblage du tableau (folio A3) : arrivée du disjoncteur de branchement sur la
+// tête de chaque interrupteur différentiel, peignes phase / neutre, départs
+// des circuits et bornier de terre — conducteurs en couleur.
+// ---------------------------------------------------------------------------
+// Section des conducteurs de liaison AGCP → tableau selon le réglage (A)
+function boardLinkSection(setting) { return setting <= 45 ? 10 : setting <= 60 ? 16 : 25; }
+const BW = { mw: 26, gap: 14, rowH: 212, colW: 478, top: 150, x0: 208 }; // module 26 pt, rangée, colonne
+function boardWiringFolios(design) { return Math.max(1, Math.ceil(boardModules(design).rows.filter((r) => r.length).length / 4)); }
+function drawBoardWiring(ctx, design, meta, folio) {
+  const M = boardModules(design), rows = M.rows.map((r, i) => ({ r, i })).filter((x) => x.r.length);
+  const k = folio || 0, nF = boardWiringFolios(design), mine = rows.slice(k * 4, k * 4 + 4);
+  const tri = design.supply && design.supply.phases === 3;
+  const ink = '#1a2230', mute = '#5b6b82', L = '#b3261e', N = '#1668c4', PE = '#2e9e46', PEy = '#e0b400';
+  const layer = (n) => { if ('layer' in ctx) ctx.layer = n; };
+  const text = (t, x, y, o) => {
+    o = o || {};
+    ctx.save(); ctx.fillStyle = o.color || ink; ctx.font = `${o.bold ? 'bold ' : ''}${o.size || 8}px sans-serif`;
+    ctx.textAlign = o.align || 'left';
+    if (o.rot) { ctx.translate(x, y); ctx.rotate(o.rot); ctx.fillText(t, 0, 0); } else ctx.fillText(t, x, y);
+    ctx.restore();
+  };
+  const wire = (color, pts, w) => { ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = w || 1.4; ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); };
+  const dot = (x, y, c) => { ctx.save(); ctx.fillStyle = c || ink; ctx.beginPath(); ctx.arc(x, y, 1.7, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
+  // deux rangées au plus : une colonne en grand ; sinon deux colonnes
+  const one = mine.length <= 2, sc = one ? 1.45 : 1;
+  const S = boardLinkSection(design.agcp.setting), mw = BW.mw * sc, gapW = BW.gap * sc, rowH = one ? 290 : BW.rowH;
+  const isHead = (m) => m.kind === 'rcd' || (m.kind === 'breaker' && m.ref === 'QF');
+  ctx.save(); ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  layer('CARTOUCHE');
+  _uCartouche(ctx, design, meta, 'Câblage du tableau de répartition', k, nF);
+  layer('TEXTES');
+  text('Câblage du tableau', 30, 46, { bold: true, size: 17 });
+  text(`Arrivée du disjoncteur de branchement en tête de chaque interrupteur différentiel (conducteurs de ${S} mm²), peignes phase / neutre, départs des circuits, bornier de terre`, 30, 62, { size: 8, color: mute });
+  [['Phase', L], ['Neutre', N], ['Terre (vert / jaune)', PE]].forEach(([t, c], i) => { layer('SCHEMA'); wire(c, [[800 + i * 118, 42], [822 + i * 118, 42]], 2); layer('TEXTES'); text(t, 828 + i * 118, 45, { size: 8.5 }); });
+  // Disjoncteur de branchement (AGCP) et colonne de distribution vers les têtes de groupe
+  const ax = 30, ay = 84;
+  layer('SCHEMA'); ctx.lineWidth = 1.2; ctx.strokeRect(ax, ay, 122, 44);
+  layer('TEXTES');
+  text('AGCP (GTL)', ax + 8, ay + 14, { bold: true, size: 8.5 });
+  text(`${tri ? '4P' : '2P'} ${design.agcp.setting} A · 500 mA`, ax + 8, ay + 26, { size: 8 });
+  text(`${design.agcp.kva} kVA — gestionnaire de réseau`, ax + 8, ay + 37, { size: 7, color: mute });
+  const busL = ax + 150, busN = ax + 160;
+  const col0 = mine.filter((_, n) => one || n % 2 === 0), yEnd = col0.length ? BW.top + (col0.length - 1) * rowH + 8 : ay + 30;
+  layer('SCHEMA');
+  wire(L, [[ax + 122, ay + 16], [busL, ay + 16], [busL, yEnd]], 2);
+  wire(N, [[ax + 122, ay + 28], [busN, ay + 28], [busN, yEnd + 4]], 2);
+  layer('TEXTES'); text(`${S} mm²`, ax + 126, ay + 12, { size: 7, color: mute });
+  mine.forEach(({ r: row, i: ri }, n) => {
+    const col = one ? 0 : n % 2, lin = one ? n : Math.floor(n / 2);
+    const x0 = BW.x0 + col * BW.colW, y0 = BW.top + lin * rowH;
+    const yc = y0 + 14 * sc, yb = y0 + 40 * sc, yB = yb + 58 * sc, yt = yB + 16 * sc, yo = yB + 30 * sc;
+    const fs = (v) => v * (one ? 1.25 : 1);
+    // positions : un intervalle après chaque tête de groupe pour la liaison vers le peigne
+    let x = x0;
+    const pos = row.map((m) => { const p = { m, x, w: m.w * mw }; x += m.w * mw + (isHead(m) ? gapW : 0); return p; });
+    const x1 = x;
+    layer('SCHEMA');
+    ctx.save(); ctx.strokeStyle = '#c4ccd9'; ctx.lineWidth = 0.6; ctx.strokeRect(x0 - 8, y0 - 2, Math.max(x1 - x0, 4 * mw) + 70, rowH - (one ? 30 : 22)); ctx.restore();
+    layer('TEXTES'); text(`Rangée ${ri + 1}`, x0 - 8, y0 - 6, { bold: true, size: 8.5, color: mute });
+    let cur = null;
+    const groups = [];
+    for (const p of pos) {
+      if (isHead(p.m)) { cur = { head: p, items: [] }; groups.push(cur); }
+      else if (cur && p.m.kind === 'breaker') cur.items.push(p);
+    }
+    for (const g of groups) {
+      const hx = g.head.x, hw = g.head.w, hL = hx + hw * 0.3, hN = hx + hw * 0.7;
+      layer('SCHEMA');
+      if (col === 0) {
+        wire(L, [[busL, y0 + 2], [hL, y0 + 2], [hL, yb]], 1.6); dot(busL, y0 + 2, L);
+        wire(N, [[busN, y0 + 6], [hN, y0 + 6], [hN, yb]], 1.6); dot(busN, y0 + 6, N);
+      } else {
+        wire(L, [[hL, y0 - 16], [hL, yb]], 1.6); wire(N, [[hN, y0 - 12], [hN, yb]], 1.6);
+        layer('TEXTES'); text(`depuis l’AGCP, ${S} mm²`, hN + 4, y0 - 10, { size: 6.5, color: mute }); layer('SCHEMA');
+      }
+      const pf = g.head.m.ref === 'QF' && pos.find((q) => q.m.kind === 'surge');
+      if (pf) { // disjoncteur de déconnexion → parafoudre
+        const gx = hx + hw + gapW / 2;
+        wire(L, [[hL, yB], [hL, yB + 5], [gx - 3, yB + 5], [gx - 3, yc], [pf.x + pf.w * 0.3, yc], [pf.x + pf.w * 0.3, yb]], 1.3);
+        wire(N, [[hN, yB], [hN, yB + 9], [gx + 3, yB + 9], [gx + 3, yc + 7 * sc], [pf.x + pf.w * 0.7, yc + 7 * sc], [pf.x + pf.w * 0.7, yb]], 1.3);
+      }
+      if (!g.items.length) continue;
+      // sortie de la tête (bornes du bas) → peigne posé sur les bornes du haut des disjoncteurs
+      const last = g.items[g.items.length - 1], gx = hx + hw + gapW / 2;
+      const cN = yc + 7 * sc;
+      wire(L, [[hL, yB], [hL, yB + 5], [gx - 3, yB + 5], [gx - 3, yc], [last.x + last.w - 3, yc]], 1.3);
+      wire(N, [[hN, yB], [hN, yB + 9], [gx + 3, yB + 9], [gx + 3, cN], [last.x + last.w - 3, cN]], 1.3);
+      wire(L, [[gx + 6, yc], [last.x + last.w - 3, yc]], 2.6);
+      wire(N, [[gx + 6, cN], [last.x + last.w - 3, cN]], 2.6);
+      for (const p of g.items) { wire(L, [[p.x + p.w * 0.3, yc], [p.x + p.w * 0.3, yb]], 1.1); wire(N, [[p.x + p.w * 0.7, cN], [p.x + p.w * 0.7, yb]], 1.1); }
+    }
+    // bornier de terre de la rangée, sous les appareils
+    const circ = pos.filter((p) => p.m.kind === 'breaker' && p.m.ct);
+    if (circ.length) {
+      layer('SCHEMA');
+      const bx0 = Math.min(...circ.map((p) => p.x)) - 4, bx1 = Math.max(...circ.map((p) => p.x + p.w)) + 4;
+      wire(PE, [[bx0, yt], [bx1, yt]], 3.2); wire(PEy, [[bx0, yt + 2.6], [bx1, yt + 2.6]], 1);
+      layer('TEXTES'); text('bornier de terre', bx1 + 4, yt + 3, { size: 6.5, color: PE });
+    }
+    // boîtiers, bornes, départs
+    for (const p of pos) {
+      const m = p.m;
+      layer('SCHEMA');
+      ctx.save(); ctx.lineWidth = 0.9; ctx.strokeStyle = ink; ctx.strokeRect(p.x + 1, yb, p.w - 2, yB - yb); ctx.restore();
+      for (const f of [0.3, 0.7]) { dot(p.x + p.w * f, yb); dot(p.x + p.w * f, yB); }
+      layer('TEXTES');
+      text(m.ref, p.x + p.w / 2, yb + 15 * sc, { bold: true, size: fs(7), align: 'center', color: m.kind === 'rcd' ? N : ink });
+      const sub = m.kind === 'breaker' ? `C${m.In}` : m.kind === 'rcd' ? `${m.rcd.In} A` : m.kind === 'surge' ? 'type 2' : m.kind === 'contactor' ? 'HC' : 'TL';
+      text(sub, p.x + p.w / 2, yb + 27 * sc, { size: fs(6.5), align: 'center' });
+      if (m.kind === 'rcd') text(`30 mA ${m.rcd.type}`, p.x + p.w / 2, yb + 39 * sc, { size: fs(6), align: 'center', color: mute });
+      if (m.kind === 'breaker' && m.ct) {
+        const tL = p.x + p.w * 0.3, tN = p.x + p.w * 0.7, tP = p.x + p.w / 2;
+        layer('SCHEMA');
+        wire(L, [[tL, yB], [tL, yo]], 1.1); wire(N, [[tN, yB], [tN, yo]], 1.1);
+        wire(PE, [[tP, yt + 3], [tP, yo]], 1); dot(tP, yt + 1, PE);
+        for (const tx of [tL, tP, tN]) wire(tx === tP ? PE : tx === tL ? L : N, [[tx - 2, yo - 3], [tx, yo], [tx + 2, yo - 3]], 0.9);
+        layer('TEXTES');
+        text(`${m.ct.id} · ${boardCable(m.ct.S, m.ct.phase)}`, tP + 2.5, yo + 5, { size: fs(6.5), rot: Math.PI / 2, bold: true });
+        text(m.ct.name.length > 20 ? m.ct.name.slice(0, 19) + '…' : m.ct.name, tP - 5.5 * sc, yo + 5, { size: fs(6), rot: Math.PI / 2, color: mute });
+      } else if (m.kind === 'contactor' || m.kind === 'teleruptor') {
+        layer('TEXTES');
+        text(m.kind === 'contactor' ? 'cde HC' : 'bobine', p.x + p.w / 2, yb + 39 * sc, { size: fs(5.5), align: 'center', color: mute });
+      } else if (m.kind === 'surge') {
+        layer('SCHEMA'); wire(PE, [[p.x + p.w / 2, yB], [p.x + p.w / 2, yt]], 1.1);
+      }
+    }
+  });
+  layer('TEXTES');
+  const yb2 = UNI.H - 15 - 62 - 28;
+  text(`Bornier de terre relié à la barrette de coupure puis au piquet (conducteur de terre 16 mm² cuivre) ; liaison AGCP → têtes de groupe en ${S} mm² (phase et neutre) ; peignes adaptés au calibre des différentiels ; phase et neutre d’un circuit sous le même disjoncteur.`, 30, yb2, { size: 8, color: mute });
+  text('Schéma de principe : l’ordre de raccordement exact dépend du matériel (peignes horizontaux ou verticaux, borniers à connexion rapide) — suivre la notice du fabricant.', 30, yb2 + 13, { size: 7.5, color: mute });
+  ctx.restore();
+}
+function boardWiringSVGs(design, meta) {
+  const out = [];
+  for (let k = 0; k < boardWiringFolios(design); k++) {
+    const ctx = new SVGContext();
+    drawBoardWiring(ctx, design, meta, k);
+    out.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${UNI.W} ${UNI.H}" width="420mm" height="297mm" font-family="sans-serif"><rect width="${UNI.W}" height="${UNI.H}" fill="#fff"/>${ctx.out.join('')}</svg>`);
+  }
+  return out;
+}
+function boardWiringDXF(design, meta) {
+  const ctx = new DXFContext(), n = boardWiringFolios(design);
+  for (let k = 0; k < n; k++) { ctx.save(); ctx.translate(0, k * (UNI.H + 60)); drawBoardWiring(ctx, design, meta, k); ctx.restore(); }
+  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: n * (UNI.H + 60) }, { U: 1 / 0.3528, insunits: 4, layers: [['SCHEMA', 7], ['TEXTES', 2], ['CARTOUCHE', 8]] });
+}
+
 // Étiquettes de repérage à imprimer à l'échelle 1 (A4 portrait) et à découper
 function boardLabelsSVG(design, meta) {
   const M = boardModules(design);
