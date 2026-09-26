@@ -206,7 +206,9 @@ l'éditeur du tableau, **avec ou sans plan** :
 - **Câblage du tableau** (folio A3) : liaison du disjoncteur de branchement en tête
   de chaque interrupteur différentiel (10, 16 ou 25 mm² selon son réglage), sortie
   de l'ID vers le **peigne** phase / neutre des disjoncteurs, départ de chaque
-  circuit (phase, neutre, terre) et **bornier de terre**, conducteurs en couleur ;
+  circuit (phase, neutre, terre) et **bornier de terre**, conducteurs en couleur ; en
+  triphasé, peigne à quatre barres (L1 marron, L2 noir, L3 gris, N bleu), chaque
+  circuit sur sa phase et départs 3P+N ;
   le métré ajoute les conducteurs de liaison. Export SVG et DXF ;
 - **Note de calcul** (folio A3, méthode conventionnelle du guide UTE C 15-105) : pour
   chaque circuit Ib, protection, câble, **Iz** (méthode B, 2 ou 3 conducteurs chargés),
@@ -720,7 +722,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-174 vérifications sans dépendance : valeurs numériques de chaque simulation
+175 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

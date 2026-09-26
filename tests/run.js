@@ -950,6 +950,12 @@ r = run(`(function(){
   return { sec: [boardLinkSection(45), boardLinkSection(60), boardLinkSection(90)], ids: ids, rcds: rcds, pe: all.indexOf('bornier de terre') > 0, link: link && link.qty === 3 && /25 mm²/.test(link.name) === (boardLinkSection(d.agcp.setting) === 25), dxf: dxf.indexOf('SCHEMA') > 0, n: svgs.length };
 })()`);
 check('Câblage du tableau : liaison AGCP en 10 / 16 / 25 mm² selon le réglage, chaque ID et chaque départ, bornier de terre ; métré ; SVG et DXF', r.sec.join() === '10,16,25' && r.ids && r.rcds && r.pe && r.link && r.dxf, `${r.n} folio(s)`);
+r = run(`(function(){
+  var b = boardTemplate(160, { heating: true, cooktop: true, ev: true, tri: true }), d = designInstallation([], [], b), svg = boardWiringSVGs(d, {}).join('');
+  var three = d.circuits.filter(function(c){ return c.phase === '3P'; }).length;
+  return { cols: ['#8a5a2b', '#1a1a1a', '#8d949e', '#1668c4'].every(function(c){ return svg.indexOf('stroke="' + c + '"') > 0; }), p3: svg.split('>3P+N<').length - 1 === three && three > 0, phases: ['L1', 'L2', 'L3'].every(function(ph){ return svg.indexOf('>' + ph + '<') > 0; }) };
+})()`);
+check('Câblage du tableau en triphasé : L1 / L2 / L3 / N (peigne à 4 barres), chaque circuit sur sa phase, départs 3P+N', r.cols && r.p3 && r.phases);
 
 // Dossier technique : sommaire et folios numérotés à la suite
 r = run(`(function(){
