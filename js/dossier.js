@@ -110,8 +110,8 @@ function buildDossier(o) {
     h += `<section class="page"><h2>Tableau électrique</h2>${o.unifilarSVG ? `<div class="svg">${o.unifilarSVG}</div>` : ''}`;
     h += '<table><thead><tr><th>Circuit</th><th>Pièces</th><th class="n">Protection</th><th class="n">Section</th><th class="n">Longueur</th><th class="n">ΔU</th><th>Différentiel</th></tr></thead><tbody>';
     for (const c of d.circuits) {
-      h += `<tr><td><b>${esc(c.id)}</b> ${esc(c.name)}</td><td class="small">${esc(c.rooms)}</td><td class="n">${c.In} A</td><td class="n">${num(c.S, c.S % 1 ? 1 : 0)} mm²</td><td class="n">${num(c.length, 1)} m</td>` +
-        `<td class="n ${c.ok ? '' : 'bad'}">${num(c.dUpct, 1)} %</td><td>${esc(c.rcd)}</td></tr>`;
+      h += `<tr><td><b>${esc(c.id)}</b> ${c.panelRef && c.kind !== 'sub' ? esc(c.panelRef) + ' · ' : ''}${esc(c.name)}</td><td class="small">${esc(c.kind === 'sub' ? 'tableau divisionnaire ' + (c.panelRef || '') : c.rooms)}</td><td class="n">${c.In} A</td><td class="n">${num(c.S, c.S % 1 ? 1 : 0)} mm²</td><td class="n">${num(c.length, 1)} m</td>` +
+        `<td class="n ${c.ok ? '' : 'bad'}">${num(c.dUpct, 1)} %</td><td>${esc(c.rcd || (c.ddr ? 'DDR 30 mA ' + c.ddr : c.kind === 'sub' ? 'AGCP (en tête)' : '—'))}</td></tr>`;
     }
     h += '</tbody></table>';
     const notes = d.issues.concat((d.checks || []).filter((c) => c.level !== 'info'));
