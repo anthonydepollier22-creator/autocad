@@ -397,6 +397,9 @@ function initHouseUI(app) {
     if ((editor.components.length || editor.wires.length) && !confirm('Remplacer le plan actuel par « ' + T.name + ' » ?')) return;
     const opts = { furnish: $('ho-furnish').checked, elec: $('ho-elec').checked, heating: $('ho-heating').checked, conduits: $('ho-conduits').checked };
     const doc = buildHouse(T.key, opts);
+    // tableau divisionnaire au garage (maison avec garage, électricité implantée)
+    const td = $('ho-td') && $('ho-td').checked && opts.elec ? addSubPanel(doc, /garage/i) : null;
+    if ($('ho-td') && $('ho-td').checked && opts.elec && !td) setTimeout(() => showToast('Cette maison n’a pas de garage : pas de tableau divisionnaire.', 3500), 5400);
     closeHouses();
     editor.load(doc);
     sim.events = []; sim.energy = 0; sim.t = 0;

@@ -1287,7 +1287,7 @@ function addSubPanel(doc, re) {
   const t = nw.t + 70 <= L - 30 ? nw.t + 70 : Math.max(30, nw.t - 70);
   const x = nw.a.x + nw.ux * t + nw.nx * nw.d, y = nw.a.y + nw.uy * t + nw.ny * nw.d;
   const td = _addComp(doc, 'panel_sub', x, y, ref.rot || 0);
-  autoConduits(doc);
+  if (doc.wires.some((w) => w.kind === 'conduit')) autoConduits(doc); // goulottes retracées depuis le TD
   return td;
 }
 
