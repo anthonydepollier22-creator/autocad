@@ -1346,6 +1346,30 @@ function initHouseUI(app) {
     const wire = editor.wires.find((q) => q.id === w.wid);
     return { x: Math.round(x), y: Math.round(y), rot: furn ? _rotBack(hit.nx, hit.nz) : _rotDevice(hit.nx, hit.nz), room: roomNameAt(x, y), mat: wire ? wallMaterial(wire) : null };
   }
+  // Cloison : point sur l'axe d'un mur visé, sinon au sol (accroché à un mur proche, grille de 5 cm)
+  function partitionPoint(hit) {
+    if (!hit) return null;
+    if (hit.kind === 'wall') return { x: Math.round(hit.w.a.x + hit.ux * hit.t), y: Math.round(hit.w.a.y + hit.uz * hit.t) };
+    const nw = nearestWall(editor.wires, hit.x, hit.y, 25);
+    if (nw) return { x: Math.round(nw.a.x + nw.ux * nw.t), y: Math.round(nw.a.y + nw.uy * nw.t) };
+    return { x: Math.round(hit.x / 5) * 5, y: Math.round(hit.y / 5) * 5 };
+  }
+  // Second point : cloison droite (horizontale ou verticale), prolongée jusqu'au mur proche
+  function partitionEnd(A, p) {
+    const hz = Math.abs(p.x - A.x) >= Math.abs(p.y - A.y);
+    let B = hz ? { x: p.x, y: A.y } : { x: A.x, y: p.y };
+    let best = null;
+    for (const w of editor.wires) {
+      if (w.kind !== 'wall') continue;
+      for (let i = 0; i < w.points.length - 1; i++) {
+        const a = w.points[i], b = w.points[i + 1];
+        if (hz && Math.abs(a.x - b.x) < 1 && Math.abs(a.x - B.x) < 30 && A.y >= Math.min(a.y, b.y) - 1 && A.y <= Math.max(a.y, b.y) + 1) { const d = Math.abs(a.x - B.x); if (!best || d < best.d) best = { d, x: a.x, y: A.y }; }
+        if (!hz && Math.abs(a.y - b.y) < 1 && Math.abs(a.y - B.y) < 30 && A.x >= Math.min(a.x, b.x) - 1 && A.x <= Math.max(a.x, b.x) + 1) { const d = Math.abs(a.y - B.y); if (!best || d < best.d) best = { d, x: A.x, y: a.y }; }
+      }
+    }
+    if (best) B = { x: best.x, y: best.y };
+    return { x: Math.round(B.x), y: Math.round(B.y) };
+  }
   function implantChanged(msg) {
     editor.pushHistory(); editor.render();
     ensureDesign(true); structKey = null; tick(0, true);
@@ -1377,6 +1401,34 @@ function initHouseUI(app) {
       Object.assign(c, { x: tg.x, y: tg.y, rot: tg.rot });
       if (!isCeil(c.type) && c.type !== 'radiator' && implantH()) c.h = implantH();
       implantChanged(`Nouvel emplacement : <b>${esc(SYMBOLS[c.type].name)}</b> ${esc(c.label || '')}${tg.room ? ' — ' + esc(tg.room) : ''}${isCeil(c.type) ? '' : ', à ' + Math.round(mountH(c) * 100) + ' cm'}.`);
+      return;
+    }
+    if (k === 'wall:placo') { // cloison placo en deux clics (sol ou mur existant)
+      const pt = partitionPoint(hit);
+      if (!pt) { showToast('Vise le sol (ou un mur) pour le premier point de la cloison.'); return; }
+      if (!v3.wallA) { v3.wallA = pt; showToast('Premier point posé : clique le second (la cloison reste droite, alignée sur les murs).', 3500); return; }
+      const A = v3.wallA, B = partitionEnd(A, pt), L = Math.hypot(B.x - A.x, B.y - A.y);
+      v3.wallA = null;
+      if (L < 30) { showToast('Cloison trop courte (30 cm au moins).'); return; }
+      editor.wires.push({ id: editor.uid(), kind: 'wall', points: [{ x: A.x, y: A.y }, { x: B.x, y: B.y }], mat: 'placo' });
+      implantChanged(`Cloison <b>placo 72/48</b> de ${(L / 100).toFixed(2).replace('.', ',')} m. Si elle ferme une nouvelle pièce, nomme-la (onglet Norme → Étiqueter).`);
+      return;
+    }
+    if (k === 'door') { // porte : ouverture de 80 cm dans le mur visé, battant côté pièce
+      const wire = hit && hit.kind === 'wall' && editor.wires.find((q) => q.id === hit.w.wid);
+      if (!wire) { showToast('Vise un mur pour y percer une porte.'); return; }
+      const i = wire.points.findIndex((p, j) => j < wire.points.length - 1 && p === hit.w.a && wire.points[j + 1] === hit.w.b);
+      const L = Math.hypot(hit.w.b.x - hit.w.a.x, hit.w.b.y - hit.w.a.y);
+      if (i < 0 || L < 100) { showToast('Mur trop court pour une porte de 80 cm.'); return; }
+      const t = Math.max(45, Math.min(L - 45, hit.t)), a = hit.w.a, ux = hit.ux, uy = hit.uz;
+      const P = (d) => ({ x: Math.round(a.x + ux * d), y: Math.round(a.y + uy * d) });
+      const { points, ...rest } = wire;
+      const second = { ...rest, id: editor.uid(), points: [P(t + 40), ...points.slice(i + 1).map((p) => ({ ...p }))] };
+      wire.points = [...points.slice(0, i + 1), P(t - 40)];
+      editor.wires.push(second);
+      const c = { id: editor.uid(), type: 'door', x: Math.round(a.x + ux * t), y: Math.round(a.y + uy * t), rot: _rotDevice(hit.nx, hit.nz), label: '', value: '' };
+      editor.components.push(c);
+      implantChanged(`Porte de 80 cm dans le mur (${esc(wallMaterial(wire).label.toLowerCase())}), battant côté ${esc(roomNameAt(a.x + ux * t + hit.nx * 40, a.y + uy * t + hit.nz * 40) || 'pièce')}.`);
       return;
     }
     if (k.startsWith('mat:')) {
@@ -1416,7 +1468,14 @@ function initHouseUI(app) {
       if (tg) h = `<b>Poser ici</b> ${esc(SYMBOLS[c.type].name)} ${esc(c.label || '')}${tg.room ? ' · ' + esc(tg.room) : ''}`;
     } else {
       const hit = implantHit(p);
-      if (k.startsWith('mat:')) {
+      if (k === 'wall:placo') {
+        const pt = partitionPoint(hit);
+        if (pt && !v3.wallA) h = '<b>Cloison placo</b><span>premier point</span>';
+        else if (pt) { const B = partitionEnd(v3.wallA, pt); h = `<b>Cloison placo</b><span>${(Math.hypot(B.x - v3.wallA.x, B.y - v3.wallA.y) / 100).toFixed(2).replace('.', ',')} m</span>`; }
+      } else if (k === 'door') {
+        const wire = hit && hit.kind === 'wall' && editor.wires.find((q) => q.id === hit.w.wid);
+        if (wire) h = `<b>Porte 80 cm</b><span>${esc(wallMaterial(wire).label)}</span><span>battant côté ${esc(roomNameAt(hit.w.a.x + hit.ux * hit.t + hit.nx * 40, hit.w.a.y + hit.uz * hit.t + hit.nz * 40) || 'pièce')}</span>`;
+      } else if (k.startsWith('mat:')) {
         const wire = hit && hit.kind === 'wall' && editor.wires.find((q) => q.id === hit.w.wid);
         if (wire) {
           const m = wallMaterial(wire);
@@ -1439,7 +1498,7 @@ function initHouseUI(app) {
   }
   function setImplant(k) {
     v3.implant = k || null;
-    v3.moving = null; v3.hoverDev = null;
+    v3.moving = null; v3.hoverDev = null; v3.wallA = null;
     const on = !!v3.implant;
     setChip('v3-implant', on);
     $('v3-implant-kind').hidden = !on;
