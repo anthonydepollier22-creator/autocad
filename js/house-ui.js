@@ -1659,6 +1659,7 @@ function initHouseUI(app) {
         unifilarSVG: d && d.ok ? unifilarSVG(d, editor.meta) : '',
         boardFrontSVG: d && d.ok ? boardFrontSVG(d, editor.meta) : '',
         calcNoteSVGs: d && d.ok ? calcNoteSVGs(d, editor.meta) : [],
+        developedSVGs: d && d.ok ? developedSVGs(d, editor.meta, editor.components, editor.wires) : [],
         materials: d && d.ok ? materialList(editor.components, editor.wires, d) : null,
         images: hasPlan() ? dossierImages(d) : [],
         day: dayData,

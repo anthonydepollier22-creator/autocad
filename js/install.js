@@ -376,7 +376,9 @@ function designInstallation(components, wires, board) {
       const rooms = new Set(g.map(roomOf));
       const sw = devs.filter((c) => SWITCHES_PLAN.has(c.type) && rooms.has(roomOf(c)) && !wired.has(c.id));
       sw.forEach((c) => wired.add(c.id));
-      add({ kind: 'light', name: lightNames[i], In: 16, S: 1.5, devices: g.concat(sw), rooms: roomsLabel(g), points: g.length });
+      // trois commandes ou plus pour un même éclairage (entrée, couloir) : télérupteur et poussoirs
+      const tl = [...rooms].some((r) => sw.filter((c) => roomOf(c) === r).length >= 3);
+      add({ kind: 'light', name: lightNames[i], In: 16, S: 1.5, devices: g.concat(sw), rooms: roomsLabel(g), points: g.length, teleruptor: tl });
     });
     // Prises : cuisine (6 max, circuit dédié), autres pièces (8 max) — 20 A, 2,5 mm²
     const kitchen = sockets.filter((c) => roomKey(roomOf(c)) === 'cuisine');

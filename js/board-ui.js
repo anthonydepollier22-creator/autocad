@@ -4,8 +4,8 @@
  * À gauche, le tableau : abonnement, parafoudre, coffret, interrupteurs
  * différentiels et leurs circuits (repère, désignation, type, calibre,
  * section, charge, longueur, contacteur / télérupteur), contrôles NF C 15-100
- * en direct. À droite, l'aperçu : folio unifilaire, note de calcul, face avant,
- * étiquettes.
+ * en direct. À droite, l'aperçu : folio unifilaire, note de calcul, schémas
+ * développés de l'éclairage, face avant, étiquettes.
  * La première modification fige le tableau automatique en tableau
  * personnalisé (annulable, et réversible). Sans plan, on part d'un modèle.
  */
@@ -18,6 +18,7 @@ function initBoardUI(app) {
   const hasPlan = () => editor.wires.some((w) => w.kind === 'wall');
   const design = () => houseUI.design();
   const meta = () => ({ ...editor.meta, date: new Date().toISOString().slice(0, 10) });
+  const devSVGs = (d) => developedSVGs(d, meta(), editor.components, editor.wires);
 
   function open() {
     modal.hidden = false;
@@ -141,8 +142,8 @@ function initBoardUI(app) {
       svg = pages[st.folio];
       $('bd-folios').hidden = pages.length < 2;
       $('bd-folio-lbl').textContent = `Folio ${st.folio + 1} / ${pages.length}`;
-    } else if (st.view === 'calc') {
-      const pages = calcNoteSVGs(d, meta());
+    } else if (st.view === 'calc' || st.view === 'dev') {
+      const pages = st.view === 'calc' ? calcNoteSVGs(d, meta()) : devSVGs(d);
       st.folio = Math.min(st.folio, pages.length - 1);
       svg = pages[st.folio];
       $('bd-folios').hidden = pages.length < 2;
@@ -251,13 +252,17 @@ function initBoardUI(app) {
     if (!d || !d.ok) { showToast('Crée d’abord le tableau.'); return; }
     const k = b.dataset.bx;
     if (k === 'svg') {
-      const svg = st.view === 'uni' ? unifilarSVG(d, meta()) : st.view === 'calc' ? calcNoteSVGs(d, meta())[st.folio] || calcNoteSVGs(d, meta())[0] : st.view === 'front' ? boardFrontSVG(d, meta()) : boardLabelsSVG(d, meta());
-      const what = { uni: 'unifilaire', calc: 'note de calcul', front: 'face avant', labels: 'étiquettes' }[st.view];
+      const folio = (pages) => pages[st.folio] || pages[0];
+      const svg = st.view === 'uni' ? unifilarSVG(d, meta()) : st.view === 'calc' ? folio(calcNoteSVGs(d, meta())) : st.view === 'dev' ? folio(devSVGs(d)) : st.view === 'front' ? boardFrontSVG(d, meta()) : boardLabelsSVG(d, meta());
+      const what = { uni: 'unifilaire', calc: 'note de calcul', dev: 'schémas développés', front: 'face avant', labels: 'étiquettes' }[st.view];
       download(new Blob([svg], { type: 'image/svg+xml' }), fileName(base() + ' - ' + what + '.svg'));
     } else if (k === 'dxf') {
       if (st.view === 'calc') {
         download(new Blob([calcNoteDXF(d, meta())], { type: 'application/dxf' }), fileName(base() + ' - note de calcul.dxf'));
         showToast('Note de calcul exportée en <b>DXF</b> (millimètres, calques TEXTES et CARTOUCHE).', 3500);
+      } else if (st.view === 'dev') {
+        download(new Blob([developedDXF(d, meta(), editor.components, editor.wires)], { type: 'application/dxf' }), fileName(base() + ' - schémas développés.dxf'));
+        showToast('Schémas développés exportés en <b>DXF</b> (millimètres, calques SCHEMA, TEXTES, CARTOUCHE).', 3500);
       } else {
         download(new Blob([unifilarDXF(d, meta())], { type: 'application/dxf' }), fileName(base() + ' - unifilaire.dxf'));
         showToast('Schéma unifilaire exporté en <b>DXF</b> (millimètres, calques UNIFILAIRE, TEXTES, CARTOUCHE).', 3500);
@@ -280,7 +285,7 @@ function initBoardUI(app) {
     const win = window.open('', '_blank');
     if (!win) { showToast('Autorise les fenêtres surgissantes pour imprimer.'); return; }
     const strip = (s) => s.replace(/width="[^"]*mm" height="[^"]*mm"/, '');
-    const pages = unifilarSVGs(d, meta()).concat(calcNoteSVGs(d, meta())).map((s) => `<section class="a3">${strip(s)}</section>`).join('');
+    const pages = unifilarSVGs(d, meta()).concat(calcNoteSVGs(d, meta()), devSVGs(d)).map((s) => `<section class="a3">${strip(s)}</section>`).join('');
     const front = boardFrontSVG(d, meta()), labels = boardLabelsSVG(d, meta());
     const mm = (s) => { const m = /viewBox="0 0 ([\d.]+) ([\d.]+)"/.exec(s); return m ? [+m[1], +m[2]] : [210, 297]; };
     const [fw, fh] = mm(front);

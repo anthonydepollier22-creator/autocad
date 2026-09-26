@@ -212,6 +212,13 @@ l'éditeur du tableau, **avec ou sans plan** :
   3 kA), formules, bilan de puissance et des phases. La **prise de terre** mesurée se
   saisit dans le tableau (100 Ω au plus avec l'AGCP 500 mA). Export SVG, DXF et
   **CSV** (tableur) ;
+- **Schémas développés** de l'éclairage (folios A3), pièce par pièce d'après les
+  interrupteurs du plan : **simple allumage**, **va-et-vient** (navettes) ou
+  **télérupteur** et ses **poussoirs** en parallèle sur la bobine KL dès trois commandes
+  (l'implantation automatique pose alors le télérupteur au tableau, le métré compte
+  télérupteurs et poussoirs), entre la phase et le neutre, conducteurs en couleur
+  (phase, neutre bleu, retour lampe, navettes) ; un schéma type par circuit pour un
+  tableau sans plan. Export SVG et DXF (calques SCHEMA / TEXTES / CARTOUCHE) ;
 - **Face avant** du coffret (rangées de 13 modules de 18 mm, réserve, GTL) et
   **étiquettes** de repérage à imprimer à l'échelle 1 ;
 - **Dans l'éditeur** : le tableau devient un schéma ordinaire (réseau, compteur, AGCP,
@@ -221,8 +228,8 @@ l'éditeur du tableau, **avec ou sans plan** :
   simulés comme les disjoncteurs) ; les étiquettes des symboles verticaux passent à
   droite ;
 - **Exports** : SVG, **DXF** (en millimètres, calques UNIFILAIRE / TEXTES / CARTOUCHE,
-  validé par ezdxf) et **Imprimer / PDF** (folios A3 unifilaire et note de calcul, face
-  avant, étiquettes A4) ; le
+  validé par ezdxf) et **Imprimer / PDF** (folios A3 unifilaire, note de calcul et schémas
+  développés, face avant, étiquettes A4) ; le
   dossier du projet et le métré (coffret, parafoudre, contacteurs, ID 63 A…) suivent.
 
 ![Éditeur du tableau : circuits modifiables et aperçu du folio](docs/screenshot-tableau-editeur.png)
@@ -230,6 +237,8 @@ l'éditeur du tableau, **avec ou sans plan** :
 ![Folio unifilaire A3 : symboles, nomenclature, cartouche](docs/screenshot-unifilaire.png)
 
 ![Note de calcul : Iz, ΔU, Icc mini et longueur maximale protégée par circuit](docs/screenshot-note-calcul.png)
+
+![Schémas développés : simple allumage, va-et-vient, télérupteur et poussoirs](docs/screenshot-schemas-developpes.png)
 
 ![Face avant du tableau](docs/screenshot-face-avant.png)
 
@@ -240,7 +249,7 @@ enregistrer en PDF : page de garde et chiffres clés, **vues 3D** calculées à 
 (extérieur, intérieur coupé — pour une maison à étage : extérieur, coupe verticale et
 chaque niveau), **plan coté**, **contrôle NF C 15-100** pièce par pièce,
 **schéma unifilaire** et tableau des circuits (protection, section, longueur, ΔU,
-différentiel), **note de calcul**, **matériel et budget**, **journée type** (graphique, bilan, solaire).
+différentiel), **schémas développés** de l'éclairage, **note de calcul**, **matériel et budget**, **journée type** (graphique, bilan, solaire).
 
 ![Dossier du projet](docs/screenshot-dossier.png)
 
@@ -675,7 +684,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-163 vérifications sans dépendance : valeurs numériques de chaque simulation
+165 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

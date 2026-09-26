@@ -18,7 +18,7 @@ const MAT_PRICES = {
   earthKit: 48,         // piquet de terre, câble 16 mm², barrette de coupure
   cable: { 1.5: 0.82, 2.5: 1.18, 4: 2.1, 6: 3.25, 10: 5.6, 16: 8.9 }, // gaine ICTA préfilée 3G…, €/m
   conduit: 4.6,         // goulotte / plinthe technique, €/m
-  socket: 4.9, switchSa: 5.2, switchVv: 6.4, dcl: 3.6, rj45: 12.5, cableOut32: 9.5, cableOut20: 6.5, smoke: 19.9,
+  socket: 4.9, switchSa: 5.2, switchVv: 6.4, push: 5.9, dcl: 3.6, rj45: 12.5, cableOut32: 9.5, cableOut20: 6.5, smoke: 19.9,
   box: 0.65, boxDcl: 3.2, boxPlaco: 0.95, boxAir: 1.9, // boîtes : maçonnerie, cloison sèche, étanche à l'air (doublage)
   gtl: 95,
   // équipements (facultatifs)
@@ -32,7 +32,8 @@ function materialList(components, wires, design) {
     const q = Math.round(qty * 100) / 100;
     lines.push({ cat, name, qty: q, unit, price, total: Math.round(q * price * 100) / 100, note: note || '' });
   };
-  const count = (t) => components.filter((c) => c.type === t).length;
+  const pushIds = new Set(); // repères des commandes câblées en poussoirs (télérupteur)
+  const count = (t) => components.filter((c) => c.type === t && !pushIds.has(c.label || c.id)).length;
   const P = MAT_PRICES;
 
   // --- Tableau ---------------------------------------------------------------
@@ -61,7 +62,10 @@ function materialList(components, wires, design) {
     }
     for (const In of Object.keys(byIn3).map(Number).sort((a, b) => a - b)) add('Tableau', `Disjoncteur 3P+N ${In} A courbe C`, byIn3[In], 'u', P.tri.breaker3P);
     add('Tableau', 'Contacteur jour / nuit 20 A (heures creuses)', design.circuits.filter((c) => c.contactor).length, 'u', P.contactor);
-    add('Tableau', 'Télérupteur 16 A', design.circuits.filter((c) => c.teleruptor).length, 'u', P.teleruptor);
+    // un télérupteur par éclairage à poussoirs (pièce à trois commandes ou plus), un au moins par circuit coché
+    const tlRooms = typeof lightingControls === 'function' ? lightingControls(design, components, wires).filter((g) => g.kind === 'tl' && !g.generic) : [];
+    add('Tableau', 'Télérupteur 16 A', Math.max(design.circuits.filter((c) => c.teleruptor).length, tlRooms.length), 'u', P.teleruptor);
+    for (const g of tlRooms) for (const ref of g.switches) pushIds.add(ref);
     for (const In of Object.keys(byIn).map(Number).sort((a, b) => a - b)) {
       add('Tableau', `Disjoncteur phase + neutre ${In} A courbe C`, byIn[In], 'u', P.breaker[In] || 9);
     }
@@ -94,6 +98,7 @@ function materialList(components, wires, design) {
   add('Appareillage', 'Prise 2P+T 16 A (mécanisme + plaque)', count('socket_wall') + special20, 'u', P.socket, special20 ? `dont ${special20} spécialisée${special20 > 1 ? 's' : ''}` : '');
   add('Appareillage', 'Interrupteur simple allumage', count('switch_sa'), 'u', P.switchSa);
   add('Appareillage', 'Interrupteur va-et-vient', count('switch_vv_wall'), 'u', P.switchVv);
+  add('Appareillage', 'Bouton poussoir (télérupteur)', pushIds.size, 'u', P.push);
   add('Appareillage', 'Point de centre DCL (douille + fiche)', count('dcl') + count('wall_light'), 'u', P.dcl);
   add('Appareillage', 'Prise RJ45 grade 2TV', count('rj45'), 'u', P.rj45);
   add('Appareillage', 'Sortie de câble 32 A (plaque)', count('cooktop'), 'u', P.cableOut32);

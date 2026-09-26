@@ -12,6 +12,8 @@
  *    l'écran ; plusieurs folios si le tableau est grand.
  *  • calcNote(design) : note de calcul par circuit (Ib, In, Iz, ΔU, Icc mini,
  *    longueur maximale protégée), folios A3 en SVG / DXF, tableur CSV.
+ *  • developedSVGs(…) : schémas développés des commandes d'éclairage, pièce
+ *    par pièce (simple allumage, va-et-vient, télérupteur et poussoirs).
  *  • Face avant (rangées de 13 modules, réserve) et étiquettes à imprimer.
  */
 
@@ -747,6 +749,173 @@ function calcNoteCSV(design) {
     csv += `"${r.id}";"${r.name.replace(/"/g, '""')}";${r.phase === '3P' ? '3P+N' : r.phase || ''};${n(r.P)};${n(r.Ib, 1)};${r.curve}${r.In};${r.cable};${n(r.Iz, 1)};${n(r.L, 1)};${n(r.dU, 2)};${r.dUmax};${n(r.icc)};${n(r.Im)};${n(r.Lmax)};"${r.ok ? 'conforme' : [!r.okIz && 'In > Iz', !r.okL && 'L > Lmax', !r.okU && 'ΔU'].filter(Boolean).join(' · ')}"\n`;
   }
   return csv;
+}
+
+// ---------------------------------------------------------------------------
+// Schémas développés des commandes d'éclairage : pour chaque pièce, entre la
+// phase et le neutre, les commandes (simple allumage, va-et-vient, télérupteur
+// et ses poussoirs) et les points lumineux, conducteurs en couleur.
+// ---------------------------------------------------------------------------
+const DEV_KIND = { sa: 'Simple allumage', vv: 'Va-et-vient', tl: 'Télérupteur', direct: 'Sans commande' };
+function lightingControls(design, components, wires) {
+  const byId = {};
+  for (const c of components || []) byId[c.id] = c;
+  const info = wires && wires.some((w) => w.kind === 'wall') ? computeRooms(components, wires) : null;
+  const roomOf = (c) => {
+    if (!info) return -1;
+    if (c.ctrl) { const i = info.rooms.findIndex((r) => r.id === c.ctrl); if (i >= 0) return i; }
+    return roomAt(info, c.x, c.y);
+  };
+  const out = [];
+  for (const ct of design.circuits.filter((c) => c.kind === 'light')) {
+    const devs = ct.devices.map((id) => byId[id]).filter(Boolean);
+    const lamps = devs.filter((c) => LOADS[c.type] && LOADS[c.type].cls === 'light');
+    const sws = devs.filter((c) => SWITCHES_PLAN.has(c.type));
+    if (!lamps.length) { // tableau sans plan : une commande type par circuit
+      const n = Math.max(1, Math.min(ct.points || 1, 8));
+      out.push({ ct, room: ct.rooms || ct.name, lamps: Array.from({ length: n }, (_, i) => 'E' + (i + 1)), switches: ct.teleruptor ? ['S1', 'S2', 'S3'] : ['S1'], kind: ct.teleruptor ? 'tl' : 'sa', generic: true });
+      continue;
+    }
+    const groups = new Map();
+    for (const c of lamps) { const r = roomOf(c); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(c); }
+    // le télérupteur du circuit commande la pièce qui a le plus de commandes (deux au moins)
+    const nSw = (r) => sws.filter((c) => roomOf(c) === r).length;
+    const maxSw = Math.max(0, ...[...groups.keys()].map(nSw));
+    for (const [r, g] of groups) {
+      const sw = sws.filter((c) => roomOf(c) === r);
+      const kind = sw.length >= 3 || (ct.teleruptor && sw.length >= 2 && sw.length === maxSw) ? 'tl' : sw.length === 2 ? 'vv' : sw.length === 1 ? 'sa' : 'direct';
+      out.push({ ct, room: r >= 0 ? info.rooms[r].name : ct.name, lamps: g.map((c) => c.label || c.id), switches: sw.map((c) => c.label || c.id), kind, tlAdvice: kind === 'tl' && !ct.teleruptor });
+    }
+  }
+  return out;
+}
+const DEV_COLS = 5, DEV_ROWS = 2, DEV_PER = DEV_COLS * DEV_ROWS;
+const DEV_COLORS = { L: '#b3261e', N: '#1668c4', ret: '#d97706', nav: '#7c3aed' };
+function devFolios(list) { return Math.max(1, Math.ceil(list.length / DEV_PER)); }
+function _dNO(ctx, x, y, h, push) { // contact à fermeture vertical (poussoir : organe de manœuvre)
+  _uLine(ctx, x, y, x, y + h * 0.3, 1.3); _uLine(ctx, x, y + h * 0.7, x, y + h, 1.3);
+  _uLine(ctx, x, y + h * 0.7, x - h * 0.28, y + h * 0.26, 1.3);
+  if (push) { const mx = x - h * 0.14, my = y + h * 0.48; _uLine(ctx, mx, my, mx - 12, my, 1); _uLine(ctx, mx - 12, my - 5, mx - 12, my + 5, 1.3); }
+}
+function _dLamp(ctx, x, y) { // lampe : cercle et croix (CEI 60617)
+  ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.stroke();
+  const d = 6.4; _uLine(ctx, x - d, y - d, x + d, y + d, 1); _uLine(ctx, x - d, y + d, x + d, y - d, 1);
+}
+function drawDeveloped(ctx, design, meta, list, folio) {
+  const k = folio || 0, nF = devFolios(list);
+  const ink = '#1a2230', mute = '#5b6b82', red = '#b3261e';
+  const layer = (n) => { if ('layer' in ctx) ctx.layer = n; };
+  const text = (t, x, y, o) => {
+    o = o || {};
+    ctx.save(); ctx.fillStyle = o.color || ink; ctx.font = `${o.bold ? 'bold ' : ''}${o.size || 8}px sans-serif`;
+    ctx.textAlign = o.align || 'left'; ctx.fillText(t, x, y); ctx.restore();
+  };
+  const fit = (t, n) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
+  const wire = (color, pts) => { ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 1.3; ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); };
+  const dot = (x, y) => { ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill(); };
+  ctx.save(); ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  layer('CARTOUCHE');
+  _uCartouche(ctx, design, meta, 'Schémas développés des commandes d’éclairage', k, nF);
+  layer('TEXTES');
+  text('Schémas développés — commandes d’éclairage', 30, 46, { bold: true, size: 17 });
+  const leg = [['Phase', DEV_COLORS.L, 'rouge ou marron'], ['Neutre', DEV_COLORS.N, 'bleu clair (obligatoire)'], ['Retour lampe', DEV_COLORS.ret, 'orange'], ['Navettes', DEV_COLORS.nav, 'violet ou noir']];
+  let lx = 480;
+  for (const [n, c, t] of leg) { layer('SCHEMA'); wire(c, [[lx, 42], [lx + 22, 42]]); layer('TEXTES'); text(`${n} : ${t}`, lx + 28, 45, { size: 8.5 }); lx += 28 + 8.5 * 0.52 * (n.length + t.length + 3) + 18; }
+  text('Conducteur de protection vert / jaune jusqu’à chaque point lumineux (non représenté) · 1,5 mm², 8 points au plus par circuit', 30, 62, { size: 8, color: mute });
+  const x0 = 30, y0 = 74, cw = (UNI.W - 60) / DEV_COLS, ch = (UNI.H - 15 - 62 - 10 - y0) / DEV_ROWS;
+  list.slice(k * DEV_PER, (k + 1) * DEV_PER).forEach((g, i) => {
+    const cx = x0 + (i % DEV_COLS) * cw, cy = y0 + Math.floor(i / DEV_COLS) * ch;
+    const ct = g.ct, yL = cy + 58, yN = cy + ch - 26, yLamp = yN - 46;
+    layer('CARTOUCHE'); ctx.lineWidth = 0.6; ctx.strokeRect(cx + 3, cy + 3, cw - 6, ch - 6);
+    layer('TEXTES');
+    text(fit(`${ct.id} · ${g.room}`, 34), cx + 12, cy + 20, { bold: true, size: 10 });
+    text(`${DEV_KIND[g.kind]}${g.kind === 'tl' ? ` · ${g.switches.length} poussoir${g.switches.length > 1 ? 's' : ''}` : ''} — ${ct.curve || 'C'}${ct.In} · ${boardCable(ct.S)}`, cx + 12, cy + 33, { size: 8, color: mute });
+    // rails
+    layer('SCHEMA');
+    wire(DEV_COLORS.L, [[cx + 22, yL], [cx + cw - 14, yL]]); wire(DEV_COLORS.N, [[cx + 22, yN], [cx + cw - 14, yN]]);
+    layer('TEXTES'); text('L', cx + 10, yL + 3.5, { bold: true, size: 9, color: DEV_COLORS.L }); text('N', cx + 10, yN + 3.5, { bold: true, size: 9, color: DEV_COLORS.N });
+    // points lumineux en parallèle à partir de xs, alimentés par le retour à yBus
+    const lamps = (xs, yBus, xFrom) => {
+      const room = Math.max(1, Math.floor((cx + cw - 22 - xs) / 34) + 1), n = Math.min(g.lamps.length, room);
+      const xl = Array.from({ length: n }, (_, j) => xs + j * 34);
+      layer('SCHEMA');
+      wire(DEV_COLORS.ret, [[xFrom, yBus], [xl[n - 1], yBus]]);
+      xl.forEach((x, j) => {
+        wire(DEV_COLORS.ret, [[x, yBus], [x, yLamp - 9]]); if (j && x !== xFrom) { ctx.fillStyle = DEV_COLORS.ret; dot(x, yBus); ctx.fillStyle = ink; }
+        _dLamp(ctx, x, yLamp);
+        wire(DEV_COLORS.N, [[x, yLamp + 9], [x, yN]]); ctx.fillStyle = DEV_COLORS.N; dot(x, yN); ctx.fillStyle = ink;
+        layer('TEXTES'); text(fit(g.lamps[j], 7), x + 11, yLamp - 10, { size: 7 }); layer('SCHEMA');
+      });
+      if (g.lamps.length > n) { layer('TEXTES'); text(`+ ${g.lamps.length - n}`, xl[n - 1] + 12, yLamp + 16, { size: 7.5, bold: true }); }
+    };
+    const x = cx + 52;
+    layer('SCHEMA');
+    if (g.kind === 'direct') {
+      wire(DEV_COLORS.L, [[x, yL], [x, yL + 70]]); ctx.fillStyle = DEV_COLORS.L; dot(x, yL); ctx.fillStyle = ink;
+      lamps(x, yL + 70, x);
+      layer('TEXTES'); text('Aucune commande dans la pièce : prévoir un interrupteur.', cx + 12, cy + ch - 10, { size: 7.5, color: red });
+    } else if (g.kind === 'sa') {
+      wire(DEV_COLORS.L, [[x, yL], [x, yL + 24]]); ctx.fillStyle = DEV_COLORS.L; dot(x, yL); ctx.fillStyle = ink;
+      _dNO(ctx, x, yL + 24, 44);
+      layer('TEXTES'); text(g.switches[0] || 'S1', x + 8, yL + 50, { size: 7.5, bold: true }); layer('SCHEMA');
+      wire(DEV_COLORS.ret, [[x, yL + 68], [x, yL + 110]]);
+      lamps(x, yL + 110, x);
+    } else if (g.kind === 'vv') {
+      const y1 = yL + 22, y2 = y1 + 84;
+      wire(DEV_COLORS.L, [[x, yL], [x, y1]]); ctx.fillStyle = DEV_COLORS.L; dot(x, yL); ctx.fillStyle = ink;
+      // S1 : commun en haut, deux sorties (navettes) ; S2 : deux entrées, commun en bas
+      _uLine(ctx, x, y1, x - 10, y1 + 24, 1.3);
+      for (const sx of [-12, 12]) { ctx.beginPath(); ctx.arc(x + sx, y1 + 28, 2, 0, Math.PI * 2); ctx.stroke(); wire(DEV_COLORS.nav, [[x + sx, y1 + 30], [x + sx, y2 - 2]]); ctx.beginPath(); ctx.arc(x + sx, y2, 2, 0, Math.PI * 2); ctx.stroke(); }
+      _uLine(ctx, x, y2 + 28, x - 10, y2 + 4, 1.3);
+      layer('TEXTES');
+      text(g.switches[0] || 'S1', x + 18, y1 + 14, { size: 7.5, bold: true }); text(g.switches[1] || 'S2', x + 18, y2 + 22, { size: 7.5, bold: true });
+      text('navettes', x + 16, (y1 + y2) / 2 + 12, { size: 7, color: DEV_COLORS.nav });
+      layer('SCHEMA');
+      wire(DEV_COLORS.ret, [[x, y2 + 28], [x, y2 + 44]]);
+      lamps(x, y2 + 44, x);
+    } else { // télérupteur : poussoirs en parallèle sur la bobine, contact KL sur les lampes
+      const nP = Math.min(g.switches.length, 4), xc = cx + 44, yA = yL + 18, yB = yA + 54;
+      const xp = xc + Math.max(nP - 1, 1) * 26 + 34;
+      wire(DEV_COLORS.L, [[xc, yL], [xc, yA]]); ctx.fillStyle = DEV_COLORS.L; dot(xc, yL); ctx.fillStyle = ink;
+      if (nP > 1) { wire(DEV_COLORS.L, [[xc, yA], [xc + (nP - 1) * 26, yA]]); wire(DEV_COLORS.ret, [[xc, yB], [xc + (nP - 1) * 26, yB]]); }
+      for (let j = 0; j < nP; j++) {
+        const px = xc + j * 26;
+        _dNO(ctx, px, yA, yB - yA, true);
+        layer('TEXTES'); text(fit(g.switches[j], 6), px + 3, yA + 12, { size: 6.5, bold: true }); layer('SCHEMA');
+      }
+      if (g.switches.length > nP) { layer('TEXTES'); text(`+ ${g.switches.length - nP}`, xc + (nP - 1) * 26 + 6, yB + 12, { size: 7 }); layer('SCHEMA'); }
+      const yC = yB + 22;
+      wire(DEV_COLORS.ret, [[xc, yB], [xc, yC]]);
+      ctx.lineWidth = 1.3; ctx.strokeRect(xc - 9, yC, 18, 26);
+      layer('TEXTES'); text('KL', xc - 22, yC + 16, { size: 7.5, bold: true, align: 'right' }); layer('SCHEMA');
+      wire(DEV_COLORS.N, [[xc, yC + 26], [xc, yN]]); ctx.fillStyle = DEV_COLORS.N; dot(xc, yN); ctx.fillStyle = ink;
+      // circuit de puissance
+      wire(DEV_COLORS.L, [[xp, yL], [xp, yL + 20]]); ctx.fillStyle = DEV_COLORS.L; dot(xp, yL); ctx.fillStyle = ink;
+      _dNO(ctx, xp, yL + 20, 44);
+      layer('TEXTES'); text('KL', xp + 8, yL + 46, { size: 7.5, bold: true }); layer('SCHEMA');
+      ctx.save(); ctx.setLineDash([3, 2.5]); _uLine(ctx, xc + 9, yC + 13, xp - 6, yL + 42, 0.8); ctx.restore();
+      wire(DEV_COLORS.ret, [[xp, yL + 64], [xp, yL + 96]]);
+      lamps(xp, yL + 96, xp);
+      if (g.tlAdvice) { layer('TEXTES'); text(`${g.switches.length} commandes : télérupteur à ajouter (TL) ou permutateur`, cx + 12, cy + ch - 10, { size: 7.5, color: red }); }
+    }
+    if (g.generic) { layer('TEXTES'); text('Schéma type (tableau sans plan)', cx + 12, cy + ch - 10, { size: 7.5, color: mute }); }
+  });
+  if (!list.length) { layer('TEXTES'); text('Aucun circuit d’éclairage.', 30, 110, { size: 11, color: mute }); }
+  ctx.restore();
+}
+function developedSVGs(design, meta, components, wires) {
+  const list = lightingControls(design, components, wires), out = [];
+  for (let k = 0; k < devFolios(list); k++) {
+    const ctx = new SVGContext();
+    drawDeveloped(ctx, design, meta, list, k);
+    out.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${UNI.W} ${UNI.H}" width="420mm" height="297mm" font-family="sans-serif"><rect width="${UNI.W}" height="${UNI.H}" fill="#fff"/>${ctx.out.join('')}</svg>`);
+  }
+  return out;
+}
+function developedDXF(design, meta, components, wires) {
+  const list = lightingControls(design, components, wires), ctx = new DXFContext(), n = devFolios(list);
+  for (let k = 0; k < n; k++) { ctx.save(); ctx.translate(0, k * (UNI.H + 60)); drawDeveloped(ctx, design, meta, list, k); ctx.restore(); }
+  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: n * (UNI.H + 60) }, { U: 1 / 0.3528, insunits: 4, layers: [['SCHEMA', 7], ['TEXTES', 2], ['CARTOUCHE', 8]] });
 }
 
 // ---------------------------------------------------------------------------

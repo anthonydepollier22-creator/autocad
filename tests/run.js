@@ -909,6 +909,25 @@ check('Éclairage de 50 m en C16 refusé (Icc mini < 160 A), accepté en C10 ; 3
 check('Prise de terre : 150 Ω refusés (AGCP 500 mA → 100 Ω au plus), 40 Ω acceptés et reportés dans la note', r.ra1 && !r.ra2 && r.ra === 40);
 check('Note de calcul : folio A3 SVG, DXF (calques TEXTES / CARTOUCHE) et tableur CSV', r.svg && r.dxf && r.csv);
 
+// Schémas développés : une commande par pièce, d'après les interrupteurs du plan
+r = run(`(function(){
+  var h = buildHouse('r1'), d = designInstallation(h.components, h.wires), L = lightingControls(d, h.components, h.wires);
+  var lamps = h.components.filter(function(c){ return LOADS[c.type] && LOADS[c.type].cls === 'light'; }).length;
+  var drawn = L.reduce(function(s, g){ return s + g.lamps.length; }, 0);
+  var kinds = {}; L.forEach(function(g){ kinds[g.kind] = (kinds[g.kind] || 0) + 1; });
+  var tl = L.filter(function(g){ return g.kind === 'tl'; }), vv = L.filter(function(g){ return g.kind === 'vv'; })[0];
+  var tlOk = tl.length > 0 && tl.every(function(g){ return g.switches.length >= 3 && g.ct.teleruptor && !g.tlAdvice; });
+  var svgs = developedSVGs(d, { title: 'R+1' }, h.components, h.wires), dxf = developedDXF(d, {}, h.components, h.wires);
+  var mat = materialList(h.components, h.wires, d).lines.find(function(l){ return /Télérupteur/.test(l.name); });
+  // tableau sans plan : un schéma type par circuit d'éclairage (télérupteur si coché)
+  var b = boardTemplate(90); b.circuits.find(function(c){ return c.kind === 'light'; }).teleruptor = true;
+  var dt = designInstallation([], [], b), G = lightingControls(dt, [], []);
+  return { lamps: lamps, drawn: drawn, kinds: kinds, tlOk: tlOk, vv: vv && vv.switches.length === 2, n: svgs.length, svg: svgs[0].indexOf('Va-et-vient') > 0 && svgs[0].indexOf('navettes') > 0 && svgs.join('').indexOf('KL') > 0,
+    dxf: dxf.indexOf('SCHEMA') > 0, mat: mat ? mat.qty : 0, tls: tl.length, gen: G.length === dt.circuits.filter(function(c){ return c.kind === 'light'; }).length && G[0].kind === 'tl' && G[0].generic };
+})()`);
+check('Schémas développés du R+1 : chaque point lumineux dessiné, simple allumage, va-et-vient (2 commandes), télérupteur (3 commandes et plus)', r.drawn === r.lamps && r.kinds.sa > 0 && r.vv && r.tlOk, `${r.lamps} points · ${Object.keys(r.kinds).map(function(k){ return r.kinds[k] + ' ' + k; }).join(', ')}`);
+check('Télérupteur posé au tableau pour 3 commandes (métré), folios A3 SVG et DXF (calque SCHEMA), schéma type sans plan', r.mat === r.tls && r.n >= 2 && r.svg && r.dxf && r.gen, `${r.mat} télérupteur(s) · ${r.n} folios`);
+
 // ---------------------------------------------------------------------------
 group('Murs : placo, maçonnerie, implantation en 3D');
 r = run(`(function(){
