@@ -1058,7 +1058,7 @@ function _switchOnSide(ctx, room, d, type, side) {
 // tableau de communication voisin : elle suit les mêmes goulottes).
 const WIRED_TYPES = new Set([
   'socket_wall', 'switch_sa', 'switch_vv_wall', 'dcl', 'wall_light', 'rj45', 'vmc', 'oven', 'cooktop', 'washer',
-  'dishwasher', 'dryer', 'water_heater', 'radiator', 'ev_charger',
+  'dishwasher', 'dryer', 'water_heater', 'radiator', 'ev_charger', 'shutter', 'switch_shutter',
 ]);
 const CEILING_TYPES = new Set(['dcl', 'vmc']);
 
@@ -1270,6 +1270,41 @@ function autoConduits(doc) {
   }
   _clean(doc);
   return { conduits: count, length: length / PLAN_UNITS_PER_M };
+}
+
+// Volets roulants motorisés : un moteur au coffre de chaque fenêtre des pièces de vie
+// (chambres, séjour, cuisine, bureau…) et sa commande montée / descente à 1,10 m, à côté
+// de la fenêtre ; goulottes retracées si le plan en a. Renvoie le nombre de volets posés.
+const SHUTTER_ROOMS = new Set(['chambre', 'sejour', 'cuisine', 'bureau', 'sdb']);
+function addShutters(doc) {
+  const info = computeRooms(doc.components, doc.wires);
+  if (!info.owner) return 0;
+  const ctx = { doc, info, devices: [] };
+  let n = 0;
+  for (const win of doc.components.filter((c) => c.type === 'window_a')) {
+    if (doc.components.some((c) => c.type === 'shutter' && Math.hypot(c.x - win.x, c.y - win.y) < 50)) continue;
+    const nw = nearestWall(doc.wires, win.x, win.y, 30);
+    if (!nw) continue;
+    // côté intérieur : la pièce de vie derrière la fenêtre
+    let side = null;
+    for (const sd of [1, -1]) {
+      const r = roomAt(info, win.x + nw.nx * sd * 40, win.y + nw.ny * sd * 40);
+      if (r >= 0 && info.rooms[r].type && SHUTTER_ROOMS.has(info.rooms[r].type.key)) { side = sd; break; }
+    }
+    if (side === null) continue;
+    const nx = nw.nx * side, ny = nw.ny * side, L = Math.hypot(nw.b.x - nw.a.x, nw.b.y - nw.a.y);
+    _addComp(doc, 'shutter', win.x + nx * 15, win.y + ny * 15, win.rot || 0);
+    // commande à 70 cm de l'axe de la fenêtre (sinon 100 cm, de l'autre côté), à l'écart des autres appareils muraux
+    const at = (t) => ({ x: nw.a.x + nw.ux * t + nx * 20, y: nw.a.y + nw.uy * t + ny * 20 });
+    const free = (p) => !doc.components.some((c) => (STUD_BOXED.has(c.type) || c.type === 'radiator') && Math.hypot(c.x - p.x, c.y - p.y) < 35);
+    const cand = [70, -70, 100, -100, 130, -130].map((d) => nw.t + d).filter((tt) => tt >= 15 && tt <= L - 15);
+    const t = cand.find((tt) => free(at(tt))) !== undefined ? cand.find((tt) => free(at(tt))) : cand[0]; // à défaut : la première place sur le mur
+    if (t !== undefined) { const p = at(t); _addDevice(ctx, 'switch_shutter', p.x, p.y, _rotDevice(nx, ny)); }
+    n++;
+  }
+  if (n && doc.wires.some((w) => w.kind === 'conduit')) autoConduits(doc);
+  _clean(doc);
+  return n;
 }
 
 // Tableau divisionnaire dans la pièce dont le nom correspond (garage) : sur le mur de sa

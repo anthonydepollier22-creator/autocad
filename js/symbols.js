@@ -940,6 +940,25 @@ Object.assign(SYMBOLS, {
       line(ctx, 9, -16, 16, -9);
     },
   },
+  // Volet roulant motorisé (moteur dans le coffre, au-dessus de la fenêtre) et sa commande montée / descente
+  shutter: {
+    name: 'Volet roulant (moteur)', category: 'Implantation élec.', prefix: 'VR', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -16, y: -9, w: 32, h: 18 },
+    draw(ctx) {
+      ctx.strokeRect(-14, -7, 28, 14);
+      ctx.beginPath(); ctx.moveTo(-8, 3); ctx.lineTo(-4, -3); ctx.lineTo(0, 3); ctx.closePath(); ctx.stroke(); // montée
+      ctx.beginPath(); ctx.moveTo(4, -3); ctx.lineTo(8, 3); ctx.lineTo(12, -3); ctx.closePath(); ctx.stroke(); // descente
+    },
+  },
+  switch_shutter: {
+    name: 'Commande de volet roulant', category: 'Implantation élec.', prefix: 'SV', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -9, y: -9, w: 18, h: 18 },
+    draw(ctx) {
+      ctx.strokeRect(-7, -7, 14, 14);
+      ctx.beginPath(); ctx.moveTo(-3, -1); ctx.lineTo(0, -5); ctx.lineTo(3, -1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-3, 1); ctx.lineTo(0, 5); ctx.lineTo(3, 1); ctx.stroke();
+    },
+  },
   switch_vv_wall: {
     name: 'Va-et-vient (mural)', category: 'Implantation élec.', prefix: 'SW', plan: true,
     terminals: [{ x: 0, y: 0 }], bbox: { x: -12, y: -24, w: 28, h: 32 },

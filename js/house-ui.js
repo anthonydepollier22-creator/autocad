@@ -127,6 +127,7 @@ function initHouseUI(app) {
       '<button data-act="implant" title="Ajoute l’appareillage NF C 15-100 manquant puis retrace les goulottes">Implanter</button>' +
       '<button data-act="conduits" title="Retrace toutes les goulottes depuis le tableau">Goulottes</button>' +
       '<button data-act="furnish" title="Meuble les pièces vides">Meubler</button>' +
+      '<button data-act="shutters" title="Volets roulants motorisés : un moteur à chaque fenêtre des pièces de vie et sa commande montée / descente, sur un circuit 16 A">Volets</button>' +
       '<button data-act="board" title="Tableau électrique et folios : modifier les circuits, unifilaire, note de calcul, schémas développés, élévations, communication, face avant, étiquettes ; exports SVG / DXF / PDF">Folios</button>' +
       `<button data-act="tags" aria-pressed="${editor.showTags ? 'true' : 'false'}" title="Repère du circuit (C1, C2…) à côté de chaque appareil du plan, aux couleurs des câbles">Repères</button>` +
       `<button data-act="routes" aria-pressed="${editor.showRoutes ? 'true' : 'false'}" title="Cheminement de chaque circuit dans les goulottes, à sa couleur (comme le plan de câblage du dossier technique)">Câbles</button>` +
@@ -359,6 +360,11 @@ function initHouseUI(app) {
         return a && b ? `${esc(name)} ${Math.round(a.avg)} → ${Math.round(b.avg)} lx` : esc(name);
       });
       showToast(r.added ? `<b>${r.added} applique${r.added > 1 ? 's' : ''}</b> posée${r.added > 1 ? 's' : ''} : ${gain.join(', ')}. Annulable dans le plan (Ctrl+Z).` : 'Pas de place libre sur les murs des pièces sous-éclairées.', 6500);
+    } else if (act === 'shutters') {
+      const n = addShutters(doc);
+      editor.wires = doc.wires;
+      editor.pushHistory(); editor.render();
+      showToast(n ? `<b>${n} volet${n > 1 ? 's' : ''} roulant${n > 1 ? 's' : ''}</b> motorisé${n > 1 ? 's' : ''} : moteur au coffre de chaque fenêtre, commande à 1,10 m à côté, circuit « Volets roulants » 16 A en 1,5 mm².` : 'Toutes les fenêtres des pièces de vie ont déjà leur volet roulant.', 5000);
     } else if (act === 'furnish') {
       const r = furnishPlan(doc);
       editor.pushHistory(); editor.render();
@@ -1849,6 +1855,7 @@ function initHouseUI(app) {
         calcNoteSVGs: d && d.ok ? calcNoteSVGs(d, editor.meta) : [],
         developedSVGs: d && d.ok ? developedSVGs(d, editor.meta, editor.components, editor.wires) : [],
         heatingSVGs: d && d.ok && d.circuits.some((c) => c.kind === 'heating') ? heatingSVGs(d, editor.meta, editor.components) : [],
+        shutterSVGs: d && d.ok && d.circuits.some((c) => c.appliance === 'shutter') ? shutterSVGs(d, editor.meta, editor.components) : [],
         vdiSVGs: d && d.ok && editor.components.some((c) => c.type === 'rj45') ? vdiSVGs(d, editor.meta, editor.components, editor.wires) : [],
         elevationSVGs: d && d.ok ? elevationSVGs(d, editor.meta, editor.components, editor.wires) : [],
         materials: d && d.ok ? materialList(editor.components, editor.wires, d) : null,

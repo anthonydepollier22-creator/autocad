@@ -7,7 +7,7 @@
 const ELEV_H = 250; // cm : hauteur sous plafond dessinée
 const ELEV_TYPES = new Set([
   'socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light', 'radiator', 'water_heater', 'ev_charger',
-  'panel_house', 'panel_sub', 'oven', 'cooktop', 'washer', 'dishwasher', 'dryer',
+  'panel_house', 'panel_sub', 'oven', 'cooktop', 'washer', 'dishwasher', 'dryer', 'shutter', 'switch_shutter',
 ]);
 const ELEV_OPEN = { door: [80, 0, 204], window_a: [80, 95, 215], garage_door: [240, 0, 200] }; // largeur, bas, haut (cm)
 const _elevSide = (nx, ny) => { // mur vu depuis la pièce : la normale pointe vers l'intérieur
@@ -166,6 +166,8 @@ function drawElevations(ctx, design, meta, rooms, folio) {
         else if (t === 'rj45') { ctx.strokeRect(px - 4, py - 3, 8, 6); ln(px - 1.5, py + 3, px - 1.5, py + 1, 0.6); ln(px + 1.5, py + 3, px + 1.5, py + 1, 0.6); }
         else if (t === 'wall_light') { ctx.beginPath(); ctx.arc(px, py, 4.5, 0, Math.PI * 2); ctx.stroke(); ln(px - 3, py - 3, px + 3, py + 3, 0.7); ln(px - 3, py + 3, px + 3, py - 3, 0.7); }
         else if (t === 'radiator') { const hw = Math.max(6, (SYMBOLS.radiator.bbox.w / 200) * s); ctx.strokeRect(px - hw, Y(75), hw * 2, Y(15) - Y(75)); for (let i = 1; i < 5; i++) ln(px - hw + (i * hw) / 2.5, Y(72), px - hw + (i * hw) / 2.5, Y(18), 0.4); }
+        else if (t === 'shutter') { ctx.strokeRect(px - 12, py - 4, 24, 8); ln(px - 4, py + 2, px - 1, py - 2, 0.6); ln(px + 1, py - 2, px + 4, py + 2, 0.6); } // coffre du volet
+        else if (t === 'switch_shutter') { ctx.strokeRect(px - 3.5, py - 3.5, 7, 7); ln(px - 2, py - 0.5, px, py - 2.5, 0.6); ln(px, py - 2.5, px + 2, py - 0.5, 0.6); ln(px - 2, py + 0.5, px, py + 2.5, 0.6); ln(px, py + 2.5, px + 2, py + 0.5, 0.6); }
         else if (t === 'panel_sub') { ctx.strokeRect(px - 7, py - 8, 14, 16); ln(px - 5, py, px + 5, py, 0.5); }
         else if (t === 'panel_house') { ctx.strokeRect(px - 8, py - 12, 16, 24); ln(px - 6, py - 4, px + 6, py - 4, 0.5); ln(px - 6, py + 4, px + 6, py + 4, 0.5); }
         else { ctx.beginPath(); ctx.moveTo(px - 4, py + 3); ctx.lineTo(px + 4, py + 3); ctx.lineTo(px, py - 4); ctx.closePath(); ctx.stroke(); } // sortie de câble
@@ -175,7 +177,7 @@ function drawElevations(ctx, design, meta, rooms, folio) {
         text(d.c.label || '', px, py - 9 - lift, { size: 6.5, bold: true, align: 'center' });
         text(String(d.h), px + 3, floor - 3 - liftB, { size: 6.5, color: blue });
         text(String(Math.round(Math.max(0, d.x))), px, floor + 9 + liftB, { size: 6, color: mute, align: 'center' });
-        if (d.c.h && (d.h < 5 || ((t === 'switch_sa' || t === 'switch_vv_wall') && (d.h < 90 || d.h > 130)))) text('!', px + 7, py + 3, { size: 9, bold: true, color: red });
+        if (d.c.h && (d.h < 5 || ((t === 'switch_sa' || t === 'switch_vv_wall' || t === 'switch_shutter') && (d.h < 90 || d.h > 130)))) text('!', px + 7, py + 3, { size: 9, bold: true, color: red });
       }
       layer('TEXTES');
       const cap = `${f.label} · ${_bNum(f.len / 100, 2)} m`;

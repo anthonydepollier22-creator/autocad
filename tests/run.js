@@ -1198,6 +1198,20 @@ r = run(`(function(){
 })()`);
 check('Chauffage : folio fil pilote (chaque radiateur de chaque circuit, délesteur), dans le dossier technique ; DXF', r.circ && r.all && r.dl && r.set && r.dxf, JSON.stringify(r));
 
+// Volets roulants motorisés : moteur à chaque fenêtre des pièces de vie, commande à côté, circuit 16 A
+r = run(`(function(){
+  var h = buildHouse('t4'), n = addShutters(h), again = addShutters(h);
+  var d = designInstallation(h.components, h.wires), vr = d.circuits.filter(function(c){ return c.appliance === 'shutter'; });
+  var motors = h.components.filter(function(c){ return c.type === 'shutter'; }), sws = h.components.filter(function(c){ return c.type === 'switch_shutter'; });
+  var svg = shutterSVGs(d, {}, h.components).join(''), mat = materialList(h.components, h.wires, d).lines, nf = checkNFC15100(h.components, h.wires);
+  var T = technicalSet(d, {}, h.components, h.wires);
+  var elev = elevations(h.components, h.wires), inElev = [].concat.apply([], elev.map(function(r){ return [].concat.apply([], r.faces.map(function(f){ return f.devs.map(function(x){ return x.c.type; }); })); }));
+  return { n: n, again: again, circ: vr.length === 1 && vr[0].In === 16 && vr[0].S === 1.5 && vr[0].points === n, pairs: sws.length === n, orphans: d.orphans.length,
+    svg: motors.every(function(m){ return svg.indexOf('>' + m.label + '<') > 0; }), mat: mat.some(function(l){ return /Commande de volet roulant/.test(l.name) && l.qty === n; }) && mat.some(function(l){ return /Moteur tubulaire/.test(l.name) && l.qty === n; }),
+    nf: nf.errors === 0 && nf.warnings === 0, set: T.entries.some(function(e){ return e.title === 'Volets roulants'; }), elev: inElev.indexOf('shutter') >= 0 && inElev.indexOf('switch_shutter') >= 0 };
+})()`);
+check('Volets roulants : moteur à chaque fenêtre des pièces de vie et sa commande, circuit 16 A 1,5 mm², folio des commandes, métré, élévations, NF sans remarque', r.n >= 8 && r.again === 0 && r.circ && r.pairs && !r.orphans && r.svg && r.mat && r.nf && r.set && r.elev, JSON.stringify(r));
+
 // Nomenclature du matériel : folio A3 du dossier, lignes du métré par catégorie
 r = run(`(function(){
   var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), L = materialList(h.components, h.wires, d), svg = nomenclatureSVGs(d, { title: 'T5' }, h.components, h.wires).join('');

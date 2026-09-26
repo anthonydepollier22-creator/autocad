@@ -1279,6 +1279,93 @@ function heatingDXF(design, meta, components) {
 }
 
 // ---------------------------------------------------------------------------
+// Volets roulants : chaque commande (inverseur montée / descente, verrouillé)
+// et son moteur tubulaire — phase, neutre, terre, deux fils de sens
+// ---------------------------------------------------------------------------
+const VR_PER = 6, VR_ROWS = 7;
+function shutterCircuits(design, components) {
+  const byId = {};
+  for (const c of components || []) byId[c.id] = c;
+  const out = [];
+  design.circuits.filter((c) => c.appliance === 'shutter' || /volet/i.test(c.name)).forEach((c) => {
+    const devs = (c.devices || []).map((id) => byId[id]).filter(Boolean);
+    const motors = devs.filter((d) => d.type === 'shutter'), sws = devs.filter((d) => d.type === 'switch_shutter');
+    // chaque moteur avec la commande la plus proche
+    const list = motors.length ? motors.map((m) => { const s = sws.slice().sort((a, b) => Math.hypot(a.x - m.x, a.y - m.y) - Math.hypot(b.x - m.x, b.y - m.y))[0]; return { ref: m.label || m.id, sw: s ? s.label || s.id : '—' }; })
+      : Array.from({ length: Math.max(1, c.points || 1) }, (_, i) => ({ ref: `VR${i + 1}`, sw: `SV${i + 1}` }));
+    // une colonne par tranche de VR_ROWS moteurs (« suite » pour les suivantes)
+    for (let i = 0; i < list.length; i += VR_ROWS) out.push({ c, list: list.slice(i, i + VR_ROWS), cont: i > 0, more: 0 });
+  });
+  return out;
+}
+function shutterFolios(list) { return Math.max(1, Math.ceil(list.length / VR_PER)); }
+function drawShutters(ctx, design, meta, list, folio) {
+  const k = folio || 0, nF = shutterFolios(list), mine = list.slice(k * VR_PER, (k + 1) * VR_PER);
+  const ink = '#1a2230', mute = '#5b6b82', L = '#b3261e', N = '#1668c4', PE = '#2e9e46', UP = '#8a5a2b', DN = '#1a1a1a';
+  const layer = (n) => { if ('layer' in ctx) ctx.layer = n; };
+  const text = (t, x, y, o) => {
+    o = o || {};
+    ctx.save(); ctx.fillStyle = o.color || ink; ctx.font = `${o.bold ? 'bold ' : ''}${o.size || 8}px sans-serif`;
+    ctx.textAlign = o.align || 'left'; ctx.fillText(t, x, y); ctx.restore();
+  };
+  const wire = (color, pts, w, dash) => { ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = w || 1.2; if (dash) ctx.setLineDash(dash); ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); };
+  const dot = (x, y, c) => { ctx.save(); ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, 1.7, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
+  ctx.save(); ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  layer('CARTOUCHE');
+  _uCartouche(ctx, design, meta, 'Volets roulants — commandes et moteurs', k, nF);
+  layer('TEXTES');
+  text('Volets roulants — commandes et moteurs', 30, 46, { bold: true, size: 17 });
+  text('Chaque commande (inverseur montée / descente, verrouillé : jamais les deux sens à la fois) alimente un moteur tubulaire : deux fils de sens, neutre et terre', 30, 62, { size: 8, color: mute });
+  [['Phase', L], ['Montée', UP], ['Descente', DN], ['Neutre', N], ['Terre', PE]].forEach(([t, c], i) => { const x = UNI.W - 30 - (5 - i) * 118; layer('SCHEMA'); wire(c, [[x, 42], [x + 20, 42]], 2); layer('TEXTES'); text(t, x + 25, 45, { size: 8 }); });
+  const x0 = 40, colW = 188, yTop = 100, rowH = 78;
+  mine.forEach(({ c, list, more, cont }, i) => {
+    const x = x0 + i * colW, xl = x, xn = x + 9, xp = x + 18;
+    layer('TEXTES');
+    text(`${c.id} · ${c.name.length > 24 ? c.name.slice(0, 23) + '…' : c.name}${cont ? ' (suite)' : ''}`, x - 6, yTop - 16, { bold: true, size: 8.5 });
+    text(`${c.curve || 'C'}${c.In} · ${boardCable(c.S, c.phase)}${c.rcd ? ' · ' + c.rcd : ''}`, x - 6, yTop - 5, { size: 7, color: mute });
+    layer('SCHEMA');
+    ctx.strokeStyle = ink; if (!cont) _uBreaker(ctx, xl, yTop, 36); // « suite » : mêmes conducteurs, sans second disjoncteur
+    const yEnd = yTop + 44 + list.length * rowH - 20;
+    wire(L, [[xl, cont ? yTop : yTop + 36], [xl, yEnd]], 1.4); wire(N, [[xn, yTop], [xn, yEnd]], 1.4); wire(PE, [[xp, yTop], [xp, yEnd]], 1.4);
+    list.forEach((r, j) => {
+      const y = yTop + 54 + j * rowH, bx = x + 42, mx = x + 138;
+      layer('SCHEMA');
+      // inverseur : commun sur la phase, deux contacts (montée, descente) verrouillés
+      wire(L, [[xl, y], [bx, y]], 1.1); dot(xl, y, L); dot(bx, y, ink);
+      wire(ink, [[bx, y], [bx + 16, y - 9]], 1.1); wire(ink, [[bx, y], [bx + 14, y + 11]], 1.1);
+      wire(ink, [[bx + 20, y - 14], [bx + 20, y - 6]], 1); wire(ink, [[bx + 20, y + 6], [bx + 20, y + 14]], 1);
+      wire(mute, [[bx + 8, y - 5], [bx + 8, y + 6]], 0.7, [2, 2]); // verrouillage mécanique
+      // fils de sens vers le moteur
+      wire(UP, [[bx + 20, y - 10], [mx - 12, y - 10], [mx - 8, y - 5]], 1.1);
+      wire(DN, [[bx + 20, y + 10], [mx - 12, y + 10], [mx - 8, y + 5]], 1.1);
+      ctx.save(); ctx.strokeStyle = ink; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(mx, y, 11, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+      wire(N, [[xn, y + 22], [mx, y + 22], [mx, y + 11]], 1); dot(xn, y + 22, N);
+      wire(PE, [[xp, y + 28], [mx + 16, y + 28], [mx + 16, y + 4], [mx + 11, y + 4]], 1); dot(xp, y + 28, PE);
+      layer('TEXTES');
+      text('M', mx, y + 2, { size: 9, bold: true, align: 'center' }); text('1~', mx, y + 9, { size: 5.5, align: 'center', color: mute });
+      text(r.sw, bx - 2, y - 14, { size: 7, bold: true, align: 'right' });
+      text('▲', bx + 24, y - 11, { size: 6, color: UP }); text('▼', bx + 24, y + 15, { size: 6, color: DN });
+      text(r.ref, mx + 14, y - 12, { size: 7, bold: true });
+    });
+    if (more) { layer('TEXTES'); text(`+ ${more} volet${more > 1 ? 's' : ''}`, x + 42, yEnd + 14, { size: 7, color: mute }); }
+  });
+  if (!mine.length) { layer('TEXTES'); text('Aucun volet roulant motorisé.', 30, 170, { size: 11, color: mute }); }
+  layer('TEXTES');
+  text('Commandes à 1,10 m (entre 0,90 et 1,30 m), boîte de raccordement près du coffre ; câble 4 conducteurs (3G + sens) ou 5G1,5 entre commande et moteur.', 30, UNI.H - 15 - 62 - 22, { size: 7.5, color: mute });
+  ctx.restore();
+}
+function shutterSVGs(design, meta, components) {
+  const list = shutterCircuits(design, components), out = [];
+  for (let k = 0; k < shutterFolios(list); k++) { const ctx = new SVGContext(); drawShutters(ctx, design, meta, list, k); out.push(_folioWrap(ctx.out.join(''))); }
+  return out;
+}
+function shutterDXF(design, meta, components) {
+  const list = shutterCircuits(design, components), ctx = new DXFContext(), n = shutterFolios(list);
+  for (let k = 0; k < n; k++) { ctx.save(); ctx.translate(0, k * (UNI.H + 60)); drawShutters(ctx, design, meta, list, k); ctx.restore(); }
+  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: n * (UNI.H + 60) }, { U: 1 / 0.3528, insunits: 4, layers: [['SCHEMA', 7], ['TEXTES', 2], ['CARTOUCHE', 8]] });
+}
+
+// ---------------------------------------------------------------------------
 // Dossier technique : les folios A3 dans l'ordre, numérotés à la suite, et
 // leur sommaire (folio 1)
 // ---------------------------------------------------------------------------
@@ -1300,6 +1387,8 @@ function _technicalSeries(design, components, wires) {
   S.push({ title: 'Schémas développés', what: 'Commandes d’éclairage pièce par pièce', n: devFolios(lc), draw: (ctx, m, k) => drawDeveloped(ctx, design, m, lc, k) });
   const hc = heatingCircuits(design, components);
   if (hc.length) S.push({ title: 'Chauffage (fil pilote)', what: 'Radiateurs de chaque circuit : phase, neutre, fil pilote, terre', n: heatingFolios(hc), draw: (ctx, m, k) => drawHeating(ctx, design, m, hc, k) });
+  const vr = shutterCircuits(design, components);
+  if (vr.length) S.push({ title: 'Volets roulants', what: 'Commandes montée / descente et moteurs de chaque circuit', n: shutterFolios(vr), draw: (ctx, m, k) => drawShutters(ctx, design, m, vr, k) });
   if (hasPlan && typeof elevations === 'function') {
     const E = elevations(components, wires);
     S.push({ title: 'Élévations des murs', what: 'Hauteurs de pose de l’appareillage, pièce par pièce', n: elevLayout(E).length, draw: (ctx, m, k) => drawElevations(ctx, design, m, E, k) });

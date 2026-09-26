@@ -15,6 +15,7 @@ const MAT_PRICES = {
   tri: { rcd: 2.6, breaker3P: 45, surge: 145 }, // triphasé : ID 4P (≈ 2,6 × le prix 2P), disjoncteurs 3P+N
   isolator: { 40: 18, 63: 24, 80: 45, 100: 55 },
   ddr: { AC: 48, A: 68, 'A-SI': 88, F: 125, B: 320 },
+  vrSwitch: 14, vrMotor: 120, // commande de volet roulant, moteur tubulaire
   pvIsolator: 38, pvLabel: 6, tpc: 2.2, mesh: 0.6, // fourreau TPC rouge Ø 63, grillage avertisseur (€/m) // interrupteur-sectionneur AC près de l'onduleur, étiquettes « deux sources »  // disjoncteur différentiel 1P+N 30 mA (3P+N : × 2,5) // interrupteur-sectionneur de tête d'un tableau divisionnaire (2P)
   comb: 8.5,            // peigne d'alimentation, par rangée
   link: { 10: 2.9, 16: 4.4, 25: 6.8 }, // conducteur de liaison AGCP → tableau, €/m
@@ -138,6 +139,8 @@ function materialList(components, wires, design) {
   add('Appareillage', 'Interrupteur simple allumage', count('switch_sa'), 'u', P.switchSa);
   add('Appareillage', 'Interrupteur va-et-vient', count('switch_vv_wall'), 'u', P.switchVv);
   add('Appareillage', 'Bouton poussoir (télérupteur)', pushIds.size, 'u', P.push);
+  add('Appareillage', 'Commande de volet roulant (montée / descente)', count('switch_shutter'), 'u', P.vrSwitch);
+  add('Appareillage', 'Boîte de raccordement du moteur de volet (coffre)', count('shutter'), 'u', P.box);
   add('Appareillage', 'Point de centre DCL (douille + fiche)', count('dcl') + count('wall_light'), 'u', P.dcl);
   add('Appareillage', 'Prise RJ45 grade 2TV', count('rj45'), 'u', P.rj45);
   add('Appareillage', 'Sortie de câble 32 A (plaque)', count('cooktop'), 'u', P.cableOut32);
@@ -145,7 +148,7 @@ function materialList(components, wires, design) {
   add('Appareillage', 'Détecteur de fumée (DAAF)', count('smoke_detector'), 'u', P.smoke);
   // Boîtes d'encastrement selon le mur : cloison sèche (placo, ossature bois), doublage
   // d'un mur extérieur (boîte étanche à l'air, RE 2020) ou maçonnerie
-  const BOXED = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'cooktop', 'water_heater', 'radiator', 'washer', 'dishwasher', 'dryer', 'oven']);
+  const BOXED = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'switch_shutter', 'rj45', 'cooktop', 'water_heater', 'radiator', 'washer', 'dishwasher', 'dryer', 'oven']);
   const box = { placo: 0, air: 0, mac: 0 };
   for (const c of components) {
     if (!BOXED.has(c.type)) continue;
@@ -170,6 +173,7 @@ function materialList(components, wires, design) {
   // --- Équipements (facultatifs, souvent achetés à part) -------------------------
   add('Équipements', 'Radiateur à inertie 1 000 W', count('radiator'), 'u', P.radiator);
   add('Équipements', 'VMC simple flux hygroréglable', count('vmc'), 'u', P.vmc);
+  add('Équipements', 'Moteur tubulaire de volet roulant', count('shutter'), 'u', P.vrMotor);
   add('Équipements', 'Borne de recharge 7,4 kW', count('ev_charger'), 'u', P.evCharger);
 
   const sum = (f) => Math.round(lines.filter(f).reduce((s, l) => s + l.total, 0) * 100) / 100;

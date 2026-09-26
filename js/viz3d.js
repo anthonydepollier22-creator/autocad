@@ -1052,6 +1052,17 @@ const BUILDERS3D = {
     _mb(v, m, 0, 1.4, y + 1.5, 6, 6, c.closed ? 1.4 : 0.8, '#e9eaec');
   },
   switch_vv_wall: (v, c) => BUILDERS3D.switch_sa(v, c),
+  // volet roulant : coffre au-dessus de la fenêtre (tablier baissé quand il est « en marche » = fermé)
+  shutter: (v, c) => {
+    const m = _mount(v, c, 50), H = _wallH(v);
+    _mb(v, m, 0, 0, Math.min(212, H - 22), 18, 92, 16, '#e7e9ec');
+    if (c.on) _mb(v, m, 0, 2, 95, Math.min(117, H - 118), 84, 2, '#c9ced6'); // tablier descendu
+  },
+  switch_shutter: (v, c) => {
+    const m = _mount(v, c, 45), y = +c.h > 0 ? c.h - 4.5 : 106;
+    _mb(v, m, 0, 0, y, 9, 9, 1.4, C3D.plate);
+    _mb(v, m, 0, 1.4, y + 5, 5, 2.4, 1, '#9aa3ad'); _mb(v, m, 0, 1.4, y + 1.6, 5, 2.4, 1, '#9aa3ad'); // touches montée / descente
+  },
   dcl: (v, c) => {
     const H = _wallH(v), full = !(v.scene && v.scene.cut);
     const top = full ? H : HOUSE3D.H;

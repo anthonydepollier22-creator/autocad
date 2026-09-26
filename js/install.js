@@ -40,7 +40,7 @@ const U_TRI = 400;
 const MOUNT_H = {
   socket_wall: 0.3, rj45: 0.3, switch_sa: 1.1, switch_vv_wall: 1.1, dcl: 2.5, wall_light: 1.9, vmc: 2.5,
   radiator: 0.3, oven: 0.9, cooktop: 0.9, washer: 0.3, dishwasher: 0.3, dryer: 0.3, water_heater: 1.2,
-  ev_charger: 1.2, panel_house: 1.5, panel_sub: 1.5,
+  ev_charger: 1.2, panel_house: 1.5, panel_sub: 1.5, shutter: 2.2, switch_shutter: 1.1,
 };
 
 // Hauteur de pose d'un appareil (m) : la sienne si elle a été choisie (c.h, en cm), sinon la hauteur usuelle
@@ -64,6 +64,7 @@ const LOADS = {
   ev_charger: { cls: 'dedicated', P: 7400, circuit: 'Borne de recharge', In: 40, S: 10, typeF: true, name: 'Borne IRVE' },
   vmc: { cls: 'dedicated', P: 35, circuit: 'VMC', In: 2, S: 1.5, always: true, name: 'VMC' },
   radiator: { cls: 'heating', P: 1000, name: 'Radiateur' },
+  shutter: { cls: 'shutter', P: 150, name: 'Volet roulant' }, // moteur tubulaire, commandé par son inverseur
 };
 const SWITCHES_PLAN = new Set(['switch_sa', 'switch_vv_wall']);
 
@@ -280,7 +281,7 @@ function designInstallation(components, wires, board) {
   if (B && B.supply && +B.supply.area && !design.area) design.area = +B.supply.area; // tableau sans plan : surface déclarée
 
   // Appareils alimentés par le tableau (les appareils « branchés » passent par une prise)
-  const devs = tb ? components.filter((c) => LOADS[c.type] && LOADS[c.type].cls !== 'plug' || SWITCHES_PLAN.has(c.type)) : [];
+  const devs = tb ? components.filter((c) => LOADS[c.type] && LOADS[c.type].cls !== 'plug' || SWITCHES_PLAN.has(c.type) || c.type === 'switch_shutter') : [];
   // Tableaux divisionnaires posés sur le plan (TD1, TD2… dans l'ordre des repères)
   const tdComps = tb ? components.filter((c) => c.type === 'panel_sub').sort((a, b) => String(a.label || a.id).localeCompare(String(b.label || b.id), 'fr', { numeric: true })) : [];
   const panelsC = [tb, ...tdComps], nP = panelsC.length;
@@ -384,7 +385,7 @@ function designInstallation(components, wires, board) {
     for (const bc of B.circuits) {
       const list = (bc.devices || []).map((id) => byId.get(id)).filter((c) => c && !taken.has(c.id));
       list.forEach((c) => taken.add(c.id));
-      const pts = list.filter((c) => !SWITCHES_PLAN.has(c.type)).length;
+      const pts = list.filter((c) => !SWITCHES_PLAN.has(c.type) && c.type !== 'switch_shutter').length;
       circuits.push({
         id: String(bc.id || 'C' + (circuits.length + 1)), kind: bc.kind || 'other', name: bc.name || bc.id || 'Circuit',
         In: +bc.In || 16, S: +bc.S || 1.5, curve: bc.curve || 'C', devices: list,
@@ -397,7 +398,7 @@ function designInstallation(components, wires, board) {
         phase: ['L1', 'L2', 'L3', '3P'].includes(bc.phase) ? bc.phase : null,
       });
     }
-    design.orphans = devs.filter((c) => !taken.has(c.id) && !SWITCHES_PLAN.has(c.type)).map((c) => c.id);
+    design.orphans = devs.filter((c) => !taken.has(c.id) && !SWITCHES_PLAN.has(c.type) && c.type !== 'switch_shutter').map((c) => c.id);
     if (design.orphans.length) {
       design.issues.push({ level: 'warn', msg: `${design.orphans.length} appareil${design.orphans.length > 1 ? 's' : ''} du plan sur aucun circuit du tableau personnalisé : « Répartir les appareils » les range.` });
     }
@@ -433,6 +434,13 @@ function designInstallation(components, wires, board) {
       }
       const heatNames = nm('Chauffage', heat.map((g) => g.list));
       heat.forEach((g, i) => add({ kind: 'heating', name: heatNames[i], In: 20, S: 2.5, devices: g.list, rooms: roomsLabel(g.list), points: g.list.length }));
+      // Volets roulants : un circuit 16 A en 1,5 mm² (dix moteurs au plus), avec leurs commandes
+      const vr = byRoom(D.filter((c) => c.type === 'shutter')), vrGroups = chunk(vr, 10), vrNames = nm('Volets roulants', vrGroups);
+      vrGroups.forEach((g, i) => {
+        const rooms = new Set(g.map(roomOf));
+        const sw = D.filter((c) => c.type === 'switch_shutter' && rooms.has(roomOf(c)));
+        add({ kind: 'other', appliance: 'shutter', name: vrNames[i], In: 16, S: 1.5, devices: g.concat(sw), rooms: roomsLabel(g), points: g.length });
+      });
       // Circuits spécialisés : un par appareil
       for (const c of byRoom(D.filter((c) => LOADS[c.type] && LOADS[c.type].cls === 'dedicated'))) {
         const s = LOADS[c.type];

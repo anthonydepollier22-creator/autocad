@@ -81,7 +81,7 @@ function studShift(t, L) {
   return { t: near + dir * STUD_CLEAR, by: Math.abs(near + dir * STUD_CLEAR - t) };
 }
 // Décale hors des montants les boîtes posées sur une cloison sèche ou un doublage ; renvoie leur nombre
-const STUD_BOXED = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light']);
+const STUD_BOXED = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light', 'switch_shutter']);
 function fixStudBoxes(components, wires) {
   let n = 0;
   for (const c of components) {
@@ -454,7 +454,7 @@ function checkNFC15100(components, wires) {
       const h = +c.h;
       if (!(h > 0)) continue;
       if ((c.type === 'socket_wall' || c.type === 'rj45') && h < 5) push('err', `${c.label || 'Prise'} : axe à ${h} cm du sol, 5 cm au moins exigés.`, c.id);
-      else if (NF_SWITCHES.has(c.type) && (h < 90 || h > 130)) push('warn', `${c.label || 'Interrupteur'} à ${h} cm : les commandes se posent entre 0,90 et 1,30 m (accessibilité PMR).`, c.id);
+      else if ((NF_SWITCHES.has(c.type) || c.type === 'switch_shutter') && (h < 90 || h > 130)) push('warn', `${c.label || 'Interrupteur'} à ${h} cm : les commandes se posent entre 0,90 et 1,30 m (accessibilité PMR).`, c.id);
     }
     // Cloison sèche ou doublage : une boîte d'encastrement ne se pose pas sur un montant (tous les 60 cm)
     for (const c of components) {
