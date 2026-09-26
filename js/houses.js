@@ -716,7 +716,16 @@ function _inWetZone(ctx, room, p) {
   return ctx.doc.components.some((b) => (b.type === 'shower' || b.type === 'bathtub') &&
     roomAt(ctx.info, b.x, b.y) === room && _distToFootprint(p.x, p.y, b) < 62);
 }
+const _BOXED_T = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light']);
 function _addDevice(ctx, type, x, y, rot, value) {
+  // cloison sèche : la boîte d'encastrement ne tombe pas sur un montant (décalage de quelques cm)
+  if (_BOXED_T.has(type) && typeof studShift === 'function') {
+    const nw = nearestWall(ctx.doc.wires, x, y, 60);
+    if (nw && wallMaterial(nw.w).hollow) {
+      const sh = studShift(nw.t, Math.hypot(nw.b.x - nw.a.x, nw.b.y - nw.a.y));
+      if (sh) { x += nw.ux * (sh.t - nw.t); y += nw.uy * (sh.t - nw.t); }
+    }
+  }
   const c = _addComp(ctx.doc, type, x, y, rot, value);
   ctx.devices.push({ x: c.x, y: c.y, type });
   return c;
