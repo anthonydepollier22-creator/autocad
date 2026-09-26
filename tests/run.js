@@ -1081,6 +1081,18 @@ r = run(`(function(){
 })()`);
 check('Plan d’implantation : légende (symboles et quantités), repère de circuit sur chaque appareil, surfaces, calque DXF CIRCUITS', r.legend && r.sockets && r.tagged && r.noArea && r.cLayer > 20, `${r.n} circuits · ${r.cLayer} entités DXF`);
 
+// Câbles des circuits sur le plan : un tracé par circuit, qui atteint chacun de ses appareils
+r = run(`(function(){
+  var d = buildHouse('t3'), des = designInstallation(d.components, d.wires), R = routeSegments(des, d.components), byId = {};
+  d.components.forEach(function(c){ byId[c.id] = c; });
+  var reach = des.circuits.every(function(ct, k){
+    return ct.devices.every(function(id){ var r = des.route[id], c = byId[id]; if (!r || r.off) return true; return R[k].segs.some(function(s){ return Math.abs(s[2] - c.x) < 0.01 && Math.abs(s[3] - c.y) < 0.01; }); });
+  });
+  var svg = buildSVG(d.components, d.wires, SYMBOLS, { routesSVG: routesSVG(des, d.components) });
+  return { n: R.length === des.circuits.length && R.every(function(x){ return x.segs.length > 0; }), reach: reach, svg: (svg.match(/stroke-opacity="0.92"/g) || []).length === des.circuits.length };
+})()`);
+check('Câbles sur le plan : un tracé par circuit, jusqu’à chacun de ses appareils, repris par le SVG', r.n && r.reach && r.svg);
+
 // ---------------------------------------------------------------------------
 group('Éclairement (lux)');
 r = run(`(function(){
