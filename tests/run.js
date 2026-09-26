@@ -882,6 +882,32 @@ check('Triphasé : ΔU d’un départ 3P+N = √3·ρ·L·I / S sous 400 V ; 3P+
 check('Triphasé : folio (barre 3P+N, 4P, câble 5G6) et métré (ID 4P, disjoncteurs 3P+N, 5G)', r.svg && r.mat);
 
 // ---------------------------------------------------------------------------
+group('Murs : placo, maçonnerie, implantation en 3D');
+r = run(`(function(){
+  var d = buildHouse('t3'), walls = d.wires.filter(function(w){ return w.kind === 'wall'; });
+  var ext = walls.find(function(w){ return w.ext; }), int = walls.find(function(w){ return !w.ext; });
+  var mExt = wallMaterial(ext), mInt = wallMaterial(int);
+  // boîtes du métré : placo (cloisons), étanches à l'air (doublage des façades), maçonnerie
+  var des = designInstallation(d.components, d.wires);
+  var line = function(re){ var l = materialList(d.components, d.wires, des).lines.find(function(x){ return re.test(x.name); }); return l ? l.qty : 0; };
+  var b0 = [line(/cloison sèche/), line(/étanche/), line(/maçonnerie/)];
+  walls.forEach(function(w){ if (!w.ext) w.mat = 'brique'; });
+  var b1 = [line(/cloison sèche/), line(/étanche/), line(/maçonnerie/)];
+  // prise la plus proche d'un point : mur, côté, normale vers la pièce
+  var sock = d.components.find(function(c){ return c.type === 'socket_wall'; }), nw = nearestWall(d.wires, sock.x, sock.y, 60);
+  // 3D : matériaux et montants de placo (plus de faces), rayon de la caméra cohérent avec la projection
+  walls.forEach(function(w){ delete w.mat; });
+  var v = new Viz3D(__cv, { interactive: false });
+  buildBoard(v, d.components, d.wires, SYMBOLS, { walls: 'cut' }); var f0 = v.faces.length;
+  buildBoard(v, d.components, d.wires, SYMBOLS, { walls: 'cut', materials: true }); var f1 = v.faces.length;
+  var studs = v.faces.filter(function(f){ return f.color && f.color[0] === 0xaa && f.color[1] === 0xb4 && f.color[2] === 0xc2; }).length;
+  return { mExt: mExt, mInt: mInt, b0: b0, b1: b1, nw: !!nw && nw.d < 30 && Math.abs(Math.hypot(nw.nx, nw.ny) - 1) < 1e-9, f0: f0, f1: f1, studs: studs };
+})()`);
+check('Matériaux par défaut : cloison placo 72/48 à l’intérieur, parpaing + doublage placo en façade', r.mInt.mat === 'placo' && r.mInt.hollow && r.mExt.mat === 'parpaing' && r.mExt.doublage && r.mExt.hollow, `${r.mInt.label} · ${r.mExt.label}`);
+check('Métré : boîtes cloison sèche, étanches à l’air (doublage RE 2020) et maçonnerie selon le mur', r.b0[0] > 0 && r.b0[1] > 0 && r.b0[2] === 0 && r.b1[0] === 0 && r.b1[2] === r.b0[0] && r.b1[1] === r.b0[1], `placo ${r.b0[0]} · étanches ${r.b0[1]} → maçonnerie ${r.b1[2]}`);
+check('3D (implantation) : murs teintés par matériau, doublage côté pièce, montants de placo tous les 60 cm', r.f1 > r.f0 && r.studs > 20 && r.nw, `${r.studs} faces de montants`);
+
+// ---------------------------------------------------------------------------
 group('Éclairement (lux)');
 r = run(`(function(){
   var W = function(a, b){ return { id: 'w' + a.x + a.y + b.x + b.y, kind: 'wall', points: [a, b] }; };

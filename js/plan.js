@@ -49,6 +49,42 @@ function roomType(name) {
   return ROOM_TYPES.find((t) => t.re.test(name || '')) || null;
 }
 
+// Matériaux des murs : cloisons sèches (plaques de plâtre sur ossature), maçonnerie…
+// Un mur extérieur maçonné reçoit en général un doublage (isolant + plaque de plâtre).
+// Creux (placo, ossature bois, doublage) : boîtes d'encastrement « cloison sèche ».
+const WALL_MATS = {
+  placo: { label: 'Cloison placo 72/48', color: '#dfe6ef', hollow: true },
+  carreau: { label: 'Carreau de plâtre', color: '#ece8e1', hollow: false },
+  brique: { label: 'Brique', color: '#e5c7ad', hollow: false },
+  parpaing: { label: 'Parpaing', color: '#d3cec6', hollow: false },
+  beton: { label: 'Béton', color: '#c9cbcd', hollow: false },
+  bois: { label: 'Ossature bois', color: '#e6d3b0', hollow: true },
+};
+function wallMaterial(w) {
+  const mat = WALL_MATS[w && w.mat] ? w.mat : w && w.ext ? 'parpaing' : 'placo';
+  const doublage = !!(w && w.ext) && !WALL_MATS[mat].hollow && w.doublage !== false;
+  return { mat, doublage, hollow: WALL_MATS[mat].hollow || doublage, label: WALL_MATS[mat].label + (doublage ? ' + doublage placo' : '') };
+}
+// Mur (segment) le plus proche d'un point, à moins de maxD : { w, a, b, d, t (abscisse), ux, uy, nx, ny (côté du point) }
+function nearestWall(wires, x, y, maxD) {
+  let best = null;
+  for (const w of wires) {
+    if (w.kind !== 'wall') continue;
+    for (let i = 0; i < w.points.length - 1; i++) {
+      const a = w.points[i], b = w.points[i + 1], L = Math.hypot(b.x - a.x, b.y - a.y);
+      if (L < 1) continue;
+      const ux = (b.x - a.x) / L, uy = (b.y - a.y) / L;
+      const t = Math.max(0, Math.min(L, (x - a.x) * ux + (y - a.y) * uy));
+      const px = a.x + ux * t, py = a.y + uy * t, d = Math.hypot(x - px, y - py);
+      if (d <= (maxD || 45) && (!best || d < best.d)) {
+        const side = (x - px) * -uy + (y - py) * ux >= 0 ? 1 : -1;
+        best = { w, a, b, d, t, ux, uy, nx: -uy * side, ny: ux * side };
+      }
+    }
+  }
+  return best;
+}
+
 function fmtMeters(units) {
   return (units / PLAN_UNITS_PER_M).toFixed(2).replace('.', ',') + ' m';
 }

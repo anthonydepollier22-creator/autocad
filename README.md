@@ -326,6 +326,16 @@ Le bouton **3D** ouvre la maison (ou la carte électronique) dans un moteur **We
   maison de poupée, et la maison à étage montre ses deux niveaux l'un sur l'autre ;
 - **Énergie** : le sol de chaque pièce se teinte selon la puissance qu'elle consomme
   (échelle 0 → 4 kW), avec une étiquette en watts au-dessus de chaque pièce ;
+- **Implanter** (`I`) : poser l'appareillage **directement en 3D** — prise, interrupteur,
+  va-et-vient, applique, RJ45 sur le mur visé, à sa hauteur NF (30 cm, 1,10 m, 1,90 m)
+  et face à la pièce ; point lumineux et DAAF au plafond en visant le sol ; « Retirer »
+  enlève un appareil. Les murs se teintent selon leur **matériau** : **cloison placo
+  72/48** (montants de l'ossature tous les 60 cm), carreau de plâtre, brique,
+  parpaing, béton, ossature bois, et **doublage placo** côté pièce des façades ; « Mur
+  placo / maçonné » change le mur visé (aussi dans les propriétés d'un mur en 2D). Le
+  métré en déduit les **boîtes d'encastrement** : cloison sèche (placo), **étanches à
+  l'air** dans le doublage (RE 2020) ou maçonnerie. Tout reste annulable et le tableau
+  se met à jour ;
 - **Lumière** (`L`) : carte d'**éclairement** au sol, en lux sur le plan de travail
   (0,85 m), tous les points lumineux allumés — la scène passe à 21 h 30 pour les voir
   briller, puis l'heure revient. Luminaires LED à 60 lm/W ; plafonnier
@@ -579,7 +589,7 @@ python3 -m http.server 8000
 | `Z` `Q` `S` `D` / flèches (vue 3D, Visite) | Marcher dans la maison (`Maj` : courir) ; le nom de la pièce s'affiche en y entrant |
 | `1` `2` `3` (vue 3D) | Ensemble / Dessus / Visite |
 | `M` (vue 3D) | Murs : pleins → coupés → plan → extérieur |
-| `X` `C` `E` `L` `J` `F` (vue 3D) | Rayons X, Coupe, Énergie, Lumière, Journée, Défaut |
+| `X` `C` `E` `L` `I` `J` `F` (vue 3D) | Rayons X, Coupe, Énergie, Lumière, Implanter, Journée, Défaut |
 | `G` `O` `P` `V` (vue 3D) | Visite guidée, course du Soleil, Photo, Vidéo 360° |
 | `Entrée` / `Double-clic` (outils Fil, Mur, Goulotte) | Terminer le tracé en cours |
 | `L` | Règle : glisser d'un point à l'autre, longueur et écarts en x / y (`Maj` : sans aimantation) |
@@ -638,7 +648,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-151 vérifications sans dépendance : valeurs numériques de chaque simulation
+154 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
@@ -651,7 +661,7 @@ magnétique, différentiel, disjoncteur de branchement, énergie, va-et-vient), 
 montée et descente de l'escalier en visite, visite guidée jusqu'à l'étage), la vue en
 coupe, la course du soleil selon la saison, les interactions de l'éditeur 2D (fin d'un
 mur au double-clic, à `Entrée` ou en fermant le contour, mise à l'échelle du calque),
-**le tableau et l'unifilaire** (tableau personnalisé identique à l'automatique,
+**les murs placo / maçonnés** (matériaux, boîtes au métré, montants en 3D), **le tableau et l'unifilaire** (tableau personnalisé identique à l'automatique,
 contrôles NF, circuit sans différentiel en simulation, appareils ajoutés puis
 répartis, tableau sans plan, triphasé équilibré, face avant, folios, DXF, métré), **l'éclairement** (formule du plafonnier, lumière confinée à sa pièce, appliques
 jusqu'à l'objectif), les exports SVG et DXF et **l'import DXF** (aller-retour des 6 maisons, plans

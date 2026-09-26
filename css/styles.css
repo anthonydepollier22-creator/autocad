@@ -1041,3 +1041,22 @@ body.light .day-sec { --dc7: #4a3aa7; }
   .bd-edit { border-right: none; overflow: visible; }
   .bd-head .btn-ghost, .bd-head .btn-primary { padding: 6px 9px; font-size: 12px; }
 }
+
+/* Propriétés d'un mur */
+#prop-wall[hidden] { display: none; }
+#prop-wall select {
+  width: 100%; margin-top: 5px; padding: 7px 8px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 7px; color: var(--text); font-size: 13px; font-family: inherit;
+}
+.pw-len { color: var(--muted); font-weight: 500; margin-left: 6px; }
+.pw-note { margin: 4px 0 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
+.v3-implant-kind { flex-wrap: wrap; }
+.v3-implant-kind[hidden] { display: none; }
+
+.v3-matlegend {
+  position: absolute; left: 16px; bottom: 16px; z-index: 2; display: flex; flex-wrap: wrap; gap: 6px 12px; max-width: 520px;
+  padding: 7px 10px; border-radius: 8px; background: rgba(12, 16, 23, 0.8); color: #dfe6f0; font-size: 11px; pointer-events: none;
+}
+.v3-matlegend[hidden] { display: none; }
+.v3-matlegend span { display: inline-flex; align-items: center; gap: 5px; }
+.v3-matlegend i { width: 18px; height: 11px; border-radius: 2px; border: 1px solid rgba(255, 255, 255, 0.35); }

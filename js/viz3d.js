@@ -373,6 +373,18 @@ class Viz3D {
     this._drawn = out;
   }
 
+  // Rayon de la caméra passant par un point de l'écran (px CSS) : { o, d } dans la scène
+  ray(x, y) {
+    const cam = this._cam || this.camera();
+    const W = this.canvas.clientWidth || 1, H = this.canvas.clientHeight || 1;
+    const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const norm = (a) => { const l = Math.hypot(a[0], a[1], a[2]) || 1; return [a[0] / l, a[1] / l, a[2] / l]; };
+    const f = norm(sub(cam.look, cam.eye)), r = norm(cross(f, [0, 1, 0])), u = cross(r, f);
+    const t = Math.tan(cam.fov / 2), nx = ((x / W) * 2 - 1) * t * (W / H), ny = (1 - (y / H) * 2) * t;
+    return { o: cam.eye.slice(), d: norm([f[0] + r[0] * nx + u[0] * ny, f[1] + r[1] * nx + u[1] * ny, f[2] + r[2] * nx + u[2] * ny]) };
+  }
+
   // Objet sous le pointeur (coordonnées CSS dans le canvas)
   pick(x, y) {
     const list = this._drawn || [];
@@ -1203,7 +1215,7 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
       const a = w.points[i], c = w.points[i + 1];
       if (Math.hypot(c.x - a.x, c.y - a.y) < 1) continue;
       const t = w.ext ? HOUSE3D.T_EXT : HOUSE3D.T_INT;
-      scene.walls.push({ a, b: c, t, ext: !!w.ext });
+      scene.walls.push({ a, b: c, t, ext: !!w.ext, wid: w.id, m: typeof wallMaterial === 'function' ? wallMaterial(w) : null });
       scene.colliders.segs.push({ a, b: c, r: t / 2 });
     }
   }
@@ -1324,11 +1336,24 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
     }
     ops.sort((p, q) => p[0] - q[0]);
     w.ops = ops; // ouvertures (vue en coupe)
+    // Matériaux (mode implantation) : teinte du matériau, doublage placo côté pièce
+    const M = opts.materials && w.m ? w.m : null;
+    const col = M ? WALL_MATS[M.mat].color : WALL_COL;
+    let inner = 0; // côté des pièces (+1 / -1) pour le doublage d'un mur extérieur
+    if (M && M.doublage && info && info.owner) {
+      const mx2 = (w.a.x + w.b.x) / 2, my2 = (w.a.y + w.b.y) / 2, o = w.t / 2 + 25;
+      inner = roomAt(info, mx2 - uz * o, my2 + ux * o) >= 0 ? 1 : roomAt(info, mx2 + uz * o, my2 - ux * o) >= 0 ? -1 : 0;
+    }
     const piece = (s0, s1, y0, h) => {
       if (s1 - s0 < 0.5 || h <= 0) return;
       const e0 = s0 <= 0 ? w.t / 2 : 0, e1 = s1 >= len ? w.t / 2 : 0;
-      const m = (s0 - e0 + s1 + e1) / 2;
-      viz.box(w.a.x + ux * m, y0, w.a.y + uz * m, s1 - s0 + e0 + e1, h, w.t, WALL_COL, ang, scene.cutTop);
+      const m = (s0 - e0 + s1 + e1) / 2, cx = w.a.x + ux * m, cz = w.a.y + uz * m, L = s1 - s0 + e0 + e1;
+      if (inner) {
+        const tl = 4; // doublage : isolant + plaque de plâtre
+        const nx = -uz * inner, nz = ux * inner;
+        viz.box(cx - nx * tl / 2, y0, cz - nz * tl / 2, L, h, w.t - tl, col, ang, scene.cutTop);
+        viz.box(cx + nx * (w.t / 2 - tl / 2), y0, cz + nz * (w.t / 2 - tl / 2), L, h, tl, WALL_MATS.placo.color, ang, scene.cutTop);
+      } else viz.box(cx, y0, cz, L, h, w.t, col, ang, scene.cutTop);
     };
     let s = 0;
     for (const [o0, o1] of ops) {
@@ -1338,6 +1363,17 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
       s = o1;
     }
     piece(s, len, 0, H);
+    // Cloison sèche : montants de l'ossature tous les 60 cm, marqués sur les faces
+    if (M && (WALL_MATS[M.mat].hollow || inner)) {
+      const sides = inner ? [inner] : [1, -1];
+      for (let k = 60; k < len - 10; k += 60) {
+        if (ops.some(([o0, o1]) => k > o0 - 3 && k < o1 + 3)) continue;
+        for (const sd of sides) {
+          const nx = -uz * sd, nz = ux * sd;
+          viz.box(w.a.x + ux * k + nx * (w.t / 2 + 0.3), 0, w.a.y + uz * k + nz * (w.t / 2 + 0.3), 1.2, H, 0.6, '#aab4c2', ang);
+        }
+      }
+    }
   }
   viz.alpha = 1; viz.obj = null; viz.off = null;
 

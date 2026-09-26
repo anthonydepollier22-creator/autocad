@@ -894,7 +894,7 @@ function initHouseUI(app) {
   // ---- Vue 3D ---------------------------------------------------------------
   const view3d = $('view3d'), cv3 = $('canvas3d'), tip = $('v3-tip'), map = $('v3-map'), hud = $('v3-hud');
   let viz = null;
-  const v3 = { walls: 'full', xray: false, time: 15, energy: false, lux: false, level: 'all', cut: null, cutAxis: 'x', circuit: null, fault: false, faultKind: 'short', sunpath: null };
+  const v3 = { walls: 'full', xray: false, time: 15, energy: false, lux: false, implant: null, level: 'all', cut: null, cutAxis: 'x', circuit: null, fault: false, faultKind: 'short', sunpath: null };
   // Course du soleil (vue Extérieur) : arc des positions du soleil sur la journée de la saison choisie
   const hhmmSun = (h) => { const m = Math.round(h * 60); return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')}`; };
   function sunpathUi() {
@@ -1031,6 +1031,7 @@ function initHouseUI(app) {
       sim: d && d.ok ? { snap: sim.snap, design: d, sim } : null,
       energy: energy ? { color: (i) => energyColor(energy.P[i] || 0) } : null,
       lux,
+      materials: !!v3.implant, // implantation : matériaux des murs, montants des cloisons placo
       pv: pvKwc(),
       circuit: v3.xray ? v3.circuit : null,
       levels: levels(), level: walking ? 'all' : v3.level, // en visite : on peut monter à l'étage
@@ -1182,6 +1183,11 @@ function initHouseUI(app) {
     if (v3.lux) luxToast();
   });
   $('v3-lux-fix').addEventListener('click', () => action('lighting'));
+  $('v3-implant').addEventListener('click', () => {
+    setImplant(v3.implant ? null : 'socket_wall');
+    if (v3.implant) showToast('<b>Implanter</b> : choisis un appareil puis clique un mur (ou le sol pour un point au plafond). Murs teintés selon leur matériau : placo (montants tous les 60 cm), maçonnerie, doublage.', 7000);
+  });
+  document.querySelectorAll('#v3-implant-kind button').forEach((b) => b.addEventListener('click', () => setImplant(b.dataset.k)));
   $('v3-energy').addEventListener('click', () => {
     v3.energy = !v3.energy;
     if (v3.energy && v3.lux) { v3.lux = false; setChip('v3-lux', false); }
@@ -1248,7 +1254,138 @@ function initHouseUI(app) {
     if (v3.sunpath) sunpathUi();
   });
 
-  function onPick(id) {
+  // ---- Implantation en 3D : poser l'appareillage sur les murs (placo ou maçonnerie) ----
+  // Un clic sur un mur pose l'appareil à sa hauteur NF, face à la pièce ; un clic
+  // sur le sol pose un point au plafond, à l'aplomb. « Retirer » enlève un appareil,
+  // « Mur placo / maçonné » change le matériau du mur visé.
+  const IMPLANT = {
+    socket_wall: { label: 'Prise', wall: true }, switch_sa: { label: 'Interrupteur', wall: true },
+    switch_vv_wall: { label: 'Va-et-vient', wall: true }, wall_light: { label: 'Applique', wall: true },
+    rj45: { label: 'RJ45', wall: true }, dcl: { label: 'Point lumineux', ceil: true }, smoke_detector: { label: 'DAAF', ceil: true },
+  };
+  const IMPLANTED = new Set([...Object.keys(IMPLANT), 'radiator', 'jbox', 'vmc']);
+  function implantHit(p) {
+    const sc = viz.scene;
+    if (!sc || !viz.ray) return null;
+    const ray = viz.ray(p.x, p.y), H = sc.wallH || HOUSE3D.H;
+    let best = null;
+    for (const w of sc.walls) {
+      if (w.hidden) continue;
+      const L = levelAt((w.a.x + w.b.x) / 2);
+      const len = Math.hypot(w.b.x - w.a.x, w.b.y - w.a.y);
+      if (len < 1) continue;
+      const ux = (w.b.x - w.a.x) / len, uz = (w.b.y - w.a.y) / len, ax = w.a.x + L.dx, az = w.a.y;
+      for (const sd of [1, -1]) {
+        const nx = -uz * sd, nz = ux * sd;
+        const den = ray.d[0] * nx + ray.d[2] * nz;
+        if (den >= -1e-6) continue; // face tournée vers la caméra seulement
+        const lam = ((ax + (nx * w.t) / 2 - ray.o[0]) * nx + (az + (nz * w.t) / 2 - ray.o[2]) * nz) / den;
+        if (lam <= 0 || (best && lam >= best.lam)) continue;
+        const X = ray.o[0] + ray.d[0] * lam, Y = ray.o[1] + ray.d[1] * lam - L.dy, Z = ray.o[2] + ray.d[2] * lam;
+        const t = (X - ax) * ux + (Z - az) * uz;
+        if (t < -w.t / 2 || t > len + w.t / 2 || Y < 0 || Y > H) continue;
+        if ((w.ops || []).some(([o0, o1]) => t > o0 && t < o1 && Y > 95 && Y < 215)) continue; // dans une fenêtre
+        best = { lam, kind: 'wall', w, t: Math.max(0, Math.min(len, t)), y: Y, nx, nz, ux, uz };
+      }
+    }
+    // Sol des niveaux visibles (points au plafond, à l'aplomb)
+    const lv = levels() || [{ dx: 0, dy: 0 }];
+    const info = computeRooms(editor.components, editor.wires);
+    lv.forEach((Lv, i) => {
+      if (lv.length > 1 && v3.level !== 'all' && i !== v3.level) return;
+      if (Math.abs(ray.d[1]) < 1e-6) return;
+      const lam = ((Lv.dy || 0) - ray.o[1]) / ray.d[1];
+      if (lam <= 0 || (best && lam >= best.lam)) return;
+      const x = ray.o[0] + ray.d[0] * lam - (Lv.dx || 0), y = ray.o[2] + ray.d[2] * lam;
+      const r = roomAt(info, x, y);
+      if (r >= 0) best = { lam, kind: 'floor', x, y, room: info.rooms[r] };
+    });
+    return best;
+  }
+  // Pièce du côté où l'appareil est posé
+  const roomNameAt = (x, y) => { const info = computeRooms(editor.components, editor.wires), r = roomAt(info, x, y); return r >= 0 ? info.rooms[r].name : ''; };
+  function implantTarget(hit) {
+    const k = v3.implant, spec = IMPLANT[k];
+    if (!hit || !spec) return null;
+    if (spec.ceil) return hit.kind === 'floor' ? { x: Math.round(hit.x), y: Math.round(hit.y), rot: 0, room: hit.room.name } : null;
+    if (hit.kind !== 'wall') return null;
+    const w = hit.w, x = w.a.x + hit.ux * hit.t + hit.nx * 20, y = w.a.y + hit.uz * hit.t + hit.nz * 20;
+    const wire = editor.wires.find((q) => q.id === w.wid);
+    return { x: Math.round(x), y: Math.round(y), rot: _rotDevice(hit.nx, hit.nz), room: roomNameAt(x, y), mat: wire ? wallMaterial(wire) : null };
+  }
+  function implantChanged(msg) {
+    editor.pushHistory(); editor.render();
+    ensureDesign(true); structKey = null; tick(0, true);
+    build3D(false);
+    if (msg) showToast(msg, 3200);
+  }
+  function implantClick(id, p) {
+    const k = v3.implant;
+    if (k === 'del') {
+      const c = id && byId(id);
+      if (!c || !IMPLANTED.has(c.type)) { showToast('« Retirer » : clique une prise, un interrupteur ou un point lumineux.'); return; }
+      editor.components = editor.components.filter((x) => x.id !== c.id);
+      implantChanged(`<b>${esc(SYMBOLS[c.type].name)}</b> ${esc(c.label || '')} retiré.`);
+      return;
+    }
+    const hit = implantHit(p);
+    if (k.startsWith('mat:')) {
+      const wire = hit && hit.kind === 'wall' && editor.wires.find((q) => q.id === hit.w.wid);
+      if (!wire) { showToast('Clique un mur pour changer son matériau.'); return; }
+      wire.mat = k.slice(4);
+      implantChanged(`Mur : <b>${esc(wallMaterial(wire).label)}</b>.`);
+      return;
+    }
+    const tg = implantTarget(hit);
+    if (!tg) { showToast(IMPLANT[k].ceil ? 'Vise le sol de la pièce : le point se pose au plafond, à l’aplomb.' : 'Vise un mur (la face côté pièce).'); return; }
+    const c = { id: editor.uid(), type: k, x: tg.x, y: tg.y, rot: tg.rot, label: editor.nextRef(k), value: '' };
+    editor.components.push(c);
+    const h = MOUNT_H[k] ? Math.round(MOUNT_H[k] * 100) + ' cm' : '';
+    implantChanged(`<b>${esc(SYMBOLS[k].name)}</b> ${esc(c.label)} posé${tg.room ? ' — ' + esc(tg.room) : ''}` +
+      (IMPLANT[k].ceil ? ' (plafond)' : ` à ${h}, ${tg.mat ? esc(tg.mat.label.toLowerCase()) + (tg.mat.hollow ? ' → boîte cloison sèche' : ' → boîte maçonnerie') : ''}`) + '. Annulable (Ctrl+Z dans le plan).');
+  }
+  function implantHover(id, p) {
+    const k = v3.implant;
+    let h = '';
+    if (k === 'del') {
+      const c = id && byId(id);
+      h = c && IMPLANTED.has(c.type) ? `<b>Retirer</b> ${esc(SYMBOLS[c.type].name)} ${esc(c.label || '')}` : '';
+    } else {
+      const hit = implantHit(p);
+      if (k.startsWith('mat:')) {
+        const wire = hit && hit.kind === 'wall' && editor.wires.find((q) => q.id === hit.w.wid);
+        if (wire) h = `<b>${esc(wallMaterial(wire).label)}</b><span>Clic : ${k === 'mat:placo' ? 'cloison placo 72/48' : 'mur maçonné (parpaing)'}</span>`;
+      } else {
+        const tg = implantTarget(hit);
+        if (tg) h = `<b>${esc(IMPLANT[k].label)}</b>${tg.room ? ' · ' + esc(tg.room) : ''}` +
+          (IMPLANT[k].ceil ? '<span>au plafond, à l’aplomb</span>' : `<span>à ${Math.round((MOUNT_H[k] || 0.3) * 100)} cm · ${tg.mat ? esc(tg.mat.label) : ''}</span><span>${tg.mat && tg.mat.doublage ? 'boîte étanche à l’air (doublage)' : tg.mat && tg.mat.hollow ? 'boîte cloison sèche' : 'boîte maçonnerie'}</span>`);
+      }
+    }
+    cv3.style.cursor = h ? 'crosshair' : '';
+    if (!h) { tip.hidden = true; return; }
+    tip.innerHTML = h + '<em>Clic : ' + (k === 'del' ? 'retirer' : k.startsWith('mat:') ? 'changer le matériau' : 'poser') + '</em>';
+    tip.hidden = false;
+    const r = view3d.getBoundingClientRect();
+    tip.style.left = Math.min(p.x + 16, r.width - 260) + 'px';
+    tip.style.top = Math.min(p.y + 16, r.height - 90) + 'px';
+  }
+  function setImplant(k) {
+    v3.implant = k || null;
+    const on = !!v3.implant;
+    setChip('v3-implant', on);
+    $('v3-implant-kind').hidden = !on;
+    $('v3-matlegend').hidden = !on;
+    document.querySelectorAll('#v3-implant-kind button').forEach((b) => b.classList.toggle('on', b.dataset.k === v3.implant));
+    if (on && v3.walls === 'full' && viz.mode !== 'walk') { // murs coupés : on voit l'intérieur des pièces
+      v3.walls = 'cut';
+      document.querySelectorAll('#v3-walls button').forEach((x) => x.classList.toggle('on', x.dataset.w === 'cut'));
+    }
+    tip.hidden = true;
+    build3D(false);
+  }
+
+  function onPick(id, p) {
+    if (v3.implant && p) { implantClick(id, p); return; }
     const c = id && byId(id);
     if (!c) return;
     if (v3.fault) { faultAt(c); return; }
@@ -1279,6 +1416,7 @@ function initHouseUI(app) {
     }
   }
   function onHover(id, p) {
+    if (v3.implant) { implantHover(id, p); return; }
     // surbrillance : composants et câbles seulement (pas les murs, le toit, le jardin)
     const hid = id && (byId(id) || String(id).startsWith('cable:')) ? id : null;
     if (viz.hoverObj !== hid) { viz.hoverObj = hid; if (!viz._raf) viz.render(); }
@@ -1419,7 +1557,7 @@ function initHouseUI(app) {
     const vis = (el) => el && !el.hidden && el.offsetParent !== null;
     const press = (sel) => { const el = document.querySelector(sel); if (!vis(el)) return false; el.click(); return true; };
     const k = key.toLowerCase();
-    const map = { x: '#v3-xray', c: '#v3-cut-btn', e: '#v3-energy', l: '#v3-lux', j: '#v3-day', f: '#v3-fault', g: '#v3-tour', v: '#btn-3d-video', p: '#btn-3d-photo', o: '#v3-sunpath', 1: '#v3-view [data-v="orbit"]', 2: '#v3-view [data-v="top"]', 3: '#v3-view [data-v="walk"]' };
+    const map = { x: '#v3-xray', c: '#v3-cut-btn', e: '#v3-energy', l: '#v3-lux', i: '#v3-implant', j: '#v3-day', f: '#v3-fault', g: '#v3-tour', v: '#btn-3d-video', p: '#btn-3d-photo', o: '#v3-sunpath', 1: '#v3-view [data-v="orbit"]', 2: '#v3-view [data-v="top"]', 3: '#v3-view [data-v="walk"]' };
     if (map[k]) return press(map[k]);
     if (k === 'm') { // murs : pleins → coupés → plan → extérieur
       const bs = [...document.querySelectorAll('#v3-walls button')];

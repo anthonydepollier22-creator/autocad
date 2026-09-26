@@ -1119,10 +1119,35 @@ document.addEventListener('DOMContentLoaded', () => {
   const statZoom = document.getElementById('stat-zoom');
   const statCount = document.getElementById('stat-count');
 
+  // Propriétés d'un mur : matériau, façade, doublage (boîtes placo / maçonnerie, 3D)
+  const pw = { box: document.getElementById('prop-wall'), mat: document.getElementById('pw-mat'), ext: document.getElementById('pw-ext'),
+    doub: document.getElementById('pw-doub'), doubWrap: document.getElementById('pw-doub-wrap'), len: document.getElementById('pw-len'), note: document.getElementById('pw-note') };
+  const selWall = () => { const ids = [...editor.selection]; return ids.length === 1 ? editor.wires.find((w) => w.id === ids[0] && w.kind === 'wall') : null; };
+  function showWallProps(w) {
+    pw.box.hidden = !w;
+    if (!w) return;
+    const m = wallMaterial(w);
+    let L = 0;
+    for (let i = 1; i < w.points.length; i++) L += Math.hypot(w.points[i].x - w.points[i - 1].x, w.points[i].y - w.points[i - 1].y);
+    pw.len.textContent = fmtMeters(L);
+    pw.mat.value = m.mat; pw.ext.checked = !!w.ext;
+    pw.doubWrap.style.display = w.ext && !WALL_MATS[m.mat].hollow ? '' : 'none';
+    pw.doub.checked = m.doublage;
+    pw.note.textContent = m.hollow ? (m.doublage ? 'Boîtes étanches à l’air dans le doublage (RE 2020), gaines dans l’isolant.' : 'Boîtes pour cloison sèche (à griffes), gaines ICTA dans le vide de la cloison.')
+      : 'Boîtes à sceller, saignées pour les gaines (ou gaines en plinthe / goulotte).';
+  }
+  const wallEdit = (fn) => { const w = selWall(); if (!w) return; fn(w); editor.pushHistory(); editor.render(); if (houseUI) houseUI.redesign(); };
+  pw.mat.addEventListener('change', () => wallEdit((w) => { w.mat = pw.mat.value; }));
+  pw.ext.addEventListener('change', () => wallEdit((w) => { if (pw.ext.checked) w.ext = true; else delete w.ext; }));
+  pw.doub.addEventListener('change', () => wallEdit((w) => { w.doublage = pw.doub.checked; }));
+
   editor.onChange = () => {
     // propriétés
     const sel = [...editor.selection].map((id) => editor.components.find((c) => c.id === id)).filter(Boolean);
-    if (sel.length === 1) {
+    const wsel = sel.length ? null : selWall();
+    showWallProps(wsel);
+    if (wsel) { propBox.style.display = 'none'; propEmpty.style.display = 'none'; }
+    else if (sel.length === 1) {
       propBox.style.display = 'block'; propEmpty.style.display = 'none';
       const sym = SYMBOLS[sel[0].type];
       propType.textContent = sym.name;

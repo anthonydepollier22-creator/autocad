@@ -146,6 +146,19 @@
             <button id="v3-tour" class="chip" aria-pressed="false" hidden title="Visite guidée : toutes les pièces, en passant par les portes (G)">▶ Visite guidée</button>
             <button id="v3-energy" class="chip" aria-pressed="false" title="Énergie : chaque pièce teintée selon la puissance qu'elle consomme (E)">Énergie</button>
             <button id="v3-lux" class="chip" aria-pressed="false" title="Lumière : éclairement (lux) au plan de travail, tout allumé, comparé à l'objectif de chaque pièce (L)">Lumière</button>
+            <button id="v3-implant" class="chip" aria-pressed="false" title="Implanter : poser prises, interrupteurs, points lumineux directement en 3D, sur cloison placo ou mur maçonné (I)">Implanter</button>
+            <div class="seg v3-implant-kind" id="v3-implant-kind" role="group" aria-label="Appareil à poser" hidden>
+              <button type="button" data-k="socket_wall" title="Prise 2P+T 16 A — à 30 cm">Prise</button>
+              <button type="button" data-k="switch_sa" title="Interrupteur — à 1,10 m">Interr.</button>
+              <button type="button" data-k="switch_vv_wall" title="Va-et-vient — à 1,10 m">Va-et-vient</button>
+              <button type="button" data-k="wall_light" title="Applique — à 1,90 m">Applique</button>
+              <button type="button" data-k="rj45" title="Prise RJ45 — à 30 cm">RJ45</button>
+              <button type="button" data-k="dcl" title="Point lumineux DCL au plafond (vise le sol)">Plafond</button>
+              <button type="button" data-k="smoke_detector" title="Détecteur de fumée au plafond (vise le sol)">DAAF</button>
+              <button type="button" data-k="mat:placo" title="Le mur visé devient une cloison placo 72/48">Mur placo</button>
+              <button type="button" data-k="mat:parpaing" title="Le mur visé devient un mur maçonné (parpaing)">Mur maçonné</button>
+              <button type="button" data-k="del" title="Retirer l'appareil visé">Retirer</button>
+            </div>
             <button id="v3-lux-fix" class="chip" hidden title="Poser des appliques dans les pièces sous l'éclairement conseillé (annulable)">＋ Appliques</button>
             <button id="v3-day" class="chip" aria-pressed="false" title="Journée type : 24 heures en 48 secondes — soleil, lumières, appareils, chauffage (J)">Journée</button>
             <button id="v3-cut-btn" class="chip" aria-pressed="false" title="Coupe : trancher la maison par un plan vertical et la regarder de profil (C)">Coupe</button>
@@ -166,6 +179,14 @@
           <button id="btn-3d-close" class="icon-btn" title="Fermer (Échap)">✕</button>
         </div>
         <div id="v3-labels" class="v3-labels" hidden aria-hidden="true"></div>
+        <div id="v3-matlegend" class="v3-matlegend" hidden aria-label="Matériaux des murs">
+          <span><i style="background:#dfe6ef;background-image:repeating-linear-gradient(90deg,transparent 0 5px,#aab4c2 5px 6px)"></i>Placo (montants 60 cm)</span>
+          <span><i style="background:#ece8e1"></i>Carreau de plâtre</span>
+          <span><i style="background:#e5c7ad"></i>Brique</span>
+          <span><i style="background:#d3cec6"></i>Parpaing</span>
+          <span><i style="background:#c9cbcd"></i>Béton</span>
+          <span><i style="background:#e6d3b0"></i>Ossature bois</span>
+        </div>
         <div id="v3-caption" class="v3-caption" aria-live="polite"></div>
         <div id="v3-hud" class="v3-hud" hidden></div>
         <div id="v3-tip" class="v3-tip" hidden></div>
@@ -190,6 +211,22 @@
       <!-- Onglet Propriétés -->
       <div class="tab-panel" data-panel="props">
         <div id="props-empty" class="props-empty">Aucune sélection</div>
+        <div id="prop-wall" class="props" hidden>
+          <div class="prop-type">Mur <span id="pw-len" class="pw-len"></span></div>
+          <label>Matériau
+            <select id="pw-mat">
+              <option value="placo">Cloison placo 72/48 (plaques de plâtre)</option>
+              <option value="carreau">Carreau de plâtre</option>
+              <option value="brique">Brique</option>
+              <option value="parpaing">Parpaing</option>
+              <option value="beton">Béton</option>
+              <option value="bois">Ossature bois</option>
+            </select>
+          </label>
+          <label class="check-row"><input type="checkbox" id="pw-ext" /> Mur extérieur (façade, 20 cm)</label>
+          <label class="check-row" id="pw-doub-wrap"><input type="checkbox" id="pw-doub" /> Doublage placo (isolant + plaque)</label>
+          <p class="pw-note" id="pw-note"></p>
+        </div>
         <div id="props" class="props" style="display:none">
           <div class="prop-type" id="prop-type"></div>
           <label id="prop-label-wrap">Référence
@@ -224,6 +261,7 @@
             <li><b>Maison</b> : génère un studio, un T2, un T3 ou une maison avec mobilier, installation NF C 15-100 et goulottes.</li>
             <li>Plan de maison : <kbd>M</kbd> mur · <kbd>G</kbd> goulotte · <kbd>L</kbd> règle · pose une étiquette <b>Pièce</b> dans chaque pièce pour sa surface et le contrôle NF.</li>
             <li><b>Calque</b> (icône des feuilles) : importe le plan de ta maison en image, mets-le à l’échelle sur une cote connue, puis trace les murs par-dessus (double-clic ou <kbd>Entrée</kbd> pour finir).</li>
+            <li><b>Implanter en 3D</b> (vue 3D, touche <kbd>I</kbd>) : choisis un appareil puis clique un mur (ou le sol pour un point au plafond) ; les murs montrent leur matériau (placo, maçonnerie, doublage). Sélectionne un mur en 2D pour changer son matériau.</li>
             <li><b>Tableau</b> (barre d’outils) : le tableau électrique et son <b>schéma unifilaire</b>, avec ou sans plan — différentiels et circuits modifiables, contrôles NF C 15-100 en direct, folio A3 normalisé, face avant, étiquettes, exports SVG, DXF et PDF.</li>
             <li><b>Importer un plan DXF</b> (icône dossier, ou glisser le fichier) : les murs d’un plan d’architecte (AutoCAD, LibreCAD, ArchiCAD…) sont repris à leur épaisseur avec portes, fenêtres et noms des pièces, puis meublés et équipés en un clic. Rez-de-chaussée et étage dessinés sur la même feuille sont superposés en 3D, reliés par l’escalier. Pas de plan sous la main ? Plans d’exemple : <a href="samples/plan-exemple-t4.dxf" download>T4</a>, <a href="samples/plan-exemple-r1.dxf" download>maison à étage</a>.</li>
             <li><b>DXF</b> : exporte le plan pour AutoCAD, LibreCAD ou QCAD, en mètres, avec un calque par nature d’objet (murs, menuiseries, électricité, goulottes, fils, cotes).</li>

@@ -19,7 +19,7 @@ const MAT_PRICES = {
   cable: { 1.5: 0.82, 2.5: 1.18, 4: 2.1, 6: 3.25, 10: 5.6, 16: 8.9 }, // gaine ICTA préfilée 3G…, €/m
   conduit: 4.6,         // goulotte / plinthe technique, €/m
   socket: 4.9, switchSa: 5.2, switchVv: 6.4, dcl: 3.6, rj45: 12.5, cableOut32: 9.5, cableOut20: 6.5, smoke: 19.9,
-  box: 0.65, boxDcl: 3.2,
+  box: 0.65, boxDcl: 3.2, boxPlaco: 0.95, boxAir: 1.9, // boîtes : maçonnerie, cloison sèche, étanche à l'air (doublage)
   gtl: 95,
   // équipements (facultatifs)
   radiator: 240, vmc: 115, evCharger: 690,
@@ -99,8 +99,19 @@ function materialList(components, wires, design) {
   add('Appareillage', 'Sortie de câble 32 A (plaque)', count('cooktop'), 'u', P.cableOut32);
   add('Appareillage', 'Sortie de câble 20 A (chauffe-eau, radiateurs)', count('water_heater') + count('radiator'), 'u', P.cableOut20);
   add('Appareillage', 'Détecteur de fumée (DAAF)', count('smoke_detector'), 'u', P.smoke);
-  const boxes = count('socket_wall') + special20 + count('switch_sa') + count('switch_vv_wall') + count('rj45') + count('cooktop') + count('water_heater') + count('radiator');
-  add('Appareillage', 'Boîte d’encastrement', boxes, 'u', P.box);
+  // Boîtes d'encastrement selon le mur : cloison sèche (placo, ossature bois), doublage
+  // d'un mur extérieur (boîte étanche à l'air, RE 2020) ou maçonnerie
+  const BOXED = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'cooktop', 'water_heater', 'radiator', 'washer', 'dishwasher', 'dryer', 'oven']);
+  const box = { placo: 0, air: 0, mac: 0 };
+  for (const c of components) {
+    if (!BOXED.has(c.type)) continue;
+    const nw = typeof nearestWall === 'function' ? nearestWall(wires, c.x, c.y, 60) : null;
+    const m = nw ? wallMaterial(nw.w) : null;
+    if (m && m.doublage) box.air++; else if (m && m.hollow) box.placo++; else box.mac++;
+  }
+  add('Appareillage', 'Boîte d’encastrement cloison sèche (placo) Ø 67', box.placo, 'u', P.boxPlaco);
+  add('Appareillage', 'Boîte d’encastrement étanche à l’air (doublage, RE 2020)', box.air, 'u', P.boxAir);
+  add('Appareillage', 'Boîte d’encastrement maçonnerie', box.mac, 'u', P.box);
   add('Appareillage', 'Boîte DCL de plafond', count('dcl'), 'u', P.boxDcl);
 
   // --- Équipements (facultatifs, souvent achetés à part) -------------------------
