@@ -998,7 +998,7 @@ body.light .day-sec { --dc7: #4a3aa7; }
 .bd-table select[data-cf="phase"] { width: 62px; }
 .bd-table select.bd-auto { color: var(--muted); font-style: italic; }
 .bd-table th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); padding: 7px 6px; background: var(--surface-2); position: sticky; top: 0; }
-.bd-table td { padding: 4px 4px; border-top: 1px solid var(--border); vertical-align: middle; }
+.bd-table td { padding: 4px 3px; border-top: 1px solid var(--border); vertical-align: middle; }
 .bd-table tr.bd-rcd td { background: var(--accent-soft); padding: 7px 8px; }
 .bd-table tr.bd-rcd b { color: var(--accent); margin-right: 6px; }
 .bd-table tr.bd-rcd b.bad { color: var(--danger); }
@@ -1020,13 +1020,14 @@ body.light .day-sec { --dc7: #4a3aa7; }
 .bd-move { display: inline-flex; flex-direction: column; vertical-align: middle; margin-left: 2px; }
 .bd-move button { font-size: 7px; line-height: 1; width: 16px; height: 12px; padding: 0; border: none; background: none; color: var(--faint); cursor: pointer; }
 .bd-move button:hover { color: var(--accent); }
-.bd-name { width: 100%; min-width: 110px; }
-.bd-table td small { display: block; color: var(--faint); font-size: 10.5px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+.bd-name { width: 100%; min-width: 96px; }
+.bd-table td small { display: block; color: var(--faint); font-size: 10.5px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 112px; }
 .bd-load { white-space: nowrap; }
-.bd-load input { width: 52px; }
+.bd-load input { width: 60px; }
 .bd-load em { font-style: normal; color: var(--muted); margin-left: 3px; }
 .bd-ro { color: var(--muted); }
-.bd-acts { white-space: nowrap; }
+.bd-acts { white-space: normal; width: 78px; line-height: 0; } /* boutons sur deux lignes au besoin */
+.bd-acts > * { margin-top: 1px; margin-bottom: 1px; }
 .bd-acts button, .bd-x {
   font: inherit; font-size: 10.5px; font-weight: 700; min-width: 22px; height: 23px; padding: 0 4px; margin-left: 1px; border-radius: 6px;
   border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer;
