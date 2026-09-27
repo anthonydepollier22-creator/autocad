@@ -2062,12 +2062,12 @@ function drawDetails(ctx, design, meta, opts) {
   }
   const box = (cm, col) => { const x = px(cm + 12), r = 3.35 * k3, dpt = 4 * k3; ctx.save(); ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.rect(x - r, yA - 2 * pl, 2 * r, dpt + 2 * pl); ctx.fill(); ctx.restore(); rect(x - r, yA - 2 * pl, 2 * r, dpt + 2 * pl, col, null, 1.3); line([[x - r - 4, yA - 2 * pl], [x + r + 4, yA - 2 * pl]], col, 2); return x; };
   const bBad = box(0, red), bOk = box(30, blue), bMin = box(60 - STUD_CLEAR, blue);
-  line([[bBad - 12, yA - 2 * pl - 10], [bBad + 12, yA + 14]], red, 1.6); line([[bBad + 12, yA - 2 * pl - 10], [bBad - 12, yA + 14]], red, 1.6);
+  line([[bBad - 12, yA - 2 * pl - 4], [bBad + 12, yA + 14]], red, 1.6); line([[bBad + 12, yA - 2 * pl - 4], [bBad - 12, yA + 14]], red, 1.6);
   line([[bOk, yA + 4 * k3], [bOk, yB - 3], [px(72) + 20, yB - 3]], red, 1.3, [5, 2]); // gaine entre les plaques, par la lumière du montant
   layer('TEXTES');
   text('boîte Ø 67 mm', bOk, yA - 2 * pl - 8, { size: 7, color: blue, align: 'center' });
   text('au plus près', bMin, yA - 2 * pl - 8, { size: 7, color: blue, align: 'center' });
-  text('interdit : sur un montant', bBad, yA - 2 * pl - 8, { size: 7, color: red, align: 'center' });
+  text('interdit : sur un montant', bBad, yA - 2 * pl - 16, { size: 7, color: red, align: 'center' });
   text('gaine ICTA par la lumière du montant', px(36), yB + 2 * pl + 14, { size: 7, color: red });
   text('montant M48', px(72) + 14, yB + 2 * pl + 14, { size: 7, color: mute });
   text('Pièce A', cx0, yA - 2 * pl - 50, { size: 7, color: mute }); text('Pièce B', cx0, yB + 2 * pl + 34, { size: 7, color: mute });
