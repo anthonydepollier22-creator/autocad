@@ -34,6 +34,7 @@ function initBoardUI(app) {
   const evPages = (d) => evSVGs(d, meta());
   const detPages = (d) => [detailsSVG(d, meta())];
   const cabPages = (d) => cableSVGs(d, meta(), editor.components, editor.wires);
+  const synPages = (d) => [synopticSVG(d, meta(), editor.components, editor.wires)];
 
   function open() {
     modal.hidden = false;
@@ -191,8 +192,8 @@ function initBoardUI(app) {
       svg = pages[st.folio];
       $('bd-folios').hidden = pages.length < 2;
       $('bd-folio-lbl').textContent = `Folio ${st.folio + 1} / ${pages.length}`;
-    } else if (st.view === 'calc' || st.view === 'cables' || st.view === 'dev' || st.view === 'vdi' || st.view === 'elev' || st.view === 'wiring' || st.view === 'labels' || st.view === 'nomen' || st.view === 'heat' || st.view === 'vr' || st.view === 'earth' || st.view === 'wet' || st.view === 'pv' || st.view === 'ev' || st.view === 'details') {
-      const pages = st.view === 'cables' ? cabPages(d) : st.view === 'details' ? detPages(d) : st.view === 'ev' ? evPages(d) : st.view === 'earth' ? earthPages(d) : st.view === 'wet' ? wetPages(d) : st.view === 'pv' ? pvPages(d) : st.view === 'calc' ? calcNoteSVGs(d, meta()) : st.view === 'dev' ? devSVGs(d) : st.view === 'elev' ? elevPages(d) : st.view === 'wiring' ? boardWiringSVGs(d, meta()) : st.view === 'labels' ? boardLabelsSVGs(d, meta()) : st.view === 'nomen' ? nomenPages(d) : st.view === 'heat' ? heatPages(d) : st.view === 'vr' ? vrPages(d) : vdiPages(d);
+    } else if (st.view === 'calc' || st.view === 'syn' || st.view === 'cables' || st.view === 'dev' || st.view === 'vdi' || st.view === 'elev' || st.view === 'wiring' || st.view === 'labels' || st.view === 'nomen' || st.view === 'heat' || st.view === 'vr' || st.view === 'earth' || st.view === 'wet' || st.view === 'pv' || st.view === 'ev' || st.view === 'details') {
+      const pages = st.view === 'syn' ? synPages(d) : st.view === 'cables' ? cabPages(d) : st.view === 'details' ? detPages(d) : st.view === 'ev' ? evPages(d) : st.view === 'earth' ? earthPages(d) : st.view === 'wet' ? wetPages(d) : st.view === 'pv' ? pvPages(d) : st.view === 'calc' ? calcNoteSVGs(d, meta()) : st.view === 'dev' ? devSVGs(d) : st.view === 'elev' ? elevPages(d) : st.view === 'wiring' ? boardWiringSVGs(d, meta()) : st.view === 'labels' ? boardLabelsSVGs(d, meta()) : st.view === 'nomen' ? nomenPages(d) : st.view === 'heat' ? heatPages(d) : st.view === 'vr' ? vrPages(d) : vdiPages(d);
       st.folio = Math.min(st.folio, pages.length - 1);
       svg = pages[st.folio];
       $('bd-folios').hidden = pages.length < 2;
@@ -318,13 +319,16 @@ function initBoardUI(app) {
     const k = b.dataset.bx;
     if (k === 'svg') {
       const folio = (pages) => pages[st.folio] || pages[0];
-      const svg = st.view === 'uni' ? unifilarSVG(d, meta()) : st.view === 'calc' ? folio(calcNoteSVGs(d, meta())) : st.view === 'cables' ? folio(cabPages(d)) : st.view === 'dev' ? folio(devSVGs(d)) : st.view === 'vdi' ? folio(vdiPages(d)) : st.view === 'elev' ? folio(elevPages(d)) : st.view === 'wiring' ? folio(boardWiringSVGs(d, meta())) : st.view === 'front' ? boardFrontSVG(d, meta()) : st.view === 'nomen' ? folio(nomenPages(d)) : st.view === 'heat' ? folio(heatPages(d)) : st.view === 'vr' ? folio(vrPages(d)) : st.view === 'earth' ? earthingSVG(d, meta()) : st.view === 'wet' ? folio(wetPages(d)) : st.view === 'pv' ? folio(pvPages(d)) : st.view === 'ev' ? folio(evPages(d)) : st.view === 'details' ? detailsSVG(d, meta()) : folio(boardLabelsSVGs(d, meta()));
-      const what = { uni: 'unifilaire', calc: 'note de calcul', cables: 'carnet de câbles', dev: 'schémas développés', vdi: 'communication', elev: 'élévations', wiring: 'câblage du tableau', front: 'face avant', labels: 'étiquettes', nomen: 'nomenclature', heat: 'chauffage fil pilote', vr: 'volets roulants', earth: 'mise à la terre', wet: 'salles d’eau', pv: 'photovoltaïque', ev: 'borne de recharge', details: 'détails de pose' }[st.view];
+      const svg = st.view === 'uni' ? unifilarSVG(d, meta()) : st.view === 'calc' ? folio(calcNoteSVGs(d, meta())) : st.view === 'syn' ? folio(synPages(d)) : st.view === 'cables' ? folio(cabPages(d)) : st.view === 'dev' ? folio(devSVGs(d)) : st.view === 'vdi' ? folio(vdiPages(d)) : st.view === 'elev' ? folio(elevPages(d)) : st.view === 'wiring' ? folio(boardWiringSVGs(d, meta())) : st.view === 'front' ? boardFrontSVG(d, meta()) : st.view === 'nomen' ? folio(nomenPages(d)) : st.view === 'heat' ? folio(heatPages(d)) : st.view === 'vr' ? folio(vrPages(d)) : st.view === 'earth' ? earthingSVG(d, meta()) : st.view === 'wet' ? folio(wetPages(d)) : st.view === 'pv' ? folio(pvPages(d)) : st.view === 'ev' ? folio(evPages(d)) : st.view === 'details' ? detailsSVG(d, meta()) : folio(boardLabelsSVGs(d, meta()));
+      const what = { uni: 'unifilaire', calc: 'note de calcul', cables: 'carnet de câbles', syn: 'synoptique', dev: 'schémas développés', vdi: 'communication', elev: 'élévations', wiring: 'câblage du tableau', front: 'face avant', labels: 'étiquettes', nomen: 'nomenclature', heat: 'chauffage fil pilote', vr: 'volets roulants', earth: 'mise à la terre', wet: 'salles d’eau', pv: 'photovoltaïque', ev: 'borne de recharge', details: 'détails de pose' }[st.view];
       download(new Blob([svg], { type: 'image/svg+xml' }), fileName(base() + ' - ' + what + '.svg'));
     } else if (k === 'dxf') {
       if (st.view === 'calc') {
         download(new Blob([calcNoteDXF(d, meta())], { type: 'application/dxf' }), fileName(base() + ' - note de calcul.dxf'));
         showToast('Note de calcul exportée en <b>DXF</b> (millimètres, calques TEXTES et CARTOUCHE).', 3500);
+      } else if (st.view === 'syn') {
+        download(new Blob([synopticDXF(d, meta(), editor.components, editor.wires)], { type: 'application/dxf' }), fileName(base() + ' - synoptique.dxf'));
+        showToast('Synoptique exporté en <b>DXF</b> (millimètres, calques SCHEMA, TEXTES, CARTOUCHE).', 3500);
       } else if (st.view === 'cables') {
         download(new Blob([cableDXF(d, meta(), editor.components, editor.wires)], { type: 'application/dxf' }), fileName(base() + ' - carnet de câbles.dxf'));
         showToast('Carnet de câbles exporté en <b>DXF</b> (millimètres, calques TEXTES et CARTOUCHE).', 3500);

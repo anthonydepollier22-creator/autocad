@@ -960,6 +960,139 @@ function calcNoteCSV(design) {
 }
 
 // ---------------------------------------------------------------------------
+// Synoptique de l'installation : du réseau au tableau principal (compteur,
+// AGCP), les départs regroupés par usage, les tableaux divisionnaires et les
+// circuits particuliers (photovoltaïque, borne), la mise à la terre et la
+// communication — la vue d'ensemble qui ouvre le dossier
+// ---------------------------------------------------------------------------
+function drawSynoptic(ctx, design, meta, components, wires) {
+  const D = design.root || design, N = calcNote(D), a = N.agcp || { kva: 0, setting: 0 };
+  const ink = '#1a2230', mute = '#5b6b82', blue = '#1668c4', green = '#1e7b34', amber = '#b26a00';
+  const layer = (n) => { if ('layer' in ctx) ctx.layer = n; };
+  const text = (t, x, y, o) => {
+    o = o || {};
+    ctx.save(); ctx.fillStyle = o.color || ink; ctx.font = `${o.bold ? 'bold ' : ''}${o.size || 8}px sans-serif`;
+    ctx.textAlign = o.align || 'left'; ctx.fillText(t, x, y); ctx.restore();
+  };
+  const fit = (t, n) => (String(t).length > n ? String(t).slice(0, n - 1) + '…' : String(t));
+  const pl = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
+  const box = (x, y, w, h, title, lines, o) => {
+    o = o || {};
+    if (!('layer' in ctx)) { ctx.fillStyle = o.fill || '#f5f7fa'; ctx.beginPath(); ctx.rect(x, y, w, h); ctx.fill(); }
+    layer('SCHEMA'); ctx.strokeStyle = o.color || ink; ctx.lineWidth = o.bold ? 1.6 : 1; ctx.strokeRect(x, y, w, h); ctx.strokeStyle = ink;
+    layer('TEXTES');
+    const n = Math.max(8, Math.floor((w - 12) / 4.6));
+    text(fit(title, Math.floor((w - 12) / 5.2)), x + 7, y + 14, { bold: true, size: 9, color: o.color || ink });
+    (lines || []).filter(Boolean).slice(0, Math.floor((h - 20) / 11)).forEach((l, i) => text(fit(l, n), x + 7, y + 27 + i * 11, { size: 7.5, color: mute }));
+  };
+  const link = (pts, o) => {
+    o = o || {}; layer('SCHEMA');
+    ctx.save(); ctx.strokeStyle = o.color || ink; ctx.lineWidth = o.w || 1.3; if (o.dash) ctx.setLineDash(o.dash);
+    ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore();
+    if (o.arrow) { const [x2, y2] = pts[pts.length - 1], [x1, y1] = pts[pts.length - 2], an = Math.atan2(y2 - y1, x2 - x1); ctx.save(); ctx.fillStyle = o.color || ink; ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x2 - 7 * Math.cos(an - 0.4), y2 - 7 * Math.sin(an - 0.4)); ctx.lineTo(x2 - 7 * Math.cos(an + 0.4), y2 - 7 * Math.sin(an + 0.4)); ctx.closePath(); ctx.fill(); ctx.restore(); }
+  };
+  ctx.save(); ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  layer('CARTOUCHE');
+  _uCartouche(ctx, D, meta, 'Synoptique de l’installation', 0, 1);
+  layer('TEXTES');
+  text('Synoptique de l’installation', 30, 46, { bold: true, size: 17 });
+  text('Du réseau aux circuits : comptage, disjoncteur de branchement, tableau principal et divisionnaires, usages, terre et communication', 290, 45, { size: 8.5, color: mute });
+  // --- chaîne d'alimentation -------------------------------------------------
+  const yC = 70, hC = 66, hc = D.circuits.filter((c) => c.contactor === 'hc');
+  box(40, yC, 150, hC, 'Réseau public', [N.tri ? '400 V ~ 3P+N, 50 Hz' : '230 V ~, 50 Hz', 'branchement du distributeur', 'schéma TT']);
+  box(230, yC, 160, hC, 'Compteur communicant', ['comptage de l’énergie', hc.length ? 'relais C1-C2 : heures creuses' : 'relais C1-C2 disponible', 'téléinformation client']);
+  box(430, yC, 180, hC, 'Disjoncteur de branchement', [`AGCP ${N.tri ? '4P' : '2P'} ${a.setting} A`, 'différentiel 500 mA sélectif', `abonnement ${a.kva} kVA`]);
+  const main = D.circuits.filter((c) => !c.panel && c.kind !== 'sub'), rcdMain = D.rcds.filter((r) => !r.panel).length;
+  const tpX = 650, tpW = 250;
+  box(tpX, yC - 6, tpW, hC + 30, 'Tableau principal (GTL)', [`${pl(main.length, 'circuit')} · ${rcdMain} interrupteur${rcdMain > 1 ? 's' : ''} différentiel${rcdMain > 1 ? 's' : ''} 30 mA`,
+    (D.panels || []).length ? `${pl(D.panels.length, 'départ')} vers tableau divisionnaire` : '', D.supply && D.supply.surge ? 'parafoudre type 2' : '', D.supply && D.supply.shed ? 'délesteur (fil pilote)' : '',
+    `puissance probable ${_bNum((N.probable || 0) / 1000, 1)} kW`].filter(Boolean), { bold: true, fill: '#eef3fb' });
+  const ym = yC + hC / 2;
+  link([[190, ym], [230, ym]], { arrow: true }); link([[390, ym], [430, ym]], { arrow: true }); link([[610, ym], [tpX, ym]], { arrow: true });
+  if (hc.length) { link([[310, yC + hC], [310, yC + hC + 22], [tpX + 30, yC + hC + 22], [tpX + 30, yC + hC + 24]], { color: amber, dash: [4, 3], w: 1 }); layer('TEXTES'); text(`signal heures creuses → ${hc.map((c) => c.id).join(', ')}`, 320, yC + hC + 18, { size: 7, color: amber }); }
+  // communication, à droite du tableau (dans la GTL)
+  const rj = (components || []).some((c) => c.type === 'rj45'), V = rj && typeof vdiDesign === 'function' ? vdiDesign(components, wires) : null;
+  box(940, yC - 6, 210, hC + 30, 'Coffret de communication (GTL)', V && V.ok ? [`grade ${V.grade} · panneau ${V.panel} ports`, `${pl(V.links.length, 'prise')} RJ45 catégorie 6`, 'câblage en étoile', 'arrivée opérateur : fibre ou cuivre (DTIo)'] : ['grade 2TV au moins', 'une prise RJ45 par pièce principale', 'arrivée opérateur : fibre ou cuivre (DTIo)'], { color: blue });
+  link([[tpX + tpW, ym + 30], [940, ym + 30]], { color: blue, w: 1 }); layer('TEXTES'); text('prise 2P+T', tpX + tpW + 6, ym + 26, { size: 6.5, color: blue });
+  // --- départs du tableau principal, regroupés par usage ------------------------
+  const ev = evCircuits(D), pv = pvCircuits(D), special = new Set(ev.concat(pv).map((c) => c.id));
+  const kinds = [
+    ['Éclairage', (c) => c.kind === 'light', (L) => [`${pl(L.length, 'circuit')} · ${L.reduce((s, c) => s + (c.points || 0), 0)} points`, `${[...new Set(L.map((c) => (c.curve || 'C') + c.In))].join(' / ')} · 1,5 mm²`, L.some((c) => c.teleruptor) ? 'télérupteur' : '']],
+    ['Prises de courant', (c) => c.kind === 'socket', (L) => [`${pl(L.length, 'circuit')} · ${L.reduce((s, c) => s + (c.points || 0), 0)} socles`, 'C20 · 2,5 mm²', L.some((c) => /cuisine/i.test(c.name)) ? 'cuisine : circuit dédié' : '']],
+    ['Chauffage', (c) => c.kind === 'heating', (L) => [`${pl(L.length, 'circuit')} · ${_bNum(L.reduce((s, c) => s + (c.power || 0), 0) / 1000, 1)} kW`, D.supply && D.supply.shed ? 'fil pilote : délesteur' : 'fil pilote : programmateur']],
+    ['Volets roulants', (c) => c.appliance === 'shutter', (L) => [pl(L.length, 'circuit'), 'commandes montée / descente']],
+    ['Circuits spécialisés', (c) => c.kind === 'dedicated' || c.kind === 'other', (L) => [pl(L.length, 'circuit'), L.map((c) => c.name.replace(/ \(.*\)$/, '')).join(', '), L.some((c) => c.contactor === 'hc') ? 'chauffe-eau : contacteur HC' : '']],
+  ];
+  const groups = [], used = new Set();
+  for (const [title, f, desc] of kinds) {
+    const L = main.filter((c) => !used.has(c.id) && !special.has(c.id) && f(c));
+    L.forEach((c) => used.add(c.id));
+    if (L.length) groups.push({ title, lines: desc(L) });
+  }
+  const row = (items, y, busY, fromX) => {
+    if (!items.length) return;
+    const gap = 14, w = Math.min(190, (UNI.W - 110 - gap * (items.length - 1)) / items.length), h = 76;
+    const xs = items.map((_, i) => 60 + i * (w + gap));
+    link([[fromX, busY], [Math.max(xs[xs.length - 1] + w / 2, fromX), busY]]);
+    link([[Math.min(fromX, xs[0] + w / 2), busY], [fromX, busY]]);
+    items.forEach((it, i) => { link([[xs[i] + w / 2, busY], [xs[i] + w / 2, y]], { arrow: true }); box(xs[i], y, w, h, it.title, it.lines, it.o); });
+  };
+  const busA = 196, yA = 212, busB = 318, yB = 334, trunkX = 40;
+  link([[tpX + tpW / 2, yC + hC + 24], [tpX + tpW / 2, busA]]);
+  row(groups, yA, busA, tpX + tpW / 2);
+  // --- tableaux divisionnaires et circuits particuliers ------------------------------
+  const specials = [];
+  for (const P of D.panels || []) {
+    const f = P.feeder, down = D.circuits.filter((c) => c.panel === P.id);
+    specials.push({ title: `${P.ref} — ${P.name}`, o: { fill: '#f4effb', color: '#6b3fa0' }, lines: [`ligne ${boardCable(f.S, f.phase)}${f.buried ? ' enterrée' : ''} · ${_bNum(f.length || 0, 1)} m`, `${f.curve || 'C'}${f.In} en tête du TP`, `${pl(down.length, 'circuit')} : ${down.map((c) => c.name.replace(/ TD\d+$/, '')).join(', ')}`] });
+  }
+  for (const c of pv) {
+    const L = typeof pvLayout === 'function' ? pvLayout(c) : { kwc: 0 };
+    specials.push({ title: 'Production photovoltaïque', o: { fill: '#fff8e6', color: amber }, lines: [`${_bNum(L.kwc || 0, 1)} kWc · onduleur`, `${c.id} : disjoncteur ${c.curve || 'C'}${c.In}`, 'différentiel 30 mA type A', c.panelRef ? `depuis ${c.panelRef}` : 'depuis le tableau principal', 'deux sources : signalisation'] });
+  }
+  for (const c of ev) specials.push({ title: 'Borne de recharge (IRVE)', o: { fill: '#eef7ef', color: green }, lines: [`${_bNum((c.power || 0) / 1000, 1)} kW · mode 3`, `${c.id} : disjoncteur ${c.curve || 'C'}${c.In}`, `différentiel 30 mA${c.typeF ? ' type F' : c.typeA ? ' type A' : ''}`, c.panelRef ? `depuis ${c.panelRef}` : 'depuis le tableau principal', c.contactor === 'hc' ? 'recharge en heures creuses' : ''] });
+  if (specials.length) {
+    link([[tpX + tpW / 2, busA], [tpX + tpW / 2, busA]]);
+    const x0 = groups.length ? 60 + (Math.min(190, (UNI.W - 110 - 14 * (groups.length - 1)) / groups.length)) / 2 : tpX + tpW / 2;
+    link([[Math.min(x0, tpX + tpW / 2), busA], [trunkX, busA], [trunkX, busB]]);
+    row(specials, yB, busB, trunkX);
+  }
+  // --- terre et liaisons équipotentielles ---------------------------------------------
+  const yE = 450, hE = 62, wet = earthWetRooms(D), lep = earthLepS();
+  layer('TEXTES'); text('Mise à la terre', 40, yE - 10, { bold: true, size: 10, color: green });
+  box(40, yE, 150, hE, 'Prise de terre', [N.ra ? `RA = ${_bNum(N.ra)} Ω mesurée` : `RA ≤ ${N.raMax} Ω (AGCP 500 mA)`, 'boucle à fond de fouille', 'ou piquet'], { color: green });
+  box(230, yE, 130, hE, 'Barrette de coupure', ['mesure de la terre', 'près de la GTL'], { color: green });
+  box(400, yE, 170, hE, 'Borne principale de terre', ['bornier du tableau principal', 'PE de chaque circuit'], { color: green });
+  link([[190, yE + hE / 2], [230, yE + hE / 2]], { color: green, arrow: true }); link([[360, yE + hE / 2], [400, yE + hE / 2]], { color: green, arrow: true });
+  layer('TEXTES'); text(`${EARTH_S.earth} mm² Cu`, 196, yE + hE / 2 - 5, { size: 6.5, color: green }); text(`${EARTH_S.main} mm² Cu`, 364, yE + hE / 2 - 5, { size: 6.5, color: green });
+  box(40, yE + hE + 30, 250, 52, 'Liaison équipotentielle principale', [`${lep} mm² : eau, gaz, chauffage, structure`], { color: green });
+  link([[420, yE + hE], [420, yE + hE + 15], [165, yE + hE + 15], [165, yE + hE + 30]], { color: green, arrow: true });
+  if (wet.length) { box(330, yE + hE + 30, 240, 52, 'Liaison équipotentielle supplémentaire', [`${EARTH_S.les} mm² : ${wet.map((w) => w.name).join(', ')}`], { color: green }); link([[520, yE + hE], [520, yE + hE + 30]], { color: green, arrow: true }); }
+  // --- bilan ---------------------------------------------------------------------
+  const tot = D.circuits.filter((c) => c.kind !== 'sub').length;
+  const xs = 640;
+  layer('TEXTES'); text('Bilan', xs, yE - 10, { bold: true, size: 10 });
+  [
+    `${tot} circuit${tot > 1 ? 's' : ''} terminau${tot > 1 ? 'x' : 'l'}, ${D.rcds.length} interrupteur${D.rcds.length > 1 ? 's' : ''} différentiel${D.rcds.length > 1 ? 's' : ''} 30 mA${(D.panels || []).length ? `, ${pl(D.panels.length, 'tableau divisionnaire')}` : ''}`,
+    `Puissance installée ${_bNum((D.installed || 0) / 1000, 1)} kW · probable ${_bNum((N.probable || 0) / 1000, 1)} kW pour ${a.kva} kVA`,
+    `${_bNum(D.cableTotal || 0)} m de câble mesurés sur le plan (carnet de câbles)`,
+    N.tri && D.phaseLoad ? `Phases : L1 ${_bNum(D.phaseLoad.L1 / 1000, 1)} kW · L2 ${_bNum(D.phaseLoad.L2 / 1000, 1)} kW · L3 ${_bNum(D.phaseLoad.L3 / 1000, 1)} kW` : 'Monophasé : un seul jeu de barres phase / neutre',
+    'Détail : schéma unifilaire, note de calcul, schémas développés, folios particuliers',
+  ].forEach((l, i) => text(l, xs, yE + 8 + i * 16, { size: 8.5, color: i === 4 ? mute : ink }));
+  ctx.restore();
+}
+function synopticSVG(design, meta, components, wires) {
+  const ctx = new SVGContext();
+  drawSynoptic(ctx, design, meta, components, wires);
+  return _folioWrap(ctx.out.join(''));
+}
+function synopticDXF(design, meta, components, wires) {
+  const ctx = new DXFContext();
+  drawSynoptic(ctx, design, meta, components, wires);
+  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: UNI.H }, { U: 1 / 0.3528, insunits: 4, layers: [['SCHEMA', 7], ['TEXTES', 2], ['CARTOUCHE', 8]] });
+}
+
+// ---------------------------------------------------------------------------
 // Carnet de câbles : chaque liaison (repère W…), son origine et sa destination,
 // la nature du câble, sa composition, le conduit (conducteurs dans le tiers au
 // plus de la section intérieure, NF C 15-100) et la longueur mesurée sur le plan
@@ -2417,6 +2550,7 @@ function _technicalSeries(design, components, wires) {
     if (design.net && design.net.edges.length) S.push({ title: 'Plan de câblage', what: 'Cheminement de chaque circuit dans les goulottes, jusqu’aux appareils', n: 1,
       svg: (m) => planFolioSVG(design, m, components, wires, true), draw: (ctx, m) => _planPlaceholder(ctx, design, m, 'Plan de câblage — cheminement des circuits') });
   }
+  S.push({ title: 'Synoptique', what: 'Réseau, compteur, AGCP, tableaux, usages, terre et communication', n: 1, draw: (ctx, m) => drawSynoptic(ctx, design, m, components, wires) });
   const td = (design.panels || []).length ? `, ${design.panels.map((p) => p.ref).join(', ')}` : '';
   S.push({ title: 'Schéma unifilaire', what: (td ? 'Tableau principal' + td + ' : ' : 'Arrivée, AGCP, ') + 'différentiels, disjoncteurs, nomenclature des départs', n: unifilarLayout(design).folios.length, draw: (ctx, m, k) => drawUnifilar(ctx, design, m, k) });
   S.push({ title: 'Câblage du tableau', what: td ? 'Tableau principal' + td + ' : liaisons, peignes, départs, borniers de terre' : 'Liaison AGCP, peignes, départs, bornier de terre', n: boardWiringFolios(design), draw: (ctx, m, k) => drawBoardWiring(ctx, design, m, k) });

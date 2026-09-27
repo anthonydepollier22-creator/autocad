@@ -1390,6 +1390,16 @@ r = run(`(function(){
 })()`);
 check('Carnet de câbles : chaque circuit (H07V-U / R2V, conduit ICTA au tiers), commandes, terre, bilans ; dossier, DXF, CSV', r.all && r.ref && r.icta.join() === '16,20,25,' && r.sock === 'ICTA Ø 20' && /U-1000 R2V/.test(r.sub) && r.vv === '3 × 1,5 true' && r.heat === 'ICTA Ø 20' && r.pe && r.les && r.tot && r.set && r.txt && !r.nan && r.dxf && r.csv, JSON.stringify(r));
 
+// Synoptique : chaîne réseau → compteur → AGCP → TP, usages, TD et borne, terre, communication ; dossier, DXF
+r = run(`(function(){
+  var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d = designInstallation(h.components, h.wires);
+  var svg = synopticSVG(d, {}, h.components, h.wires), T = technicalSet(d, {}, h.components, h.wires);
+  var b = boardTemplate(90, { pv: true, ev: true }), d2 = designInstallation([], [], b), svg2 = synopticSVG(d2, {}, [], []);
+  return { parts: ['Réseau public', 'Compteur communicant', 'AGCP 2P', 'Tableau principal (GTL)', 'Éclairage', 'Prises de courant', 'Chauffage', 'TD1', 'Borne de recharge (IRVE)', 'Prise de terre', 'Liaison équipotentielle principale', 'Coffret de communication', 'signal heures creuses'].every(function(t){ return svg.indexOf(t) > 0; }),
+    pv: /Production photovoltaïque/.test(svg2) && /type A/.test(svg2), first: T.entries[2] && T.entries[2].title === 'Synoptique', dxf: /EOF\\s*$/.test(synopticDXF(d, {}, h.components, h.wires)), nan: /NaN|undefined/.test(svg + svg2) };
+})()`);
+check('Synoptique : réseau, compteur, AGCP, tableau principal, départs par usage, TD et borne, terre, communication ; PV sans plan ; dossier, DXF', r.parts && r.pv && r.first && r.dxf && !r.nan, JSON.stringify(r));
+
 // Schémas développés : contacteur heures creuses (compteur C1-C2, sélecteur, bobine, deux pôles) et horloge
 r = run(`(function(){
   var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d0 = designInstallation(h.components, h.wires);

@@ -270,6 +270,12 @@ l'éditeur du tableau, **avec ou sans plan** :
   triphasé, peigne à quatre barres (L1 marron, L2 noir, L3 gris, N bleu), chaque
   circuit sur sa phase et départs 3P+N ;
   le métré ajoute les conducteurs de liaison. Export SVG et DXF ;
+- **Synoptique** (folio A3, vue « Synoptique », en tête du dossier) : réseau public,
+  compteur communicant (signal heures creuses C1-C2 vers les contacteurs), disjoncteur de
+  branchement, tableau principal dans la GTL, départs regroupés par usage (éclairage,
+  prises, chauffage, volets, spécialisés), tableaux divisionnaires avec leur ligne,
+  photovoltaïque et borne de recharge, prise de terre → barrette → borne principale
+  (LEP, LES), coffret de communication, et le bilan ; export SVG et DXF ;
 - **Note de calcul** (folio A3, méthode conventionnelle du guide UTE C 15-105) : pour
   chaque circuit Ib, protection, câble, **Iz** (méthode B, 2 ou 3 conducteurs chargés),
   longueur jusqu'à l'appareil le plus éloigné, **ΔU**, **Icc mini** en bout de ligne
@@ -864,7 +870,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-218 vérifications sans dépendance : valeurs numériques de chaque simulation
+219 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

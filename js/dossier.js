@@ -118,7 +118,8 @@ function buildDossier(o) {
     h += '</tbody></table><p class="small">Au plan de travail (0,85 m), tous les points lumineux allumés, luminaires LED à 60 lm/W ; parois claires (réflexion 50 %), portes fermées.</p></section>';
   }
 
-  // Tableau : unifilaire + circuits
+  // Synoptique, puis le tableau : unifilaire + circuits
+  if (d && d.ok && o.synopticSVG) h += `<section class="page"><h2>Synoptique de l’installation</h2><div class="svg">${o.synopticSVG}</div></section>`;
   if (d && d.ok) {
     h += `<section class="page"><h2>Tableau électrique</h2>${o.unifilarSVG ? `<div class="svg">${o.unifilarSVG}</div>` : ''}`;
     h += '<table><thead><tr><th>Circuit</th><th>Pièces</th><th class="n">Protection</th><th class="n">Section</th><th class="n">Longueur</th><th class="n">ΔU</th><th>Différentiel</th></tr></thead><tbody>';
