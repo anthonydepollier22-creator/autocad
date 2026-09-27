@@ -531,7 +531,7 @@ function designInstallation(components, wires, board) {
     }
     // Éclairage loin du tableau : un court-circuit en bout de ligne doit faire déclencher
     // le magnétique (longueur maximale protégée, note de calcul) — 10 A au lieu de 16 A
-    if (!B && ct.kind === 'light' && ct.In === 16 && typeof calcLmax === 'function' && far > calcLmax(ct.S, 16, 'C')) { ct.In = 10; ct.derated = true; }
+    if (!B && (ct.kind === 'light' || ct.appliance === 'shutter') && ct.In === 16 && typeof calcLmax === 'function' && far > calcLmax(ct.S, 16, 'C')) { ct.In = 10; ct.derated = true; } // volets : 10 moteurs de 150 W tiennent sur 10 A
     ct.dU = dU;
     ct.dUpct = (dU / U_NOM) * 100;
     ct.ok = ct.dUpct <= ct.limit;

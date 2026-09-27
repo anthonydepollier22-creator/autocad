@@ -933,7 +933,7 @@ r = run(`(function(){
 })()`);
 check('Longueur maximale protégée Lmax = 0,8·U0·S / (2·ρ·Im) : C16 1,5 mm² ≈ 37,5 m, C20 2,5 mm² = 50 m, C32 6 mm² = 75 m, courbe B × 2', near(r.lm[0], 37.5, 0.01) && near(r.lm[1], 50, 0.01) && near(r.lm[2], 75, 0.01) && near(r.lm[3], 75, 0.01), r.lm.map(function(v){ return v.toFixed(1); }).join(' · ') + ' m');
 check('Note de calcul du T3 : tous les circuits conformes, Icc mini = 0,8·U0·S / (2·ρ·L), Iz 17,5 A en 1,5 mm²', r.allOk && near(r.icc[0], r.icc[1], 1e-9) && r.iz === 17.5, `${r.icc[0].toFixed(0)} A en bout de C1`);
-check('Éclairage de 50 m en C16 refusé (Icc mini < 160 A), accepté en C10 ; 3P+N 16 A en 1,5 mm² refusé (Iz 15,5 A)', r.e1.length === 1 && /50,0 m > 38 m/.test(r.e1[0]) && !r.row1.okL && r.e2 === 0 && r.izErr, r.e1[0]);
+check('Éclairage de 50 m en C16 refusé (Icc mini < 160 A), accepté en C10 ; 3P+N 16 A en 1,5 mm² refusé (Iz 15,5 A)', r.e1.length === 1 && /50,0 m > 37,5 m/.test(r.e1[0]) && !r.row1.okL && r.e2 === 0 && r.izErr, r.e1[0]);
 check('Prise de terre : 150 Ω refusés (AGCP 500 mA → 100 Ω au plus), 40 Ω acceptés et reportés dans la note', r.ra1 && !r.ra2 && r.ra === 40);
 check('Note de calcul : folio A3 SVG, DXF (calques TEXTES / CARTOUCHE) et tableur CSV', r.svg && r.dxf && r.csv);
 
@@ -1239,6 +1239,18 @@ r = run(`(function(){
     after: d2.issues.some(function(i){ return /sans moteur/.test(i.msg); }) === false || d2.circuits.some(function(c){ return c.appliance === 'shutter' && c.devices.indexOf('svx') >= 0; }) };
 })()`);
 check('Commande de volet posée seule : rattachée au circuit des volets et signalée « sans moteur »', r.circ && r.warn && r.after, JSON.stringify(r));
+
+// Toutes les maisons avec volets roulants : tableau sans non-conformité (volets loin du tableau → 10 A)
+r = run(`(function(){
+  var bad = [];
+  HOUSE_TYPES.forEach(function(t){
+    var h = buildHouse(t.key); addShutters(h); var d = designInstallation(h.components, h.wires);
+    checkBoard(d).filter(function(c){ return c.level === 'err'; }).forEach(function(c){ bad.push(t.key + ' : ' + c.msg); });
+    if (checkNFC15100(h.components, h.wires).errors) bad.push(t.key + ' : NF');
+  });
+  return { bad: bad };
+})()`);
+check('Volets roulants sur chaque type de maison (R+1 compris) : aucune non-conformité, circuit éloigné protégé en 10 A', r.bad.length === 0, r.bad.join(' | '));
 
 // Mise à la terre : prise de terre, barrette, borne principale, PE par section, TD, LEP, LES des salles d'eau
 r = run(`(function(){
