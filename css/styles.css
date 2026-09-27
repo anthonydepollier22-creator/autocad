@@ -965,6 +965,8 @@ body.light .day-sec { --dc7: #4a3aa7; }
 .bd-viewbar .seg { max-width: 100%; flex-wrap: wrap; } /* toutes les vues visibles (deux lignes au besoin) */
 .bd-viewbar .seg::-webkit-scrollbar { display: none; }
 .bd-viewbar .seg button { white-space: nowrap; flex: 0 0 auto; }
+.bd-view-pick { display: none; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); flex: 1 1 100%; }
+.bd-view-pick select { flex: 1; min-width: 0; font: inherit; font-size: 15px; font-weight: 650; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; }
 .bd-folios, .bd-zoom { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
 .bd-folios[hidden] { display: none; }
 .bd-folios button, .bd-zoom button {
@@ -1056,6 +1058,10 @@ body.light .day-sec { --dc7: #4a3aa7; }
   .bd-view { order: -1; min-height: 46vh; }
   .bd-edit { border-right: none; overflow: visible; }
   .bd-viewbar .seg { overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; } /* mobile : défilement horizontal */
+}
+@media (max-width: 700px) {
+  .bd-view-pick { display: flex; } /* téléphone : liste déroulante des folios à la place des onglets */
+  .bd-viewbar .seg { display: none; }
   .bd-head .btn-ghost, .bd-head .btn-primary { padding: 6px 9px; font-size: 12px; }
   /* en-tête compact : titre puis actions sur une ligne défilante */
   .board-box > .modal-head { flex-wrap: wrap; gap: 6px; padding-bottom: 8px; }

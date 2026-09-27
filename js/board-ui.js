@@ -203,7 +203,17 @@ function initBoardUI(app) {
     modal.querySelector('[data-bx="csv"]').hidden = st.view !== 'calc' && st.view !== 'cables';
     sheet.innerHTML = svg.replace(/width="[^"]*mm" height="[^"]*mm"/, `style="width:${Math.round(st.zoom * 100)}%;height:auto"`);
     modal.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === st.view));
+    syncViewSel();
   }
+  // Téléphone : les vues disponibles dans une liste déroulante (mêmes vues que les onglets)
+  function syncViewSel() {
+    const viewSel = $('bd-view-sel');
+    if (!viewSel) return;
+    const opts = [...modal.querySelectorAll('.bd-viewbar [data-view]')].filter((b) => !b.hidden).map((b) => `<option value="${b.dataset.view}"${b.dataset.view === st.view ? ' selected' : ''}>${esc(b.textContent)}</option>`).join('');
+    if (viewSel.innerHTML !== opts) viewSel.innerHTML = opts;
+    viewSel.value = st.view;
+  }
+  if ($('bd-view-sel')) $('bd-view-sel').addEventListener('change', (e) => { st.view = e.target.value; st.folio = 0; renderPreview(design()); });
 
   // ---- Modifications -------------------------------------------------------
   const findC = (b, id) => b.circuits.find((c) => c.id === id);
