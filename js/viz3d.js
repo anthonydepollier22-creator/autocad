@@ -1498,7 +1498,7 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
   // Rayons X : boîtes d'encastrement derrière l'appareillage mural, selon le mur :
   // cloison sèche (orange), étanche à l'air dans un doublage (bleu), maçonnerie (gris)
   if (opts.xray && typeof mountH === 'function') {
-    const BOXT = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light']);
+    const BOXT = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'switch_shutter', 'rj45', 'wall_light']);
     const a0 = viz.alpha, e0 = viz.em, o0 = viz.obj;
     viz.alpha = 1; viz.em = 0.25;
     for (const c of components) {
