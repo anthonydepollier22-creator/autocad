@@ -1114,3 +1114,20 @@ body.light .day-sec { --dc7: #4a3aa7; }
 
 /* Norme : correction automatique (boîtes hors des montants) */
 .norm-fix { margin: 4px 0 10px; }
+
+/* Tableau sur téléphone : chaque circuit en carte (repère et désignation, puis type,
+   calibre, section, puis charge, longueur, ID, puis les actions) — sans défilement horizontal */
+@media (max-width: 700px) {
+  .bd-scroll { overflow-x: visible; }
+  .bd-table { min-width: 0; }
+  .bd-table, .bd-table tbody { display: block; }
+  .bd-table thead { display: none; }
+  .bd-table tr { display: block; }
+  .bd-table tr:not(.bd-rcd):not(.bd-tdh) { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px 8px; padding: 10px 8px; border-top: 1px solid var(--border); align-items: center; }
+  .bd-table tr:not(.bd-rcd):not(.bd-tdh) > td { display: block; padding: 0; border: none; min-width: 0; }
+  .bd-table tr:not(.bd-rcd):not(.bd-tdh) > td:nth-child(2) { grid-column: 2 / 4; }
+  .bd-table tr:not(.bd-rcd):not(.bd-tdh) > td:last-child { grid-column: 1 / -1; width: auto; line-height: normal; }
+  .bd-table tr:not(.bd-rcd):not(.bd-tdh) select, .bd-table tr:not(.bd-rcd):not(.bd-tdh) .bd-name { width: 100%; }
+  .bd-table td small { max-width: none; }
+  .bd-table tr.bd-rcd > td, .bd-table tr.bd-tdh > td { display: block; }
+}
