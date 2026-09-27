@@ -1099,6 +1099,37 @@ function synopticDXF(design, meta, components, wires) {
 // dispositif différentiel ; résistance de la prise de terre, tensions
 // ---------------------------------------------------------------------------
 const TEST_ROWS = 44; // circuits par folio
+// Mesures saisies (meta.tests) et leur jugement : isolement ≥ 1 MΩ, différentiel entre
+// IΔn/2 et IΔn, en 300 ms au plus (130 à 500 ms pour l'AGCP sélectif), RA ≤ RA max
+function testDevices(design) {
+  const D = design.root || design;
+  return [{ key: 'AGCP', type: 'S (sélectif)', sens: 500, t: '130 à 500 ms', sel: true }]
+    .concat(D.rcds.map((r) => ({ key: r.id, panel: r.panel || null, type: r.type, sens: r.sens || 30, t: '≤ 300 ms' })))
+    .concat(D.circuits.filter((c) => c.ddr).map((c) => ({ key: `DDR ${c.id}`, panel: c.panel || null, type: c.ddr, sens: 30, t: '≤ 300 ms' })));
+}
+function testJudge(design, meta) {
+  const D = design.root || design, T = (meta && meta.tests) || {}, bad = new Set(), num = (v) => parseFloat(String(v).replace(',', '.').replace(/[^0-9.]/g, ''));
+  const has = (v) => v !== undefined && v !== null && v !== '' && v !== false;
+  let n = 0;
+  for (const c of D.circuits) {
+    const m = T[c.id] || {};
+    for (const f of ['pe', 'iso', 'pol', 'fn']) if (has(m[f])) n++;
+    if (has(m.iso) && num(m.iso) < 1) bad.add(c.id + ':iso');
+  }
+  const devs = testDevices(D);
+  for (const d of devs) {
+    const m = T[d.key] || {};
+    if (has(m.ida)) { n++; const v = num(m.ida); if (v > d.sens || v < d.sens / 2) bad.add(d.key + ':ida'); }
+    if (has(m.t)) { n++; const v = num(m.t); if (d.sel ? v < 130 || v > 500 : v > 300) bad.add(d.key + ':t'); }
+    if (has(m.test)) n++;
+  }
+  const g = T.gen || {}, N = calcNote(D);
+  const ra = has(g.ra) ? num(g.ra) : N.ra || null;
+  if (ra != null) { n++; if (ra > N.raMax) bad.add('gen:ra'); }
+  if (has(g.u)) { n++; const u = num(g.u), U = N.tri ? 400 : 230; if (Math.abs(u - U) > U * 0.1) bad.add('gen:u'); }
+  if (has(g.iso)) { n++; if (num(g.iso) < 1) bad.add('gen:iso'); }
+  return { T, bad, n, ra, devs };
+}
 function testFolios(design) { const D = design.root || design; return Math.max(1, Math.ceil(D.circuits.length / TEST_ROWS)); }
 function drawTests(ctx, design, meta, folio) {
   const D = design.root || design, N = calcNote(D), nF = testFolios(D), k = Math.min(folio || 0, nF - 1);
@@ -1112,6 +1143,9 @@ function drawTests(ctx, design, meta, folio) {
   };
   const fit = (t, n) => (String(t).length > n ? String(t).slice(0, n - 1) + '…' : String(t));
   const refOf = (pid) => { const P = (D.panels || []).find((p) => p.id === pid); return P ? P.ref : ''; };
+  const red = '#b3261e', J = testJudge(D, meta);
+  const val = (key, f) => { const v = J.T[key] && J.T[key][f]; return v === true ? '✓' : v === undefined || v === null || v === false ? '' : String(v); };
+  const bad = (key, f) => J.bad.has(key + ':' + f);
   // tableau générique : colonnes [titre, largeur, valeur], lignes, fond d'en-tête
   const table = (x0, y0, cols, data, rh) => {
     const hh = 26, W = cols.reduce((s, c) => s + c[1], 0), y1 = y0 + hh + data.length * rh;
@@ -1129,7 +1163,7 @@ function drawTests(ctx, design, meta, folio) {
     for (const [lab, w, f, o] of cols) {
       const [l1, l2] = lab.split('\n');
       text(l1, x + 4, y0 + (l2 ? 11 : 16), { bold: true, size: 7.5 }); if (l2) text(l2, x + 4, y0 + 21, { size: 6.5, color: mute });
-      if (f) data.forEach((r, i) => text(String(f(r)), x + 4, y0 + hh + i * rh + rh / 2 + 3, { size: 7.5, bold: !!(o && o.bold), color: (o && o.color) || ink }));
+      if (f) data.forEach((r, i) => { const col = o && o.color ? (typeof o.color === 'function' ? o.color(r) : o.color) : ink; text(String(f(r)), x + 4, y0 + hh + i * rh + rh / 2 + 3, { size: 7.5, bold: !!(o && o.bold) || col === red, color: col }); });
       x += w;
     }
     return y1;
@@ -1146,26 +1180,28 @@ function drawTests(ctx, design, meta, folio) {
     ['Circuit', 150, (c) => fit(c.kind === 'sub' ? `Ligne ${c.panelRef || 'TD'} — ${c.name}` : c.name, 32)],
     ['Protection', 56, (c) => `${c.curve || 'C'}${c.In} · ${_bS(c.S)}`],
     ['Différentiel', 56, (c) => (c.kind === 'sub' ? 'AGCP' : c.ddr ? `DDR ${c.ddr}` : c.rcd || '—') + (c.panel ? ` ${refOf(c.panel)}` : '')],
-    ['Continuité PE\nΩ', 70], ['Isolement L/N-PE\nMΩ (500 V ⎓)', 84], ['Polarité\n☐', 48], ['Fonction.\n☐', 50],
-    ['Observations', 214],
+    ['Continuité PE\nΩ', 70, (c) => val(c.id, 'pe')], ['Isolement L/N-PE\nMΩ (500 V ⎓)', 84, (c) => val(c.id, 'iso'), { color: (c) => (bad(c.id, 'iso') ? red : ink) }],
+    ['Polarité\n☐', 48, (c) => val(c.id, 'pol')], ['Fonction.\n☐', 50, (c) => val(c.id, 'fn')],
+    ['Observations', 214, (c) => fit([bad(c.id, 'iso') ? 'isolement < 1 MΩ' : '', val(c.id, 'obs')].filter(Boolean).join(' ; '), 46), { color: (c) => (bad(c.id, 'iso') ? red : ink) }],
   ];
   const yEnd = table(30, 66, cols, rows, Math.max(14.2, Math.min(22, (UNI.H - 15 - 62 - 40 - 92) / Math.max(1, rows.length)))); // place pour écrire
   if (k < nF - 1) text(`Suite folio ${k + 2} →`, 30 + 770, yEnd + 14, { size: 8, color: mute, align: 'right' });
   // --- colonne de droite : différentiels, mesures générales, critères, visa
   const rx = 830;
   if (k === 0) {
-    const devs = [{ ref: 'AGCP', type: 'S (sélectif)', sens: 500, t: '130 à 500 ms' }]
-      .concat(D.rcds.map((r) => ({ ref: r.id + (r.panel ? ` (${refOf(r.panel)})` : ''), type: r.type, sens: r.sens || 30, t: '≤ 300 ms' })))
-      .concat(D.circuits.filter((c) => c.ddr).map((c) => ({ ref: `DDR ${c.id}`, type: c.ddr, sens: 30, t: '≤ 300 ms' })));
+    const devs = J.devs.map((d) => ({ ...d, ref: d.key + (d.panel ? ` (${refOf(d.panel)})` : '') }));
     layer('TEXTES'); text('Dispositifs différentiels', rx, 62, { bold: true, size: 9.5 });
-    const yD = table(rx, 68, [['Repère', 72, (r) => r.ref, { bold: true }], ['Type', 58, (r) => r.type], ['IΔn\nmA', 34, (r) => r.sens], ['IΔ décl.\nmA', 50], ['t à IΔn\nms', 46], ['Test\n☐', 70, (r) => `att. ${r.t}`, { color: mute }]], devs.slice(0, 14), 14.2);
+    const yD = table(rx, 68, [['Repère', 72, (r) => r.ref, { bold: true }], ['Type', 58, (r) => r.type], ['IΔn\nmA', 34, (r) => r.sens],
+      ['IΔ décl.\nmA', 50, (r) => val(r.key, 'ida'), { color: (r) => (bad(r.key, 'ida') ? red : ink) }], ['t à IΔn\nms', 46, (r) => val(r.key, 't'), { color: (r) => (bad(r.key, 't') ? red : ink) }],
+      ['Test\n☐', 70, (r) => (val(r.key, 'test') ? '✓ ' : '') + `att. ${r.t}`, { color: mute }]], devs.slice(0, 14), 14.2);
     let y = yD + 22;
     layer('TEXTES'); text('Mesures générales', rx, y, { bold: true, size: 9.5 });
-    [[`Prise de terre RA : ______ Ω`, `≤ ${N.raMax} Ω (AGCP 500 mA)${N.ra ? ` · saisie : ${_bNum(N.ra)} Ω` : ''}`],
-      [`Tension au tableau : ______ V`, N.tri ? '400 V entre phases, 230 V phase-neutre' : '230 V (± 10 %)'],
-      N.tri ? ['Ordre des phases : ☐ direct', 'L1-L2-L3 au tableau et aux prises triphasées'] : ['Liaison équipotentielle principale : ☐', `${earthLepS()} mm² aux canalisations`],
-      ['Isolement de l’installation : ______ MΩ', 'toutes protections fermées, récepteurs déconnectés']]
-      .forEach(([a, b], i) => { text(a, rx, y + 18 + i * 24, { size: 8.5 }); text(b, rx + 8, y + 29 + i * 24, { size: 7, color: mute }); });
+    const G = (f, blank) => val('gen', f) || blank;
+    [[`Prise de terre RA : ${J.ra != null ? _bNum(J.ra) + ' Ω' : '______ Ω'}`, `≤ ${N.raMax} Ω (AGCP 500 mA)`, bad('gen', 'ra')],
+      [`Tension au tableau : ${G('u', '______')} V`, N.tri ? '400 V entre phases, 230 V phase-neutre' : '230 V (± 10 %)', bad('gen', 'u')],
+      N.tri ? [`Ordre des phases : ${val('gen', 'ph') ? '✓' : '☐'} direct`, 'L1-L2-L3 au tableau et aux prises triphasées'] : [`Liaison équipotentielle principale : ${val('gen', 'lep') ? '✓' : '☐'}`, `${earthLepS()} mm² aux canalisations`],
+      [`Isolement de l’installation : ${G('iso', '______')} MΩ`, 'toutes protections fermées, récepteurs déconnectés', bad('gen', 'iso')]]
+      .forEach(([a, b, ko], i) => { text(a, rx, y + 18 + i * 24, { size: 8.5, color: ko ? red : ink, bold: !!ko }); text(b, rx + 8, y + 29 + i * 24, { size: 7, color: mute }); });
     y += 18 + 4 * 24 + 8;
     text('Critères', rx, y, { bold: true, size: 9.5 });
     ['Continuité : chaque masse et chaque borne de terre des prises reliées au bornier',
@@ -1177,10 +1213,11 @@ function drawTests(ctx, design, meta, folio) {
     y += 14 + 5 * 12 + 12;
     layer('CARTOUCHE'); ctx.lineWidth = 0.8; ctx.strokeStyle = ink; ctx.strokeRect(rx, y, 330, 58);
     layer('TEXTES');
-    text('Mesures réalisées par : ____________________', rx + 8, y + 16, { size: 8 });
-    text('Appareil (contrôleur d’installation) : ____________', rx + 8, y + 31, { size: 8 });
-    text('Date : ___ / ___ / ______      Visa :', rx + 8, y + 46, { size: 8 });
-    text('Joindre la fiche au dossier remis au client et à l’attestation de conformité (Consuel).', rx, y + 72, { size: 7, color: green });
+    text(`Mesures réalisées par : ${fit(G('by', '____________________'), 34)}`, rx + 8, y + 16, { size: 8 });
+    text(`Appareil (contrôleur d’installation) : ${fit(G('tool', '____________'), 22)}`, rx + 8, y + 31, { size: 8 });
+    text(`Date : ${G('date', '___ / ___ / ______')}      Visa :`, rx + 8, y + 46, { size: 8 });
+    if (J.n) text(J.bad.size ? `${J.bad.size} mesure${J.bad.size > 1 ? 's' : ''} hors critères : à reprendre avant la mise en service.` : `${J.n} mesure${J.n > 1 ? 's' : ''} saisie${J.n > 1 ? 's' : ''}, toutes dans les critères.`, rx, y + 72, { size: 8, bold: true, color: J.bad.size ? red : green });
+    text('Joindre la fiche au dossier remis au client et à l’attestation de conformité (Consuel).', rx, y + (J.n ? 86 : 72), { size: 7, color: green });
   }
   ctx.restore();
 }

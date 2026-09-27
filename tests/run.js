@@ -1409,6 +1409,15 @@ r = run(`(function(){
     set: T.entries.some(function(e){ return e.title === 'Essais et mesures'; }), dxf: /EOF\\s*$/.test(testDXF(d, {})), nan: /NaN|undefined/.test(svg) };
 })()`);
 check('Essais et mesures : fiche de mise en service (circuits, différentiels, prise de terre, critères, visa) ; dossier, DXF', r.all && r.ids && r.parts && r.set && r.dxf && !r.nan, JSON.stringify(r));
+// mesures saisies : reportées sur la fiche, jugées (isolement < 1 MΩ, différentiel trop lent, AGCP sélectif, terre)
+r = run(`(function(){
+  var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d = designInstallation(h.components, h.wires);
+  var ok = { tests: { C1: { pe: '0,3', iso: '>200', pol: true }, ID1: { ida: '22', t: '25' }, AGCP: { ida: '380', t: '210' }, gen: { ra: '35', u: '231' } } };
+  var ko = { tests: { C1: { iso: '0,4' }, ID2: { ida: '12', t: '420' }, AGCP: { t: '90' }, gen: { ra: '140' } } };
+  var J1 = testJudge(d, ok), J2 = testJudge(d, ko), svg = testSVGs(d, ok).join(''), svg2 = testSVGs(d, ko).join('');
+  return { n1: J1.n, b1: J1.bad.size, b2: [...J2.bad].sort().join(), txt: svg.indexOf('toutes dans les critères') > 0 && svg.indexOf('35 Ω') > 0 && svg.indexOf('&gt;200') > 0, txt2: svg2.indexOf('4 mesures hors critères') > 0 || svg2.indexOf('5 mesures hors critères') > 0 };
+})()`);
+check('Essais et mesures saisis : reportés sur la fiche et jugés (isolement ≥ 1 MΩ, 30 mA entre 15 et 30 mA en 300 ms, AGCP sélectif 130 à 500 ms, RA ≤ 100 Ω)', r.n1 === 9 && r.b1 === 0 && r.b2 === 'AGCP:t,C1:iso,ID2:ida,ID2:t,gen:ra' && r.txt && r.txt2, JSON.stringify(r));
 
 // Schémas développés : contacteur heures creuses (compteur C1-C2, sélecteur, bobine, deux pôles) et horloge
 r = run(`(function(){

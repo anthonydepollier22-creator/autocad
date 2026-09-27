@@ -352,7 +352,11 @@ l'éditeur du tableau, **avec ou sans plan** :
   sur place (NF C 15-100, partie 6) — pour chaque circuit, continuité du conducteur de
   protection, isolement sous 500 V continu, polarité et fonctionnement ; pour l'AGCP
   sélectif et chaque interrupteur ou disjoncteur différentiel, seuil et temps de
-  déclenchement ; prise de terre, tension, liaison équipotentielle ; critères et visa ;
+  déclenchement ; prise de terre, tension, liaison équipotentielle ; critères et visa.
+  Les mesures se **saisissent dans l'application** (sous l'aperçu de la vue « Essais »,
+  sur tablette ou téléphone), s'enregistrent avec le projet et se reportent sur le folio,
+  chaque valeur hors critères en rouge (isolement < 1 MΩ, différentiel 30 mA hors de
+  15–30 mA ou au-delà de 300 ms, AGCP sélectif hors de 130–500 ms, RA trop élevée) ;
   export SVG et DXF ;
 - **Mise à la terre** (folio A3, vue « Terre ») : schéma TT de la prise de terre (boucle
   à fond de fouille, cuivre nu 25 mm²) à la barrette de coupure et à la borne principale
@@ -876,7 +880,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-220 vérifications sans dépendance : valeurs numériques de chaque simulation
+221 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

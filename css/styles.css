@@ -975,6 +975,19 @@ body.light .day-sec { --dc7: #4a3aa7; }
 }
 .bd-zoom { margin-left: auto; }
 .bd-sheet { flex: 1; overflow: auto; padding: 14px; }
+.bd-tests { flex: 0 0 auto; max-height: 46%; overflow: auto; padding: 10px 14px 14px; border-top: 1px solid var(--border); background: var(--surface); font-size: 12px; }
+.bd-tests h4 { margin: 10px 0 6px; font-size: 12.5px; }
+.bd-tests h4:first-child { margin-top: 0; }
+.bd-tests p { margin: 0 0 6px; color: var(--muted); }
+.bd-tests table { border-collapse: collapse; width: 100%; }
+.bd-tests th { text-align: left; font-weight: 650; color: var(--muted); padding: 3px 4px; white-space: nowrap; }
+.bd-tests td { padding: 2px 4px; border-top: 1px solid var(--border); white-space: nowrap; }
+.bd-tests td.nm { max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
+.bd-tests input[type=text] { width: 64px; font: inherit; color: var(--text); background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 3px 5px; }
+.bd-tests input.wide { width: 150px; }
+.bd-tests input.ko { border-color: #d9534f; color: #d9534f; font-weight: 650; }
+.bd-tests .gen { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.bd-tests .gen label { display: flex; align-items: center; gap: 6px; }
 .bd-sheet svg { display: block; margin: 0 auto; background: #fff; border-radius: 4px; box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25); }
 .bd-empty { color: var(--muted); text-align: center; margin-top: 30%; }
 .bd-mode { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
@@ -1061,6 +1074,8 @@ body.light .day-sec { --dc7: #4a3aa7; }
 }
 @media (max-width: 700px) {
   .bd-view-pick { display: flex; } /* téléphone : liste déroulante des folios à la place des onglets */
+  .bd-tests { max-height: none; overflow-x: auto; } /* la fenêtre défile : la saisie prend sa hauteur */
+  .bd-view:has(.bd-tests:not([hidden])) { display: block; min-height: auto; } /* aperçu puis saisie, l’un sous l’autre */
   .bd-viewbar .seg { display: none; }
   .bd-head .btn-ghost, .bd-head .btn-primary { padding: 6px 9px; font-size: 12px; }
   /* en-tête compact : titre puis actions sur une ligne défilante */

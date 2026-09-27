@@ -204,7 +204,43 @@ function initBoardUI(app) {
     sheet.innerHTML = svg.replace(/width="[^"]*mm" height="[^"]*mm"/, `style="width:${Math.round(st.zoom * 100)}%;height:auto"`);
     modal.querySelectorAll('[data-view]').forEach((b) => b.classList.toggle('on', b.dataset.view === st.view));
     syncViewSel();
+    renderTestsForm(d);
   }
+  // Essais et mesures : saisie sur place (enregistrée avec le projet), reportée sur le folio
+  function renderTestsForm(d) {
+    const box = $('bd-tests');
+    if (!box) return;
+    box.hidden = st.view !== 'tests' || !d || !d.ok;
+    if (box.hidden) return;
+    const T = editor.meta.tests || {}, J = testJudge(d, { tests: T }), tri = d.supply && d.supply.phases === 3;
+    const sig = d.circuits.map((c) => c.id).join() + '|' + J.devs.map((x) => x.key).join() + '|' + tri;
+    const inp = (key, f, cls) => { const v = T[key] && T[key][f]; return `<input type="text" inputmode="decimal" data-t="${esc(key)}" data-tf="${f}" value="${esc(v == null ? '' : v)}" class="${cls || ''}${J.bad.has(key + ':' + f) ? ' ko' : ''}">`; };
+    const chk = (key, f) => `<input type="checkbox" data-t="${esc(key)}" data-tf="${f}"${T[key] && T[key][f] ? ' checked' : ''}>`;
+    if (box.dataset.sig === sig) { // mêmes lignes : seules les alertes changent (la saisie garde le focus)
+      box.querySelectorAll('input[type=text][data-t]').forEach((i) => i.classList.toggle('ko', J.bad.has(i.dataset.t + ':' + i.dataset.tf)));
+      return;
+    }
+    box.dataset.sig = sig;
+    box.innerHTML = '<h4>Saisir les mesures</h4><p>Enregistrées avec le projet et reportées sur le folio ; en rouge, une valeur hors critères.</p>' +
+      '<table><thead><tr><th>Circuit</th><th></th><th>PE (Ω)</th><th>Isol. (MΩ)</th><th>Polarité</th><th>Fonct.</th><th>Observations</th></tr></thead><tbody>' +
+      d.circuits.map((c) => `<tr><td><b>${esc(c.id)}</b></td><td class="nm">${esc(c.name)}</td><td>${inp(c.id, 'pe')}</td><td>${inp(c.id, 'iso')}</td><td>${chk(c.id, 'pol')}</td><td>${chk(c.id, 'fn')}</td><td>${inp(c.id, 'obs', 'wide')}</td></tr>`).join('') +
+      '</tbody></table><h4>Différentiels</h4><table><thead><tr><th>Repère</th><th>Type</th><th>IΔ décl. (mA)</th><th>t (ms)</th><th>Bouton test</th></tr></thead><tbody>' +
+      J.devs.map((x) => `<tr><td><b>${esc(x.key)}</b></td><td>${esc(x.type)} ${x.sens} mA</td><td>${inp(x.key, 'ida')}</td><td>${inp(x.key, 't')}</td><td>${chk(x.key, 'test')}</td></tr>`).join('') +
+      '</tbody></table><h4>Mesures générales</h4><div class="gen">' +
+      `<label>RA (Ω) ${inp('gen', 'ra')}</label><label>Tension (V) ${inp('gen', 'u')}</label><label>Isolement global (MΩ) ${inp('gen', 'iso')}</label>` +
+      (tri ? `<label>${chk('gen', 'ph')} Ordre des phases direct</label>` : `<label>${chk('gen', 'lep')} Liaison équipotentielle principale</label>`) +
+      `<label>Par ${inp('gen', 'by', 'wide')}</label><label>Appareil ${inp('gen', 'tool', 'wide')}</label><label>Date ${inp('gen', 'date')}</label></div>`;
+  }
+  if ($('bd-tests')) $('bd-tests').addEventListener('change', (e) => {
+    const t = e.target, key = t.dataset.t, f = t.dataset.tf;
+    if (!key || !f) return;
+    const T = editor.meta.tests || (editor.meta.tests = {}), m = T[key] || (T[key] = {});
+    const v = t.type === 'checkbox' ? t.checked : t.value.trim();
+    if (v === '' || v === false) delete m[f]; else m[f] = v;
+    if (!Object.keys(m).length) delete T[key];
+    if (typeof editor.autosave === 'function') editor.autosave();
+    renderPreview(design());
+  });
   // Téléphone : les vues disponibles dans une liste déroulante (mêmes vues que les onglets)
   function syncViewSel() {
     const viewSel = $('bd-view-sel');
