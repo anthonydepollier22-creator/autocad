@@ -1298,11 +1298,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Nouveautés : une fois par version (pas quand on arrive par un lien de démo)
   try {
-    const NEWS = '1.15';
+    const NEWS = '1.16';
     if (localStorage.getItem('electricad-news') !== NEWS) {
       localStorage.setItem('electricad-news', NEWS);
       if (!location.search) {
-        setTimeout(() => showToast('<b>Nouveau</b> (bouton Tableau) : folios <b>Chauffage</b> (fil pilote), <b>Volets roulants</b>, <b>Mise à la terre</b> (LEP, LES) et <b>Salles d’eau</b> (volumes 1 et 2) ; bouton <b>Volets</b> de l’onglet Installation.', 9000), 1200);
+        setTimeout(() => showToast('<b>Nouveau</b> (bouton Tableau) : schémas de principe <b>Photovoltaïque</b> et <b>Borne IRVE</b>, récepteur au bout de chaque départ de l’<b>unifilaire</b> ; commande de volet posée en 3D (<b>Implanter</b>).', 9000), 1200);
       }
     }
   } catch (_) { /* stockage indisponible */ }
