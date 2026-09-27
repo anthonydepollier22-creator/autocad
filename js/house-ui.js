@@ -403,6 +403,7 @@ function initHouseUI(app) {
     if ((editor.components.length || editor.wires.length) && !confirm('Remplacer le plan actuel par « ' + T.name + ' » ?')) return;
     const opts = { furnish: $('ho-furnish').checked, elec: $('ho-elec').checked, heating: $('ho-heating').checked, conduits: $('ho-conduits').checked };
     const doc = buildHouse(T.key, opts);
+    if ($('ho-shutters') && $('ho-shutters').checked && opts.elec) addShutters(doc); // volets roulants motorisés
     // tableau divisionnaire au garage (maison avec garage, électricité implantée)
     const td = $('ho-td') && $('ho-td').checked && opts.elec ? addSubPanel(doc, /garage/i) : null;
     if ($('ho-td') && $('ho-td').checked && opts.elec && !td) setTimeout(() => showToast('Cette maison n’a pas de garage : pas de tableau divisionnaire.', 3500), 5400);

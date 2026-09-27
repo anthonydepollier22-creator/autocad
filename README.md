@@ -280,7 +280,8 @@ l'éditeur du tableau, **avec ou sans plan** :
   disjoncteur puis chaque radiateur raccordé en phase, neutre, fil pilote et terre, le
   fil pilote venant du délesteur (ou d'un programmateur en option) ; rappel : fil pilote
   jamais relié à la terre, isolé en l'absence de gestionnaire ; export SVG et DXF ;
-- **Volets roulants** (folios A3) : bouton « Volets » de l'onglet Tableau, un moteur
+- **Volets roulants** (folios A3) : option « Volets roulants motorisés » à la création
+  d'une maison, ou bouton « Volets » de l'onglet Tableau, un moteur
   au coffre de chaque fenêtre (chambres, séjour, cuisine, bureau, salle d'eau) et sa
   commande montée-descente à 1,10 m à côté (décalée hors montant sur placo, jamais
   derrière un meuble haut ni dans le volume 2, sinon près de la porte ; aussi posée
