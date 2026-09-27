@@ -997,6 +997,17 @@ const BUILDERS3D = {
     v.em = e0;
     _mb(v, m, 9, 12, 100, 8, 6, 5, '#15181d');
   },
+  // Onduleur photovoltaïque mural, son coffret DC (sectionneur) à côté
+  pv_inverter: (v, c) => {
+    const m = _mount(v, c, 45);
+    _mb(v, m, 0, 0, 120, 50, 38, 16, '#e9ecef');
+    _mb(v, m, 0, 16, 150, 8, 22, 1, '#2a2f38'); // afficheur
+    const e0 = v.em; v.em = 1;
+    _mb(v, m, 13, 16, 132, 3, 3, 1, '#35d07f');
+    v.em = e0;
+    _mb(v, m, -32, 0, 128, 22, 16, 11, '#cfd4da'); // coffret DC
+    _mb(v, m, -32, 11, 136, 5, 5, 2, '#b3261e');   // manette du sectionneur DC
+  },
   vmc: (v, c) => {
     const H = _wallH(v);
     v.cyl(c.x, H - 1.5, c.y, 10, 1.5, '#f4f5f7', { seg: 16 });

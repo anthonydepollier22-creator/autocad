@@ -16,7 +16,7 @@ const MAT_PRICES = {
   isolator: { 40: 18, 63: 24, 80: 45, 100: 55 },
   ddr: { AC: 48, A: 68, 'A-SI': 88, F: 125, B: 320 },
   vrSwitch: 14, vrMotor: 120, // commande de volet roulant, moteur tubulaire
-  pvDcBox: 145, pvCable: 1.6, pvConn: 4.5, // coffret DC équipé, câble solaire 4 mm² (€/m), paire de connecteurs
+  pvInverter: 950, pvDcBox: 145, pvCable: 1.6, pvConn: 4.5, // coffret DC équipé, câble solaire 4 mm² (€/m), paire de connecteurs
   pvIsolator: 38, pvLabel: 6, tpc: 2.2, mesh: 0.6, // fourreau TPC rouge Ø 63, grillage avertisseur (€/m) // interrupteur-sectionneur AC près de l'onduleur, étiquettes « deux sources »  // disjoncteur différentiel 1P+N 30 mA (3P+N : × 2,5) // interrupteur-sectionneur de tête d'un tableau divisionnaire (2P)
   comb: 8.5,            // peigne d'alimentation, par rangée
   link: { 10: 2.9, 16: 4.4, 25: 6.8 }, // conducteur de liaison AGCP → tableau, €/m
@@ -190,6 +190,7 @@ function materialList(components, wires, design) {
   add('Équipements', 'VMC simple flux hygroréglable', count('vmc'), 'u', P.vmc);
   add('Équipements', 'Moteur tubulaire de volet roulant', count('shutter'), 'u', P.vrMotor);
   add('Équipements', 'Borne de recharge 7,4 kW', count('ev_charger'), 'u', P.evCharger);
+  add('Équipements', 'Onduleur photovoltaïque (hors modules)', count('pv_inverter'), 'u', P.pvInverter);
 
   const sum = (f) => Math.round(lines.filter(f).reduce((s, l) => s + l.total, 0) * 100) / 100;
   return {

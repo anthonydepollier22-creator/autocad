@@ -912,6 +912,16 @@ Object.assign(SYMBOLS, {
       ctx.save(); ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('TD', 0, 16); ctx.restore();
     },
   },
+  pv_inverter: {
+    name: 'Onduleur photovoltaïque', category: 'Implantation élec.', prefix: 'OND', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -24, y: -18, w: 48, h: 36 },
+    draw(ctx) {
+      ctx.strokeRect(-24, -18, 48, 36);
+      line(ctx, -24, 18, 24, -18);
+      line(ctx, -18, -10, -8, -10); line(ctx, -18, -6, -8, -6); // courant continu
+      ctx.beginPath(); ctx.moveTo(6, 9); ctx.quadraticCurveTo(9.5, 3, 12.5, 8.5); ctx.quadraticCurveTo(15.5, 14, 19, 7); ctx.stroke(); // alternatif
+    },
+  },
   gtl: {
     name: 'GTL (gaine technique)', category: 'Implantation élec.', prefix: 'GTL', plan: true,
     terminals: [{ x: 0, y: 0 }], bbox: { x: -20, y: -60, w: 40, h: 120 },

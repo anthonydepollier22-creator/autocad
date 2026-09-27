@@ -195,6 +195,7 @@ const FURN = {
   toilet: { pref: 'farDoor', front: 50, sides: 12 },
   car: { mode: 'car' },
   ev_charger: { pref: 'near' },
+  pv_inverter: { pref: 'corner', front: 60 },
   radiator: { pref: 'window' },
   gtl: { tall: true, pref: 'near', front: 70 },
   panel_house: { tall: true, pref: 'adjacent', group: 'elec', front: 70 },
@@ -1058,7 +1059,7 @@ function _switchOnSide(ctx, room, d, type, side) {
 // tableau de communication voisin : elle suit les mêmes goulottes).
 const WIRED_TYPES = new Set([
   'socket_wall', 'switch_sa', 'switch_vv_wall', 'dcl', 'wall_light', 'rj45', 'vmc', 'oven', 'cooktop', 'washer',
-  'dishwasher', 'dryer', 'water_heater', 'radiator', 'ev_charger', 'shutter', 'switch_shutter',
+  'dishwasher', 'dryer', 'water_heater', 'radiator', 'ev_charger', 'shutter', 'switch_shutter', 'pv_inverter',
 ]);
 const CEILING_TYPES = new Set(['dcl', 'vmc']);
 
@@ -1354,6 +1355,23 @@ function addSubPanel(doc, re) {
   const td = _addComp(doc, 'panel_sub', x, y, ref.rot || 0);
   if (doc.wires.some((w) => w.kind === 'conduit')) autoConduits(doc); // goulottes retracées depuis le TD
   return td;
+}
+
+// Onduleur photovoltaïque : au garage (sinon cellier, buanderie, annexe, entrée), contre un
+// mur libre ; il reçoit son circuit dédié, les panneaux apparaissent sur la toiture en 3D
+function addPvInverter(doc, kwc) {
+  if (doc.components.some((c) => c.type === 'pv_inverter')) return null;
+  const ctx = _planContext(doc);
+  for (const re of [/garage/i, /cellier|buanderie|annexe/i, /entr[ée]e/i]) {
+    const r = ctx.info.rooms.findIndex((x) => re.test(x.name));
+    if (r < 0) continue;
+    const spot = _placeWall(ctx, r, 'pv_inverter', FURN.pv_inverter, null);
+    if (!spot) continue;
+    const c = _addComp(doc, 'pv_inverter', spot.x, spot.y, spot.rot, String(kwc || 3).replace('.', ',') + ' kWc');
+    if (doc.wires.some((w) => w.kind === 'conduit')) autoConduits(doc);
+    return c;
+  }
+  return null;
 }
 
 // Ajoute les maisons générées à la bibliothèque d'exemples

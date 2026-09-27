@@ -40,7 +40,7 @@ const U_TRI = 400;
 const MOUNT_H = {
   socket_wall: 0.3, rj45: 0.3, switch_sa: 1.1, switch_vv_wall: 1.1, dcl: 2.5, wall_light: 1.9, vmc: 2.5,
   radiator: 0.3, oven: 0.9, cooktop: 0.9, washer: 0.3, dishwasher: 0.3, dryer: 0.3, water_heater: 1.2,
-  ev_charger: 1.2, panel_house: 1.5, panel_sub: 1.5, shutter: 2.2, switch_shutter: 1.1,
+  ev_charger: 1.2, panel_house: 1.5, panel_sub: 1.5, shutter: 2.2, switch_shutter: 1.1, pv_inverter: 1.5,
 };
 
 // Hauteur de pose d'un appareil (m) : la sienne si elle a été choisie (c.h, en cm), sinon la hauteur usuelle
@@ -65,6 +65,7 @@ const LOADS = {
   vmc: { cls: 'dedicated', P: 35, circuit: 'VMC', In: 2, S: 1.5, always: true, name: 'VMC' },
   radiator: { cls: 'heating', P: 1000, name: 'Radiateur' },
   shutter: { cls: 'shutter', P: 150, name: 'Volet roulant' }, // moteur tubulaire, commandé par son inverseur
+  pv_inverter: { cls: 'pv', P: 3000, name: 'Onduleur photovoltaïque' }, // produit : jamais compté comme une charge
 };
 const SWITCHES_PLAN = new Set(['switch_sa', 'switch_vv_wall']);
 
@@ -456,6 +457,12 @@ function designInstallation(components, wires, board) {
         const same = circuits.filter((x) => x.appliance === c.type).length;
         add({ kind: 'dedicated', appliance: c.type, name: s.circuit + (same ? ' ' + (same + 1) : ''), In: s.In, S: s.S, devices: [c], rooms: roomName(roomOf(c)), points: 1, typeA: !!s.typeA, typeF: !!s.typeF, contactor: c.type === 'water_heater' ? 'hc' : null });
       }
+      // Production photovoltaïque : l'onduleur posé sur le plan a son circuit dédié, protégé par un
+      // disjoncteur différentiel 30 mA type A en tête (sous l'AGCP) ; calibre d'après sa puissance
+      for (const c of byRoom(D.filter((c) => LOADS[c.type] && LOADS[c.type].cls === 'pv'))) {
+        const P = loadPower(c), I = P / U_NOM, In = I <= 16 ? 16 : I <= 25 ? 25 : 32;
+        add({ kind: 'pv', appliance: c.type, name: 'Photovoltaïque ' + (P / 1000).toFixed(1).replace('.', ',').replace(',0', '') + ' kWc', In, S: In <= 16 ? 4 : In <= 25 ? 6 : 10, devices: [c], rooms: roomName(roomOf(c)), points: 1, ddr: 'A', auto: true });
+      }
     };
     autoGroup(devs.filter((c) => !devPanel[c.id]), '');
     // Tableaux divisionnaires du plan : un départ en tête (dimensionné plus loin), puis leurs circuits
@@ -537,6 +544,10 @@ function designInstallation(components, wires, board) {
     // Éclairage loin du tableau : un court-circuit en bout de ligne doit faire déclencher
     // le magnétique (longueur maximale protégée, note de calcul) — 10 A au lieu de 16 A
     if (!B && (ct.kind === 'light' || ct.appliance === 'shutter') && ct.In === 16 && typeof calcLmax === 'function' && far > calcLmax(ct.S, 16, 'C')) { ct.In = 10; ct.derated = true; } // volets : 10 moteurs de 150 W tiennent sur 10 A
+    // Onduleur photovoltaïque : section augmentée jusqu'à 1 % de chute de tension (guide UTE C 15-712-1)
+    if (!B && ct.kind === 'pv' && ct.auto) {
+      for (const S of [4, 6, 10, 16]) { if (S < ct.S) continue; ct.S = S; dU = far && ct.power ? (2 * RHO_CU * far * (ct.power / U_NOM)) / S : 0; if ((dU / U_NOM) * 100 <= 1) break; }
+    }
     ct.dU = dU;
     ct.dUpct = (dU / U_NOM) * 100;
     ct.ok = ct.dUpct <= ct.limit;
@@ -664,6 +675,7 @@ function designInstallation(components, wires, board) {
     let rr = 0;
     const leastLoaded = () => acs.slice().sort((a, b) => a.circuits.length - b.circuits.length)[0];
     for (const ct of mainCs) {
+      if (ct.ddr) { ct.rcd = null; continue; } // disjoncteur différentiel dédié (onduleur) : en tête, sous l'AGCP
       let target;
       if (ct.typeF && typeF) target = typeF;
       else if (ct.typeA) target = typeA;
@@ -681,6 +693,7 @@ function designInstallation(components, wires, board) {
     for (const f of feeders) {
       const byType = {};
       for (const ct of circuits.filter((c) => c.panel === f.id)) {
+        if (ct.ddr) { ct.rcd = null; continue; } // disjoncteur différentiel dédié
         const t = ct.typeF ? 'F' : ct.typeA ? 'A' : 'AC';
         let r = (byType[t] || []).find((x) => x.circuits.length < 8);
         if (!r) { r = { id: 'ID' + (rcds.length + 1), In: 40, type: t, circuits: [], panel: f.id }; rcds.push(r); (byType[t] = byType[t] || []).push(r); }

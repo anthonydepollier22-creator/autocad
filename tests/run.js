@@ -1326,6 +1326,17 @@ r = run(`(function(){
 })()`);
 check('Photovoltaïque : schéma de principe (15 modules en 2 chaînes 8 + 7, coffret DC, onduleur, coupure AC, signalisation), dossier, DXF, métré côté continu', r.mods && r.parts && r.set && r.none && r.dxf && r.mat, JSON.stringify(r));
 
+// Onduleur photovoltaïque posé sur le plan : circuit dédié, disjoncteur différentiel type A en tête, section pour 1 % de ΔU
+r = run(`(function(){
+  var h = buildHouse('t5'), c = addPvInverter(h, 6), d = designInstallation(h.components, h.wires), pv = d.circuits.find(function(x){ return x.kind === 'pv'; });
+  var h2 = buildHouse('t3'), c2 = addPvInverter(h2, 3), d2 = designInstallation(h2.components, h2.wires), pv2 = d2.circuits.find(function(x){ return x.kind === 'pv'; });
+  var mat = materialList(h.components, h.wires, d).lines;
+  return { c: !!c, room: c && roomAt(computeRooms(h.components, h.wires), c.x, c.y) >= 0, pv: pv && [pv.In, pv.S, pv.ddr, pv.rcd, pv.dUpct <= 1].join(), prod: d.production,
+    c2: !!c2, pv2: pv2 && [pv2.In, pv2.ddr].join(), err: checkBoard(d).concat(checkBoard(d2)).filter(function(m){ return m.level === 'err'; }).length,
+    mat: mat.some(function(l){ return /Onduleur photovoltaïque/.test(l.name); }) && mat.some(function(l){ return /Coffret DC/.test(l.name); }), orphans: d.orphans.length + d2.orphans.length };
+})()`);
+check('Onduleur photovoltaïque sur le plan (garage, cellier…) : circuit dédié C32/C16, DDR type A en tête, ΔU ≤ 1 %, production, métré', r.c && r.room && r.pv === '32,10,A,,true' && r.prod === 6000 && r.c2 && r.pv2 === '16,A' && r.err === 0 && r.mat && r.orphans === 0, JSON.stringify(r));
+
 // Borne de recharge (IRVE) : circuit dédié du TD garage, différentiel dédié type F, schéma de principe
 r = run(`(function(){
   var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d = designInstallation(h.components, h.wires);

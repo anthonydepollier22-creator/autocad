@@ -186,6 +186,7 @@ class Editor {
     const c = { id: this.uid(), type, x: p.x, y: p.y, rot: this.placeRot, label: this.nextRef(type), value: '' };
     if (type === 'breaker' || type === 'rcd' || type === 'agcp' || type === 'ddr' || type === 'isolator') c.closed = true; // conduisent par défaut
     if (type === 'room') c.value = 'Pièce'; // à renommer : Chambre, Séjour, Cuisine…
+    if (type === 'pv_inverter') c.value = '3 kWc'; // puissance crête du champ (modifiable)
     this.components.push(c);
     // tableau divisionnaire : les goulottes repartent aussi de lui vers les appareils de sa pièce
     if (type === 'panel_sub' && typeof autoConduits === 'function' && this.wires.some((w) => w.kind === 'conduit')) {

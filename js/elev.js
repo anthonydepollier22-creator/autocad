@@ -7,7 +7,7 @@
 const ELEV_H = 250; // cm : hauteur sous plafond dessinée
 const ELEV_TYPES = new Set([
   'socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light', 'radiator', 'water_heater', 'ev_charger',
-  'panel_house', 'panel_sub', 'oven', 'cooktop', 'washer', 'dishwasher', 'dryer', 'shutter', 'switch_shutter',
+  'panel_house', 'panel_sub', 'oven', 'cooktop', 'washer', 'dishwasher', 'dryer', 'shutter', 'switch_shutter', 'pv_inverter',
 ]);
 const ELEV_OPEN = { door: [80, 0, 204], window_a: [80, 95, 215], garage_door: [240, 0, 200] }; // largeur, bas, haut (cm)
 const _elevSide = (nx, ny) => { // mur vu depuis la pièce : la normale pointe vers l'intérieur

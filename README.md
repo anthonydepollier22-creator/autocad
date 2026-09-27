@@ -302,7 +302,11 @@ l'éditeur du tableau, **avec ou sans plan** :
   selon le risque foudre), onduleur à découplage intégré, interrupteur-sectionneur AC
   près de l'onduleur, câble et ΔU côté alternatif, disjoncteur et différentiel au
   tableau, AGCP et compteur ; équipotentialité du champ, signalisation (deux sources,
-  courant continu), vérifications ; export SVG et DXF ;
+  courant continu), vérifications ; export SVG et DXF ; l'onduleur se pose aussi sur
+  le plan (bouton « Onduleur PV » en 3D ou option « Photovoltaïque 3 kWc » à la
+  création de la maison, au garage de préférence) : il crée son circuit dédié sous
+  différentiel type A, section relevée pour ΔU ≤ 1 %, et les modules apparaissent
+  sur le pan de toiture le mieux orienté en 3D ;
 - **Borne de recharge (IRVE)** (folio A3 par point de charge, vue « Borne IRVE ») :
   compteur, AGCP, tableau (principal ou divisionnaire du garage, avec sa ligne),
   différentiel 30 mA dédié et son type, disjoncteur, contacteur heures creuses ou
@@ -844,7 +848,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-214 vérifications sans dépendance : valeurs numériques de chaque simulation
+215 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
