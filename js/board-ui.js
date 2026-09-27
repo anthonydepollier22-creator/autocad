@@ -170,6 +170,8 @@ function initBoardUI(app) {
       '<label class="check-row"><input type="checkbox" id="bd-heat" checked> Chauffage électrique</label>' +
       '<label class="check-row"><input type="checkbox" id="bd-cook" checked> Plaque de cuisson électrique</label>' +
       '<label class="check-row"><input type="checkbox" id="bd-ev"> Borne de recharge (IRVE)</label>' +
+      '<label class="check-row"><input type="checkbox" id="bd-vr"> Volets roulants motorisés</label>' +
+      '<label class="check-row"><input type="checkbox" id="bd-pv"> Production photovoltaïque</label>' +
       '<label class="check-row"><input type="checkbox" id="bd-tri"> Alimentation triphasée (400 V)</label>' +
       '<button type="button" class="btn-primary" data-bact="create">Créer le tableau</button></div>';
   }
@@ -294,7 +296,7 @@ function initBoardUI(app) {
         editor.pushHistory(); houseUI.redesign(); render();
       } else if (a === 'implant') { houseUI.implant(); render(); }
       else if (a === 'create') {
-        editor.meta.board = boardTemplate(+$('bd-area').value || 80, { heating: $('bd-heat').checked, cooktop: $('bd-cook').checked, ev: $('bd-ev').checked, tri: $('bd-tri').checked });
+        editor.meta.board = boardTemplate(+$('bd-area').value || 80, { heating: $('bd-heat').checked, cooktop: $('bd-cook').checked, ev: $('bd-ev').checked, tri: $('bd-tri').checked, shutters: $('bd-vr').checked, pv: $('bd-pv').checked });
         if (!editor.meta.title) editor.meta.title = 'Tableau électrique';
         editor.pushHistory(); houseUI.redesign(); render();
         showToast('Tableau créé : ajuste les circuits, le schéma unifilaire suit.', 3500);

@@ -1262,6 +1262,15 @@ r = run(`(function(){
 })()`);
 check('Journée type : volets baissés la nuit, levés le jour, sans consommation du moteur ; états restaurés', r.n > 0 && r.night && r.noon && r.restored, JSON.stringify(r));
 
+// Tableau sans plan : options volets roulants et photovoltaïque → leurs folios
+r = run(`(function(){
+  var b = boardTemplate(90, { shutters: true, pv: true }), d = designInstallation([], [], b);
+  var T = technicalSet(d, {}, [], []);
+  return { vr: d.circuits.some(function(c){ return c.appliance === 'shutter'; }), pv: d.circuits.some(function(c){ return c.kind === 'pv'; }),
+    set: ['Volets roulants', 'Photovoltaïque'].every(function(t){ return T.entries.some(function(e){ return e.title === t; }); }), err: checkBoard(d).filter(function(m){ return m.level === 'err'; }).length };
+})()`);
+check('Tableau sans plan : options volets roulants et photovoltaïque, folios au dossier, sans non-conformité', r.vr && r.pv && r.set && r.err === 0, JSON.stringify(r));
+
 // Toutes les maisons avec volets roulants : tableau sans non-conformité (volets loin du tableau → 10 A)
 r = run(`(function(){
   var bad = [];

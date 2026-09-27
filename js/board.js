@@ -43,7 +43,7 @@ const BOARD_PRESETS = [
   { key: 'ev_tri', name: 'Borne de recharge 11 kW (tri)', kind: 'dedicated', appliance: 'ev_charger', In: 20, S: 6, points: 1, P: 11000, typeF: true, phase: '3P', tri: true },
   { key: 'cooktop_tri', name: 'Plaque de cuisson (tri)', kind: 'dedicated', appliance: 'cooktop', In: 20, S: 2.5, points: 1, P: 7200, typeA: true, phase: '3P', tri: true },
   { key: 'hvac_tri', name: 'Pompe à chaleur (tri)', kind: 'dedicated', In: 16, S: 2.5, points: 1, P: 6000, phase: '3P', tri: true },
-  { key: 'shutters', name: 'Volets roulants', kind: 'other', In: 16, S: 1.5, points: 4, P: 600 },
+  { key: 'shutters', name: 'Volets roulants', kind: 'other', appliance: 'shutter', In: 16, S: 1.5, points: 4, P: 600 },
   { key: 'freezer', name: 'Congélateur', kind: 'dedicated', In: 20, S: 2.5, points: 1, P: 200 },
   { key: 'hvac', name: 'Pompe à chaleur / climatisation', kind: 'dedicated', In: 20, S: 2.5, points: 1, P: 2500 },
   { key: 'outdoor', name: 'Extérieur (prises, éclairage)', kind: 'socket', In: 16, S: 2.5, points: 2, P: 500 },
@@ -102,7 +102,7 @@ function boardFromDesign(design) {
 
 // Tableau sans plan : circuits usuels d'un logement de la surface donnée
 function boardTemplate(area, opts) {
-  opts = Object.assign({ heating: true, cooktop: true, ev: false, tri: false }, opts || {});
+  opts = Object.assign({ heating: true, cooktop: true, ev: false, tri: false, shutters: false, pv: false }, opts || {});
   const A = Math.max(10, +area || 60);
   const b = { v: 1, supply: { kva: null, phases: opts.tri ? 3 : 1, surge: false, area: A }, rcds: [], circuits: [] }; // abonnement : d'après la puissance probable
   const nAC = A <= 35 ? 1 : A <= 100 ? 2 : 3;
@@ -117,6 +117,8 @@ function boardTemplate(area, opts) {
   add('oven'); add('washer'); add('dishwasher'); add('water_heater'); add('vmc');
   if (opts.heating) { const n = Math.max(1, Math.ceil((A * 80) / 4500)); for (let i = 0; i < n; i++) add('heating', { name: 'Chauffage' + (n > 1 ? ' ' + (i + 1) : ''), P: Math.round((A * 80) / n / 250) * 250 }); }
   if (opts.ev) add(opts.tri ? 'ev_tri' : 'ev');
+  if (opts.shutters) add('shutters');
+  if (opts.pv) add(opts.tri ? 'pv_tri' : 'pv');
   return b;
 }
 
