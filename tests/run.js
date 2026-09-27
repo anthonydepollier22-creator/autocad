@@ -1426,6 +1426,15 @@ r = run(`(function(){
 })()`);
 check('Essais et mesures saisis : reportés sur la fiche et jugés (isolement ≥ 1 MΩ, 30 mA entre 15 et 30 mA en 300 ms, AGCP sélectif 130 à 500 ms, RA ≤ 100 Ω)', r.n1 === 9 && r.b1 === 0 && r.b2 === 'AGCP:t,C1:iso,ID2:ida,ID2:t,gen:ra' && r.txt && r.txt2, JSON.stringify(r));
 
+// Circuits extérieurs du tableau : liaisons enterrées (R2V sous TPC), piscine sur horloge, sans non-conformité
+r = run(`(function(){
+  var b = boardTemplate(90, {}); ['garden', 'gate', 'pool', 'towel', 'sump', 'alarm'].forEach(function(k){ boardAddCircuit(b, k, { length: 35 }); });
+  var d = designInstallation([], [], b), S = cableSchedule(d, [], []), last = d.circuits.slice(-6);
+  return { buried: last.filter(function(c){ return c.buried; }).length, pool: last[2].contactor, tpc: S.rows.filter(function(r){ return /TPC/.test(r.conduit) && r.nature === 'U-1000 R2V'; }).length,
+    errs: checkBoard(d).filter(function(m){ return m.level === 'err'; }).length, rcd: last.every(function(c){ return c.rcd; }) };
+})()`);
+check('Tableau : éclairage extérieur, portail et piscine en liaison enterrée (R2V sous TPC), piscine sur horloge, sèche-serviettes, relevage, alarme — sous différentiel 30 mA', r.buried === 3 && r.pool === 'ih' && r.tpc === 3 && r.errs === 0 && r.rcd, JSON.stringify(r));
+
 // Schémas développés : contacteur heures creuses (compteur C1-C2, sélecteur, bobine, deux pôles) et horloge
 r = run(`(function(){
   var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d0 = designInstallation(h.components, h.wires);

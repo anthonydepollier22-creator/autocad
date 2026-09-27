@@ -184,9 +184,11 @@ l'éditeur du tableau, **avec ou sans plan** :
 - **Tableau modifiable** : chaque interrupteur différentiel (25 / 40 / 63 A, type AC,
   A, F ou B) et ses circuits — repère, désignation, type, calibre (C2 à C63), section
   (1,5 à 16 mm²), charge (points, prises ou watts), longueur, contacteur heures
-  creuses, télérupteur — ordre modifiable, **+ Circuit** d'après 22 circuits types
+  creuses, télérupteur — ordre modifiable, **+ Circuit** d'après 32 circuits types
   (éclairage, prises, cuisine, plaque 32 A / 6 mm², four, lave-linge, chauffe-eau,
-  chauffage, VMC, borne IRVE 40 A / 10 mm², volets, PAC…), **+ Différentiel**,
+  chauffage, sèche-serviettes, VMC, borne IRVE 40 A / 10 mm², volets, PAC,
+  photovoltaïque, éclairage extérieur, portail motorisé et piscine en liaison enterrée,
+  pompe de relevage, alarme…), **+ Différentiel**,
   abonnement, coffret et **parafoudre** ;
 - **Monophasé ou triphasé** : en 400 V, disjoncteur de branchement 4P réglé à
   kVA × 5/3 A par phase (6 à 36 kVA), ID 4P, chaque circuit sur L1, L2, L3 ou en
@@ -885,7 +887,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-222 vérifications sans dépendance : valeurs numériques de chaque simulation
+223 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

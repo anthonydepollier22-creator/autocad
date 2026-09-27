@@ -47,6 +47,13 @@ const BOARD_PRESETS = [
   { key: 'freezer', name: 'Congélateur', kind: 'dedicated', In: 20, S: 2.5, points: 1, P: 200 },
   { key: 'hvac', name: 'Pompe à chaleur / climatisation', kind: 'dedicated', In: 20, S: 2.5, points: 1, P: 2500 },
   { key: 'outdoor', name: 'Extérieur (prises, éclairage)', kind: 'socket', In: 16, S: 2.5, points: 2, P: 500 },
+  // extérieur : liaisons enterrées (câble U-1000 R2V sous fourreau TPC rouge)
+  { key: 'garden', name: 'Éclairage extérieur', kind: 'light', In: 10, S: 1.5, points: 4, P: 200, buried: true },
+  { key: 'gate', name: 'Portail motorisé', kind: 'dedicated', In: 16, S: 2.5, points: 1, P: 300, buried: true },
+  { key: 'pool', name: 'Piscine (pompe de filtration)', kind: 'dedicated', In: 16, S: 2.5, points: 1, P: 1100, buried: true, contactor: 'ih' },
+  { key: 'towel', name: 'Sèche-serviettes', kind: 'heating', In: 16, S: 1.5, points: 1, P: 750 },
+  { key: 'sump', name: 'Pompe de relevage', kind: 'dedicated', In: 16, S: 2.5, points: 1, P: 400 },
+  { key: 'alarm', name: 'Alarme, domotique', kind: 'dedicated', In: 2, S: 1.5, points: 1, P: 30 },
   { key: 'comms', name: 'Tableau de communication', kind: 'dedicated', In: 16, S: 1.5, points: 1, P: 50 },
   { key: 'other', name: 'Autre circuit', kind: 'other', In: 16, S: 1.5, points: 1, P: 1000 },
   // production photovoltaïque en autoconsommation : circuit de l'onduleur, disjoncteur différentiel dédié
@@ -135,7 +142,7 @@ function boardAddCircuit(board, key, over) {
   const c = {
     id: boardNextId(board, 'C'), name: pr.name, kind: pr.kind, In: pr.In, S: pr.S, curve: 'C', rcd: null,
     devices: [], points: pr.points || 1, length: 15, P: pr.P || 0, appliance: pr.appliance || null,
-    typeA: !!pr.typeA, typeF: !!pr.typeF, contactor: pr.contactor || null, teleruptor: false, ddr: pr.ddr || null,
+    typeA: !!pr.typeA, typeF: !!pr.typeF, contactor: pr.contactor || null, teleruptor: false, ddr: pr.ddr || null, buried: !!pr.buried,
     phase: pr.phase && +(board.supply && board.supply.phases) === 3 ? pr.phase : null, ...(over || {}),
   };
   if (pr.kind === 'sub') {
