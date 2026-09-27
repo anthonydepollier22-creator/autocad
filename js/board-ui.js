@@ -214,8 +214,10 @@ function initBoardUI(app) {
     if (box.hidden) return;
     const T = editor.meta.tests || {}, J = testJudge(d, { tests: T }), tri = d.supply && d.supply.phases === 3;
     const sig = d.circuits.map((c) => c.id).join() + '|' + J.devs.map((x) => x.key).join() + '|' + tri;
-    const inp = (key, f, cls) => { const v = T[key] && T[key][f]; return `<input type="text" inputmode="decimal" data-t="${esc(key)}" data-tf="${f}" value="${esc(v == null ? '' : v)}" class="${cls || ''}${J.bad.has(key + ':' + f) ? ' ko' : ''}">`; };
-    const chk = (key, f) => `<input type="checkbox" data-t="${esc(key)}" data-tf="${f}"${T[key] && T[key][f] ? ' checked' : ''}>`;
+    const LBL = { pe: 'continuité PE (Ω)', iso: 'isolement (MΩ)', pol: 'polarité vérifiée', fn: 'fonctionnement vérifié', obs: 'observations', ida: 'courant de déclenchement (mA)', t: 'temps de déclenchement (ms)', test: 'bouton test vérifié', ra: 'prise de terre (Ω)', u: 'tension (V)', ph: 'ordre des phases', lep: 'liaison équipotentielle', by: 'opérateur', tool: 'appareil', date: 'date' };
+    const aria = (key, f) => `aria-label="${esc((key === 'gen' ? '' : key + ' : ') + (LBL[f] || f))}"`;
+    const inp = (key, f, cls) => { const v = T[key] && T[key][f], txt = ['obs', 'by', 'tool', 'date'].includes(f); return `<input type="text"${txt ? '' : ' inputmode="decimal"'} ${aria(key, f)} data-t="${esc(key)}" data-tf="${f}" value="${esc(v == null ? '' : v)}" class="${cls || ''}${J.bad.has(key + ':' + f) ? ' ko' : ''}">`; };
+    const chk = (key, f) => `<input type="checkbox" ${aria(key, f)} data-t="${esc(key)}" data-tf="${f}"${T[key] && T[key][f] ? ' checked' : ''}>`;
     if (box.dataset.sig === sig) { // mêmes lignes : seules les alertes changent (la saisie garde le focus)
       box.querySelectorAll('input[type=text][data-t]').forEach((i) => i.classList.toggle('ko', J.bad.has(i.dataset.t + ':' + i.dataset.tf)));
       return;
