@@ -283,7 +283,7 @@ function checkBoard(design) {
   // Réserve et options
   const mods = boardModules(design);
   if (mods.reservePct < 20) push('warn', `Réserve de ${mods.reservePct} % : 20 % de modules libres au moins (prévoir ${mods.rowsCount + 1} rangées).`);
-  if (!(design.supply && design.supply.surge)) push('info', 'Parafoudre : obligatoire en zone foudroyée AQ2 ou avec une alimentation aérienne, conseillé ailleurs.');
+  if (!(design.supply && design.supply.surge)) push('info', 'Parafoudre : obligatoire si le bâtiment a un paratonnerre, ou en zone AQ2 (Ng > 2,5) avec une alimentation aérienne ; conseillé ailleurs.');
   const heatP = cs.filter((c) => c.kind === 'heating').reduce((s, c) => s + (c.power || 0), 0);
   if (design.supply && design.supply.shed && !heatP) push('warn', 'Délesteur sans circuit de chauffage à piloter.');
   else if (!(design.supply && design.supply.shed) && design.agcp && heatP >= 0.5 * design.agcp.kva * 1000) push('info', `Chauffage électrique ${_bNum(heatP / 1000, 1)} kW pour ${design.agcp.kva} kVA : un délesteur (fil pilote) coupe le chauffage aux pointes et évite le déclenchement du disjoncteur de branchement.`);

@@ -78,7 +78,7 @@ function initBoardUI(app) {
       `<label>Coffret <select data-sf="rows"><option value="">auto (${M.rowsCount} rangée${M.rowsCount > 1 ? 's' : ''})</option>${[1, 2, 3, 4, 5].map((n) => `<option value="${n}"${rowsWant === n ? ' selected' : ''}>${n} rangée${n > 1 ? 's' : ''} × 13</option>`).join('')}</select></label>` +
       (d.panel ? '' : `<label>Surface <input type="number" min="10" max="1000" step="1" data-sf="area" value="${Math.round(d.area || 0)}"> m²</label>`) +
       `<label title="Résistance de la prise de terre mesurée (100 Ω au plus avec l’AGCP 500 mA)">Terre <input type="number" min="0" max="2000" step="1" data-sf="ra" value="${d.supply && d.supply.ra ? d.supply.ra : ''}" placeholder="à mesurer"> Ω</label>` +
-      `<label class="check-row"><input type="checkbox" data-sf="surge"${d.supply && d.supply.surge ? ' checked' : ''}> Parafoudre</label>` +
+      `<label class="check-row" title="Parafoudre type 2 en tête : obligatoire si le bâtiment a un paratonnerre, ou en zone AQ2 (Ng > 2,5) avec une alimentation aérienne ; conseillé ailleurs"><input type="checkbox" data-sf="surge"${d.supply && d.supply.surge ? ' checked' : ''}> Parafoudre</label>` +
       `<label class="check-row" title="Délesteur : coupe le chauffage électrique (fil pilote) aux pointes de consommation"><input type="checkbox" data-sf="shed"${d.supply && d.supply.shed ? ' checked' : ''}> Délesteur</label>` +
       `<span class="bd-agcp">AGCP ${tri ? '4P' : '2P'} ${d.agcp.setting} A · 500 mA${tri && d.phaseLoad ? ` · L1 ${num(d.phaseLoad.L1 / 1000, 1)} / L2 ${num(d.phaseLoad.L2 / 1000, 1)} / L3 ${num(d.phaseLoad.L3 / 1000, 1)} kW` : ''}</span></div>`;
     // Tableau des circuits, par différentiel
