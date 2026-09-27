@@ -1277,9 +1277,10 @@ r = run(`(function(){
   var svg = pvSVGs(d, {}).join(''), T = technicalSet(d, {}, h.components, h.wires);
   var none = pvSVGs(designInstallation(h.components, h.wires), {}).join('');
   return { mods: L.n === 15 && L.strings === 2 && L.sizes.join('+') === '8+7', parts: ['Coffret DC', 'Interrupteur-sectionneur DC', 'Onduleur', 'Interrupteur-sectionneur AC', 'deux sources de tension', 'courant continu sous tension', pv.id].every(function(t){ return svg.indexOf(t) > 0; }),
-    set: T.entries.some(function(e){ return e.title === 'Photovoltaïque'; }), none: /Aucun circuit de production/.test(none), dxf: /EOF\\s*$/.test(pvDXF(d, {})) };
+    set: T.entries.some(function(e){ return e.title === 'Photovoltaïque'; }), none: /Aucun circuit de production/.test(none), dxf: /EOF\\s*$/.test(pvDXF(d, {})),
+    mat: (function(){ var m = materialList(h.components, h.wires, d).lines; return m.some(function(l){ return /Coffret DC 2 chaînes/.test(l.name); }) && m.some(function(l){ return /Câble solaire/.test(l.name) && l.qty === 60; }) && m.some(function(l){ return /courant continu sous tension/.test(l.name); }); })() };
 })()`);
-check('Photovoltaïque : schéma de principe (15 modules en 2 chaînes 8 + 7, coffret DC, onduleur, coupure AC, signalisation), dossier, DXF', r.mods && r.parts && r.set && r.none && r.dxf, JSON.stringify(r));
+check('Photovoltaïque : schéma de principe (15 modules en 2 chaînes 8 + 7, coffret DC, onduleur, coupure AC, signalisation), dossier, DXF, métré côté continu', r.mods && r.parts && r.set && r.none && r.dxf && r.mat, JSON.stringify(r));
 
 // Borne de recharge (IRVE) : circuit dédié du TD garage, différentiel dédié type F, schéma de principe
 r = run(`(function(){

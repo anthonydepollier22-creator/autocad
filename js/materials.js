@@ -16,6 +16,7 @@ const MAT_PRICES = {
   isolator: { 40: 18, 63: 24, 80: 45, 100: 55 },
   ddr: { AC: 48, A: 68, 'A-SI': 88, F: 125, B: 320 },
   vrSwitch: 14, vrMotor: 120, // commande de volet roulant, moteur tubulaire
+  pvDcBox: 145, pvCable: 1.6, pvConn: 4.5, // coffret DC équipé, câble solaire 4 mm² (€/m), paire de connecteurs
   pvIsolator: 38, pvLabel: 6, tpc: 2.2, mesh: 0.6, // fourreau TPC rouge Ø 63, grillage avertisseur (€/m) // interrupteur-sectionneur AC près de l'onduleur, étiquettes « deux sources »  // disjoncteur différentiel 1P+N 30 mA (3P+N : × 2,5) // interrupteur-sectionneur de tête d'un tableau divisionnaire (2P)
   comb: 8.5,            // peigne d'alimentation, par rangée
   link: { 10: 2.9, 16: 4.4, 25: 6.8 }, // conducteur de liaison AGCP → tableau, €/m
@@ -93,6 +94,14 @@ function materialList(components, wires, design) {
     const pv = design.circuits.filter((c) => c.kind === 'pv');
     for (const c of pv) add('Tableau', `Interrupteur-sectionneur AC ${c.phase === '3P' ? '4P' : '2P'} ${Math.max(c.In, 20)} A (près de l’onduleur ${c.id})`, 1, 'u', c.phase === '3P' ? P.pvIsolator * 2 : P.pvIsolator);
     if (pv.length) add('Tableau', 'Étiquettes « Attention — présence de deux sources de tension »', 2, 'u', P.pvLabel, 'tableau et coffret de comptage');
+    // côté continu (guide UTE C 15-712-1) : coffret DC, câble solaire, connecteurs, signalisation
+    for (const c of pv) {
+      const L = typeof pvLayout === 'function' ? pvLayout(c) : { strings: 1 };
+      add('Tableau', `Coffret DC ${L.strings} chaîne${L.strings > 1 ? 's' : ''} : interrupteur-sectionneur DC, parafoudre (${c.id})`, 1, 'u', P.pvDcBox);
+      add('Câbles et conduits', 'Câble solaire 4 mm² double isolation (H1Z2Z2-K), + et −', L.strings * 2 * 15, 'm', P.pvCable, `estimation : 15 m par chaîne et par polarité (${c.id})`);
+      add('Tableau', 'Connecteurs DC (paires mâle / femelle)', L.strings * 2, 'u', P.pvConn);
+    }
+    if (pv.length) add('Tableau', 'Étiquettes « Attention — câbles courant continu sous tension »', 2 * pv.length, 'u', P.pvLabel, 'coffret DC et cheminements');
     // Tableaux divisionnaires : coffret, interrupteur-sectionneur de tête, peignes, bornier de terre
     for (const T of design.panels || []) {
       const MP = typeof boardModules === 'function' ? boardModules(design, T.id) : null;
