@@ -635,6 +635,8 @@ function designInstallation(components, wires, board) {
       ct.dUpct += f.dUpct;
       ct.ok = ct.dUpct <= ct.limit;
       ct.feedRS = f.length / f.S;
+      // la ligne du TD réduit la longueur protégée : éclairage ou volets en 10 A si besoin
+      if (!B && (ct.kind === 'light' || ct.appliance === 'shutter') && ct.In === 16 && typeof calcLmaxOf === 'function' && (ct.far || ct.length) > calcLmaxOf(ct)) { ct.In = 10; ct.derated = true; }
     }
   }
 
