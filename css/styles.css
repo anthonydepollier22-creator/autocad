@@ -1057,6 +1057,16 @@ body.light .day-sec { --dc7: #4a3aa7; }
   .bd-edit { border-right: none; overflow: visible; }
   .bd-viewbar .seg { overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; } /* mobile : défilement horizontal */
   .bd-head .btn-ghost, .bd-head .btn-primary { padding: 6px 9px; font-size: 12px; }
+  /* en-tête compact : titre puis actions sur une ligne défilante */
+  .board-box > .modal-head { flex-wrap: wrap; gap: 6px; padding-bottom: 8px; }
+  .board-box > .modal-head h2 { font-size: 16px; }
+  .board-box > .modal-head #bd-sub { font-size: 12px; }
+  .bd-head { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; justify-content: flex-start; width: 100%; }
+  .bd-head::-webkit-scrollbar { display: none; }
+  .bd-head > * { flex: 0 0 auto; }
+  .bd-head .btn-primary { order: -1; } /* le dossier technique en premier */
+  .board-box > .modal-head { position: relative; padding-right: 48px; }
+  .bd-head #board-close { position: absolute; top: 12px; right: 10px; } /* toujours visible */
 }
 
 /* Propriétés d'un mur */
