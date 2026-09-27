@@ -1340,11 +1340,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Nouveautés : une fois par version (pas quand on arrive par un lien de démo)
   try {
-    const NEWS = '1.19';
+    const NEWS = '1.20';
     if (localStorage.getItem('electricad-news') !== NEWS) {
       localStorage.setItem('electricad-news', NEWS);
       if (!location.search) {
-        setTimeout(() => showToast('<b>Nouveau</b> : <b>carnet de câbles</b> (composition, conduit ICTA, longueur de chaque liaison) ; schémas développés des <b>contacteurs heures creuses</b> et horloges ; <b>onduleur photovoltaïque</b> posé sur le plan ; palette NF : borne de recharge, moteur de volet, bornier, terre PE, renvoi de folio.', 9000), 1200);
+        setTimeout(() => showToast('<b>Nouveau</b> : folio <b>Synoptique</b> en tête du dossier ; fiche <b>Essais et mesures</b> à remplir dans l’application (valeurs hors critères en rouge) ; sur ordinateur, dossiers enregistrés directement en <b>PDF</b> ; sur téléphone, folios choisis dans une liste.', 9000), 1200);
       }
     }
   } catch (_) { /* stockage indisponible */ }
