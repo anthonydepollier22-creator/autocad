@@ -32,6 +32,13 @@ function selfCheckList(report, design) {
     if (M) add('20 % de modules libres dans le tableau', M.reservePct >= 20 ? 'ok' : 'warn', `${M.reservePct} %`);
     const ra = design.supply && design.supply.ra;
     add('Prise de terre de 100 Ω au plus', ra ? (ra <= 100 ? 'ok' : 'err') : 'todo', ra ? `${ra} Ω mesurés` : 'à mesurer (champ « Terre » du tableau)');
+    const ev = typeof evCircuits === 'function' ? evCircuits(design) : [];
+    if (ev.length) {
+      const bad = ev.filter((c) => { const t = c.ddr || ((design.rcds || []).find((r) => r.id === c.rcd) || {}).type; return !['F', 'B'].includes(t); });
+      add('Borne de recharge : circuit et différentiel 30 mA dédiés (type F, A-EV ou B)', bad.length ? 'warn' : 'ok', bad.map((c) => c.id).join(', '));
+    }
+    const sel = chk(/pas de sélectivité/);
+    if ((design.panels || []).length) add('Tableaux divisionnaires : départ en tête, calibre au-dessus des départs aval', worst(chk(/tableau divisionnaire|départ sous/).concat(sel)), sel.map((x) => x.msg.split(' ')[0]).join(', '));
   }
   const manual = [
     'Conducteur de terre (16 mm² cuivre) et barrette de mesure accessible près du tableau',
@@ -45,6 +52,12 @@ function selfCheckList(report, design) {
     'Pièces d’eau : appareillage et luminaires à l’indice de protection des volumes',
     'Coffret de communication dans la GTL, alimenté par deux socles 2P+T',
   ];
+  if (design && design.ok && design.circuits.some((c) => c.kind === 'pv')) {
+    manual.push('Photovoltaïque : étiquettes « deux sources de tension » au tableau et au comptage, « courant continu » au coffret DC, coupure AC près de l’onduleur');
+  }
+  if (design && design.ok && typeof evCircuits === 'function' && evCircuits(design).length) {
+    manual.push('Borne de recharge : installateur qualifié IRVE au-delà de 3,7 kW, essai de charge et test du différentiel');
+  }
   return { auto, manual };
 }
 
