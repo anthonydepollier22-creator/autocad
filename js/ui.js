@@ -385,7 +385,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const onChk = document.getElementById('prop-on');
   const propCircuit = document.getElementById('prop-circuit');
   // Hauteur de pose des appareils muraux (cm) : vide = hauteur usuelle NF
-  const WALL_MOUNT = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light']);
+  const WALL_MOUNT = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'switch_shutter', 'rj45', 'wall_light']);
   const hWrap = document.getElementById('prop-h-wrap'), hInput = document.getElementById('prop-h');
   hInput.addEventListener('change', () => {
     const v = Math.round(+hInput.value);
