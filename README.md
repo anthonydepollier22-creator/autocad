@@ -46,7 +46,10 @@ Page de téléchargement : https://anthonydepollier22-creator.github.io/autocad/
   (vérifiée aussi au démarrage).
 - **Android (Capacitor)** : l'éditeur s'ouvre directement, en tactile — pincer pour
   zoomer, deux doigts pour déplacer, tiroirs pour la palette et les propriétés,
-  joystick pour la visite 3D.
+  joystick pour la visite 3D. Les exports (SVG, DXF, CSV, PNG, projet) sont
+  enregistrés dans **Téléchargements/ElectriCAD** avec le partage proposé, et les
+  dossiers passent par l'impression Android (« Enregistrer au format PDF ») — module
+  natif `mobile/native/` (Java), copié dans le projet Capacitor à la construction.
 - **Première ouverture** : les applications ne sont pas signées par un certificat
   payant. Windows : *Informations complémentaires* → *Exécuter quand même* ; macOS :
   Réglages Système → Confidentialité et sécurité → *Ouvrir quand même* ; Android :
@@ -68,7 +71,7 @@ En local :
 ```bash
 cd desktop && npm ci && npm start        # lancer l'application de bureau
 cd desktop && npm run dist               # construire l'installateur du système courant
-cd mobile && npm ci && npm run web && npx cap add android && npm run icons && npx cap sync
+cd mobile && npm ci && npm run web && npx cap add android && cp native/*.java android/app/src/main/java/fr/electricad/app/ && npm run icons && npx cap sync
 cd mobile/android && ./gradlew assembleDebug   # APK (JDK 21 + SDK Android)
 ```
 

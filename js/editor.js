@@ -1196,11 +1196,14 @@ class Editor {
   }
   print(svgIn) {
     const svg = svgIn || this.exportSVG();
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${this.meta.title || 'Schéma'}</title>` +
+      `<style>body{margin:0;display:flex;justify-content:center;padding:20px}svg{max-width:100%;height:auto}</style></head>` +
+      `<body onload="window.print()">${svg}</body></html>`;
+    const F = typeof window !== 'undefined' && window.ElectriCADFiles; // application Android : impression native
+    if (F && F.printHTML(html, this.meta.title || 'Schéma', true)) return;
     const win = window.open('', '_blank');
     if (!win) return;
-    win.document.write(`<!DOCTYPE html><html><head><title>${this.meta.title || 'Schéma'}</title>` +
-      `<style>body{margin:0;display:flex;justify-content:center;padding:20px}svg{max-width:100%;height:auto}</style></head>` +
-      `<body onload="window.print()">${svg}</body></html>`);
+    win.document.write(html);
     win.document.close();
   }
 

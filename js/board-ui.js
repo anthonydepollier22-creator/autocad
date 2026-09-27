@@ -383,8 +383,9 @@ function initBoardUI(app) {
 
   // Impression : folios A3 paysage, face avant et étiquettes à l'échelle 1
   function printAll(d) {
-    const win = window.open('', '_blank');
-    if (!win) { showToast('Autorise les fenêtres surgissantes pour imprimer.'); return; }
+    const native = window.ElectriCADFiles && window.ElectriCADFiles.nativeApp();
+    const win = native ? null : window.open('', '_blank');
+    if (!native && !win) { showToast('Autorise les fenêtres surgissantes pour imprimer.'); return; }
     const strip = (s) => s.replace(/width="[^"]*mm" height="[^"]*mm"/, '');
     // dossier technique : sommaire puis folios numérotés à la suite
     const pages = technicalSet(d, meta(), editor.components, editor.wires).pages.map((s) => `<section class="a3">${strip(s)}</section>`).join('');
@@ -402,6 +403,7 @@ function initBoardUI(app) {
       `<section class="a4p">${front.replace(/width="[^"]*mm" height="[^"]*mm"/, `style="width:${Math.min(194, fw, (279 * fw) / fh).toFixed(1)}mm;height:auto"`)}</section>` +
       labels.map((l) => `<section class="a4l">${l.replace(/height="[^"]*mm"/, '')}</section>`).join('') +
       '<script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script></body></html>';
+    if (native) { window.ElectriCADFiles.printHTML(html, base() + ' - dossier technique', true); showToast('Impression du dossier technique : choisis « Enregistrer au format PDF » pour garder le fichier.', 5000); return; }
     win.document.open(); win.document.write(html); win.document.close();
   }
 

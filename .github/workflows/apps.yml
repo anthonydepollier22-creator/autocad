@@ -90,6 +90,8 @@ jobs:
         run: |
           npm run web
           npx cap add android
+          # module natif : enregistrement des fichiers (Téléchargements) et impression des dossiers
+          cp native/*.java android/app/src/main/java/fr/electricad/app/
           npm run icons
           npx cap sync android
       - name: Version

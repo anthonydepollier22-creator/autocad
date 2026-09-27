@@ -334,9 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
     r.readAsText(f);
   }
   document.getElementById('btn-png').addEventListener('click', () => {
-    const url = editor.exportPNG();
-    const a = document.createElement('a');
-    a.href = url; a.download = 'schema.png'; a.click();
+    download(dataURLBlob(editor.exportPNG()), (editor.meta.title || 'schema') + '.png');
   });
   // Plan d'implantation : légende des symboles et repères de circuits dans les exports
   const planMeta = () => {
@@ -362,13 +360,43 @@ document.addEventListener('DOMContentLoaded', () => {
     return String(name).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[–—]/g, '-').replace(/[’']/g, ' ')
       .replace(/[^\w .+()-]/g, '_').replace(/\s+/g, ' ').trim() || 'fichier';
   }
+  // Application Android (Capacitor) : la WebView ne télécharge pas les « blob: » et n'imprime
+  // pas — le module natif « ElectriCAD » enregistre dans Téléchargements/ElectriCAD (et propose
+  // le partage) et passe les dossiers à l'impression Android (« Enregistrer au format PDF »)
+  function nativeApp() {
+    const C = window.Capacitor;
+    return C && typeof C.nativePromise === 'function' && typeof C.isNativePlatform === 'function' && C.isNativePlatform() ? C : null;
+  }
   function download(blob, name) {
+    const C = nativeApp();
+    if (C) {
+      const r = new FileReader();
+      r.onload = () => C.nativePromise('ElectriCAD', 'saveFile', { data: String(r.result).split(',')[1] || '', name: fileName(name), mime: blob.type || 'application/octet-stream' })
+        .catch((e) => showToast('Enregistrement impossible : ' + _escHtml((e && e.message) || String(e)), 4000));
+      r.readAsDataURL(blob);
+      return;
+    }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = fileName(name);
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
+  function dataURLBlob(url) {
+    const [head, b64] = String(url).split(','), bin = atob(b64 || ''), u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return new Blob([u8], { type: (/:(.*?);/.exec(head) || [])[1] || 'application/octet-stream' });
+  }
+  // Document HTML à imprimer (dossiers) : impression native dans l'application Android ;
+  // renvoie false ailleurs (le navigateur ouvre alors sa fenêtre d'impression)
+  function printHTML(html, title, a3) {
+    const C = nativeApp();
+    if (!C) return false;
+    C.nativePromise('ElectriCAD', 'printHtml', { html, title: title || 'ElectriCAD', a3: a3 !== false })
+      .catch((e) => showToast('Impression impossible : ' + _escHtml((e && e.message) || String(e)), 4000));
+    return true;
+  }
+  window.ElectriCADFiles = { download, dataURLBlob, printHTML, nativeApp };
 
   // --- Panneau de propriétés / barre d'état -------------------------------
   const propBox = document.getElementById('props');
@@ -611,10 +639,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('btn-scope-png').addEventListener('click', () => {
     if (scope.style.display === 'none') { showToast('Lance d’abord une analyse Transitoire, Bode ou Logique.'); return; }
-    const a = document.createElement('a');
-    a.href = scope.toDataURL('image/png');
-    a.download = fileName((editor.meta.title || 'graphique') + '.png');
-    a.click();
+    download(dataURLBlob(scope.toDataURL('image/png')), (editor.meta.title || 'graphique') + '.png');
   });
 
   // Analyse transitoire (oscilloscope)
@@ -1298,11 +1323,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Nouveautés : une fois par version (pas quand on arrive par un lien de démo)
   try {
-    const NEWS = '1.17';
+    const NEWS = '1.18';
     if (localStorage.getItem('electricad-news') !== NEWS) {
       localStorage.setItem('electricad-news', NEWS);
       if (!location.search) {
-        setTimeout(() => showToast('<b>Nouveau</b> : folio <b>Détails de pose</b> (cloison placo, doublage, tranchée), <b>tableau d’étage</b> sur le palier d’une maison R+1, option <b>volets roulants</b> à la création d’une maison ; sur téléphone, circuits du tableau en cartes et palette <b>Implanter</b> en bas de l’écran.', 9000), 1200);
+        setTimeout(() => showToast('<b>Nouveau</b> : application Android — exports enregistrés dans <b>Téléchargements/ElectriCAD</b> et dossiers en <b>PDF</b> ; en 3D, « <b>Volet</b> » posé en visant une fenêtre, volets baissés la nuit ; tableau sans plan avec volets et photovoltaïque.', 9000), 1200);
       }
     }
   } catch (_) { /* stockage indisponible */ }

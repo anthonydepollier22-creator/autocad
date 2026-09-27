@@ -1766,10 +1766,7 @@ function initHouseUI(app) {
   });
   $('btn-3d-photo').addEventListener('click', () => {
     if (viz && viz.render) viz.render();
-    const a = document.createElement('a');
-    a.href = cv3.toDataURL('image/png');
-    a.download = fileName((editor.meta.title || 'vue') + '-3d.png');
-    a.click();
+    download(window.ElectriCADFiles.dataURLBlob(cv3.toDataURL('image/png')), (editor.meta.title || 'vue') + '-3d.png');
   });
   // Clavier : visite (prioritaire sur les raccourcis de l'éditeur), Échap
   window.addEventListener('keydown', (e) => {
@@ -1867,9 +1864,10 @@ function initHouseUI(app) {
   }
   function openDossier() {
     const d = ensureDesign();
-    const win = window.open('', '_blank');
-    if (!win) { showToast('Autorise les fenêtres surgissantes pour ouvrir le dossier.'); return; }
-    win.document.write('<!DOCTYPE html><title>Préparation du dossier…</title><p style="font:14px system-ui;padding:20px">Préparation du dossier…</p>');
+    const native = window.ElectriCADFiles && window.ElectriCADFiles.nativeApp();
+    const win = native ? null : window.open('', '_blank');
+    if (!native && !win) { showToast('Autorise les fenêtres surgissantes pour ouvrir le dossier.'); return; }
+    if (win) win.document.write('<!DOCTYPE html><title>Préparation du dossier…</title><p style="font:14px system-ui;padding:20px">Préparation du dossier…</p>');
     setTimeout(() => {
       const report = checkNFC15100(editor.components, editor.wires);
       const dayData = day.acc && day.acc.total > 0 ? { acc: day.acc, season: day.season }
@@ -1897,6 +1895,7 @@ function initHouseUI(app) {
         images: hasPlan() ? dossierImages(d) : [],
         day: dayData,
       }).replace('</body>', '<script>window.onload = function () { setTimeout(function () { window.print(); }, 350); };<\/script></body>');
+      if (native) { window.ElectriCADFiles.printHTML(html, (editor.meta.title || 'Installation') + ' - dossier du projet', false); showToast('Impression du dossier : choisis « Enregistrer au format PDF » pour garder le fichier.', 5000); return; }
       win.document.open();
       win.document.write(html);
       win.document.close();
