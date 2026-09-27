@@ -1093,6 +1093,109 @@ function synopticDXF(design, meta, components, wires) {
 }
 
 // ---------------------------------------------------------------------------
+// Essais et mesures (mise en service, NF C 15-100 partie 6) : fiche à remplir
+// sur place — continuité des conducteurs de protection, isolement, polarité et
+// fonctionnement de chaque circuit ; seuil et temps de déclenchement de chaque
+// dispositif différentiel ; résistance de la prise de terre, tensions
+// ---------------------------------------------------------------------------
+const TEST_ROWS = 44; // circuits par folio
+function testFolios(design) { const D = design.root || design; return Math.max(1, Math.ceil(D.circuits.length / TEST_ROWS)); }
+function drawTests(ctx, design, meta, folio) {
+  const D = design.root || design, N = calcNote(D), nF = testFolios(D), k = Math.min(folio || 0, nF - 1);
+  const rows = D.circuits.slice(k * TEST_ROWS, (k + 1) * TEST_ROWS);
+  const ink = '#1a2230', mute = '#5b6b82', green = '#1e7b34';
+  const layer = (n) => { if ('layer' in ctx) ctx.layer = n; };
+  const text = (t, x, y, o) => {
+    o = o || {};
+    ctx.save(); ctx.fillStyle = o.color || ink; ctx.font = `${o.bold ? 'bold ' : ''}${o.size || 8}px sans-serif`;
+    ctx.textAlign = o.align || 'left'; ctx.fillText(t, x, y); ctx.restore();
+  };
+  const fit = (t, n) => (String(t).length > n ? String(t).slice(0, n - 1) + '…' : String(t));
+  const refOf = (pid) => { const P = (D.panels || []).find((p) => p.id === pid); return P ? P.ref : ''; };
+  // tableau générique : colonnes [titre, largeur, valeur], lignes, fond d'en-tête
+  const table = (x0, y0, cols, data, rh) => {
+    const hh = 26, W = cols.reduce((s, c) => s + c[1], 0), y1 = y0 + hh + data.length * rh;
+    if (!('layer' in ctx)) {
+      ctx.fillStyle = '#e8eef6'; ctx.beginPath(); ctx.rect(x0, y0, W, hh); ctx.fill();
+      ctx.fillStyle = '#f5f7fa'; data.forEach((r, i) => { if (i % 2) { ctx.beginPath(); ctx.rect(x0, y0 + hh + i * rh, W, rh); ctx.fill(); } });
+    }
+    layer('CARTOUCHE'); ctx.strokeStyle = ink;
+    _uLine(ctx, x0, y0, x0 + W, y0, 1.1); _uLine(ctx, x0, y0 + hh, x0 + W, y0 + hh, 1); _uLine(ctx, x0, y1, x0 + W, y1, 1.1);
+    for (let i = 1; i < data.length; i++) _uLine(ctx, x0, y0 + hh + i * rh, x0 + W, y0 + hh + i * rh, 0.4);
+    let x = x0;
+    for (const c of cols) { _uLine(ctx, x, y0, x, y1, x === x0 ? 1.1 : 0.5); x += c[1]; }
+    _uLine(ctx, x0 + W, y0, x0 + W, y1, 1.1);
+    layer('TEXTES'); x = x0;
+    for (const [lab, w, f, o] of cols) {
+      const [l1, l2] = lab.split('\n');
+      text(l1, x + 4, y0 + (l2 ? 11 : 16), { bold: true, size: 7.5 }); if (l2) text(l2, x + 4, y0 + 21, { size: 6.5, color: mute });
+      if (f) data.forEach((r, i) => text(String(f(r)), x + 4, y0 + hh + i * rh + rh / 2 + 3, { size: 7.5, bold: !!(o && o.bold), color: (o && o.color) || ink }));
+      x += w;
+    }
+    return y1;
+  };
+  ctx.save(); ctx.lineCap = 'round';
+  layer('CARTOUCHE');
+  _uCartouche(ctx, D, meta, 'Essais et mesures de mise en service', k, nF);
+  layer('TEXTES');
+  text('Essais et mesures', 30, 46, { bold: true, size: 17 });
+  text('Vérification à la mise en service (NF C 15-100, partie 6) : fiche à remplir sur place, installation hors tension pour la continuité et l’isolement', 200, 45, { size: 8.5, color: mute });
+  // --- circuits ----------------------------------------------------------------
+  const cols = [
+    ['Repère', 42, (c) => c.id, { bold: true }],
+    ['Circuit', 150, (c) => fit(c.kind === 'sub' ? `Ligne ${c.panelRef || 'TD'} — ${c.name}` : c.name, 32)],
+    ['Protection', 56, (c) => `${c.curve || 'C'}${c.In} · ${_bS(c.S)}`],
+    ['Différentiel', 56, (c) => (c.kind === 'sub' ? 'AGCP' : c.ddr ? `DDR ${c.ddr}` : c.rcd || '—') + (c.panel ? ` ${refOf(c.panel)}` : '')],
+    ['Continuité PE\nΩ', 70], ['Isolement L/N-PE\nMΩ (500 V ⎓)', 84], ['Polarité\n☐', 48], ['Fonction.\n☐', 50],
+    ['Observations', 214],
+  ];
+  const yEnd = table(30, 66, cols, rows, Math.max(14.2, Math.min(22, (UNI.H - 15 - 62 - 40 - 92) / Math.max(1, rows.length)))); // place pour écrire
+  if (k < nF - 1) text(`Suite folio ${k + 2} →`, 30 + 770, yEnd + 14, { size: 8, color: mute, align: 'right' });
+  // --- colonne de droite : différentiels, mesures générales, critères, visa
+  const rx = 830;
+  if (k === 0) {
+    const devs = [{ ref: 'AGCP', type: 'S (sélectif)', sens: 500, t: '130 à 500 ms' }]
+      .concat(D.rcds.map((r) => ({ ref: r.id + (r.panel ? ` (${refOf(r.panel)})` : ''), type: r.type, sens: r.sens || 30, t: '≤ 300 ms' })))
+      .concat(D.circuits.filter((c) => c.ddr).map((c) => ({ ref: `DDR ${c.id}`, type: c.ddr, sens: 30, t: '≤ 300 ms' })));
+    layer('TEXTES'); text('Dispositifs différentiels', rx, 62, { bold: true, size: 9.5 });
+    const yD = table(rx, 68, [['Repère', 72, (r) => r.ref, { bold: true }], ['Type', 58, (r) => r.type], ['IΔn\nmA', 34, (r) => r.sens], ['IΔ décl.\nmA', 50], ['t à IΔn\nms', 46], ['Test\n☐', 70, (r) => `att. ${r.t}`, { color: mute }]], devs.slice(0, 14), 14.2);
+    let y = yD + 22;
+    layer('TEXTES'); text('Mesures générales', rx, y, { bold: true, size: 9.5 });
+    [[`Prise de terre RA : ______ Ω`, `≤ ${N.raMax} Ω (AGCP 500 mA)${N.ra ? ` · saisie : ${_bNum(N.ra)} Ω` : ''}`],
+      [`Tension au tableau : ______ V`, N.tri ? '400 V entre phases, 230 V phase-neutre' : '230 V (± 10 %)'],
+      N.tri ? ['Ordre des phases : ☐ direct', 'L1-L2-L3 au tableau et aux prises triphasées'] : ['Liaison équipotentielle principale : ☐', `${earthLepS()} mm² aux canalisations`],
+      ['Isolement de l’installation : ______ MΩ', 'toutes protections fermées, récepteurs déconnectés']]
+      .forEach(([a, b], i) => { text(a, rx, y + 18 + i * 24, { size: 8.5 }); text(b, rx + 8, y + 29 + i * 24, { size: 7, color: mute }); });
+    y += 18 + 4 * 24 + 8;
+    text('Critères', rx, y, { bold: true, size: 9.5 });
+    ['Continuité : chaque masse et chaque borne de terre des prises reliées au bornier',
+      'Isolement : 1 MΩ au moins entre conducteurs actifs et PE, sous 500 V continu',
+      'Différentiel 30 mA : déclenche entre 15 et 30 mA, en 300 ms au plus à IΔn',
+      'Polarité : les interrupteurs coupent la phase ; neutre bleu clair, PE vert-jaune',
+      'Fonctionnement : commandes, contacteurs, délesteur, parafoudre (voyant)']
+      .forEach((t, i) => text('• ' + t, rx, y + 14 + i * 12, { size: 7, color: mute }));
+    y += 14 + 5 * 12 + 12;
+    layer('CARTOUCHE'); ctx.lineWidth = 0.8; ctx.strokeStyle = ink; ctx.strokeRect(rx, y, 330, 58);
+    layer('TEXTES');
+    text('Mesures réalisées par : ____________________', rx + 8, y + 16, { size: 8 });
+    text('Appareil (contrôleur d’installation) : ____________', rx + 8, y + 31, { size: 8 });
+    text('Date : ___ / ___ / ______      Visa :', rx + 8, y + 46, { size: 8 });
+    text('Joindre la fiche au dossier remis au client et à l’attestation de conformité (Consuel).', rx, y + 72, { size: 7, color: green });
+  }
+  ctx.restore();
+}
+function testSVGs(design, meta) {
+  const out = [];
+  for (let k = 0; k < testFolios(design); k++) { const ctx = new SVGContext(); drawTests(ctx, design, meta, k); out.push(_folioWrap(ctx.out.join(''))); }
+  return out;
+}
+function testDXF(design, meta) {
+  const ctx = new DXFContext(), n = testFolios(design);
+  for (let k = 0; k < n; k++) { ctx.save(); ctx.translate(0, k * (UNI.H + 60)); drawTests(ctx, design, meta, k); ctx.restore(); }
+  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: n * (UNI.H + 60) }, { U: 1 / 0.3528, insunits: 4, layers: [['TEXTES', 7], ['CARTOUCHE', 8]] });
+}
+
+// ---------------------------------------------------------------------------
 // Carnet de câbles : chaque liaison (repère W…), son origine et sa destination,
 // la nature du câble, sa composition, le conduit (conducteurs dans le tiers au
 // plus de la section intérieure, NF C 15-100) et la longueur mesurée sur le plan
@@ -2569,6 +2672,7 @@ function _technicalSeries(design, components, wires) {
   if (evL.length) S.push({ title: 'Borne de recharge (IRVE)', what: 'Circuit dédié, différentiel, commande, borne mode 3, pilotage', n: evL.length, draw: (ctx, m, k) => drawEV(ctx, design, m, evL, k) });
   const wetL = hasPlan ? wetRoomsAudit(components, wires) : [];
   if (wetL.length) S.push({ title: 'Salles d’eau (volumes)', what: 'Volumes 1 et 2 de chaque douche et baignoire, appareillage situé et vérifié', n: wetFolios(wetL), draw: (ctx, m, k) => drawWetRooms(ctx, design, m, wetL, wires, components, k) });
+  S.push({ title: 'Essais et mesures', what: 'Fiche de mise en service : continuité, isolement, différentiels, prise de terre', n: testFolios(design), draw: (ctx, m, k) => drawTests(ctx, design, m, k) });
   S.push({ title: 'Mise à la terre', what: 'Prise de terre, barrette, borne principale, PE des circuits, LEP et LES', n: 1, draw: (ctx, m) => drawEarthing(ctx, design, m) });
   if (hasPlan && typeof elevations === 'function') {
     const E = elevations(components, wires);

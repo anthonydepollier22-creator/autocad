@@ -1890,6 +1890,7 @@ function initHouseUI(app) {
         heatingSVGs: d && d.ok && d.circuits.some((c) => c.kind === 'heating') ? heatingSVGs(d, editor.meta, editor.components) : [],
         shutterSVGs: d && d.ok && d.circuits.some((c) => c.appliance === 'shutter') ? shutterSVGs(d, editor.meta, editor.components) : [],
         earthingSVG: d && d.ok ? earthingSVG(d, editor.meta) : '',
+        testSVGs: d && d.ok ? testSVGs(d, editor.meta) : [],
         detailsSVG: d && d.ok ? detailsSVG(d, editor.meta) : '',
         pvSVGs: d && d.ok && d.circuits.some((c) => c.kind === 'pv') ? pvSVGs(d, editor.meta) : [],
         evSVGs: d && d.ok && evCircuits(d).length ? evSVGs(d, editor.meta) : [],

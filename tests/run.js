@@ -1400,6 +1400,16 @@ r = run(`(function(){
 })()`);
 check('Synoptique : réseau, compteur, AGCP, tableau principal, départs par usage, TD et borne, terre, communication ; PV sans plan ; dossier, DXF', r.parts && r.pv && r.first && r.dxf && !r.nan, JSON.stringify(r));
 
+// Essais et mesures : chaque circuit (continuité, isolement, polarité), chaque différentiel (AGCP sélectif, ID, TD), terre, critères
+r = run(`(function(){
+  var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d = designInstallation(h.components, h.wires);
+  var svg = testSVGs(d, {}).join(''), T = technicalSet(d, {}, h.components, h.wires);
+  var all = d.circuits.every(function(c){ return svg.indexOf('>' + c.id + '<') > 0; }), ids = d.rcds.every(function(r){ return svg.indexOf(r.id) > 0; });
+  return { all: all, ids: ids, parts: ['Continuité PE', 'Isolement L/N-PE', 'S (sélectif)', 'ID5 (TD1)', 'Prise de terre RA', '1 MΩ au moins', 'entre 15 et 30 mA', 'Mesures réalisées par'].every(function(t){ return svg.indexOf(t) > 0; }),
+    set: T.entries.some(function(e){ return e.title === 'Essais et mesures'; }), dxf: /EOF\\s*$/.test(testDXF(d, {})), nan: /NaN|undefined/.test(svg) };
+})()`);
+check('Essais et mesures : fiche de mise en service (circuits, différentiels, prise de terre, critères, visa) ; dossier, DXF', r.all && r.ids && r.parts && r.set && r.dxf && !r.nan, JSON.stringify(r));
+
 // Schémas développés : contacteur heures creuses (compteur C1-C2, sélecteur, bobine, deux pôles) et horloge
 r = run(`(function(){
   var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d0 = designInstallation(h.components, h.wires);

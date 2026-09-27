@@ -348,6 +348,12 @@ l'éditeur du tableau, **avec ou sans plan** :
   chauffage de classe II et IPX4, hors volume au-dessus de 2,25 m ; tableau des règles
   des volumes 0, 1, 2 et hors volume ; le contrôle NF vérifie aussi les commandes de
   volet et les poussoirs ; export SVG et DXF ;
+- **Essais et mesures** (folio A3, vue « Essais ») : fiche de mise en service à remplir
+  sur place (NF C 15-100, partie 6) — pour chaque circuit, continuité du conducteur de
+  protection, isolement sous 500 V continu, polarité et fonctionnement ; pour l'AGCP
+  sélectif et chaque interrupteur ou disjoncteur différentiel, seuil et temps de
+  déclenchement ; prise de terre, tension, liaison équipotentielle ; critères et visa ;
+  export SVG et DXF ;
 - **Mise à la terre** (folio A3, vue « Terre ») : schéma TT de la prise de terre (boucle
   à fond de fouille, cuivre nu 25 mm²) à la barrette de coupure et à la borne principale
   de terre (conducteur de terre 16 mm²), répartiteur de terre de chaque tableau et
@@ -870,7 +876,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-219 vérifications sans dépendance : valeurs numériques de chaque simulation
+220 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
