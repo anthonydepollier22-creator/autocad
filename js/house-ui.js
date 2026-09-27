@@ -1910,7 +1910,7 @@ function initHouseUI(app) {
     const list = materialList(editor.components, editor.wires, d);
     const eur = (v) => v.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
     let h = '<section class="mat"><div class="mat-head"><div><b>Matériel et budget</b><span>d’après le tableau calculé et le plan</span></div>' +
-      '<button class="btn-ghost" data-mat-csv>Exporter CSV</button></div>' +
+      '<button class="btn-ghost" data-mat-csv title="Matériel et budget (quantités, prix) en tableur">Matériel (CSV)</button></div>' +
       `<div class="mat-kpis"><div><b class="num">${eur(list.material)}</b><span>matériel électrique</span></div><div><b class="num">${eur(list.equipment)}</b><span>équipements (facultatif)</span></div></div>`;
     let cat = null;
     h += '<table class="mat-table"><tbody>';
