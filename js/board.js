@@ -261,7 +261,7 @@ function checkBoard(design) {
     const Iz3 = c.phase === '3P' && CALC_IZ[3][c.S];
     if (Iz3 && c.In > Iz3) push('err', `${c.id} ${c.name} : ${c.In} A sur ${boardCable(c.S, c.phase)} — Iz = ${_bNum(Iz3, 1)} A en triphasé, section supérieure.`, c.id);
     const L = c.far || c.length || 0, Lmax = calcLmaxOf(c);
-    if (L > Lmax) push('err', `${c.id} ${c.name} : ${_bNum(L, 1)} m > ${_bNum(Lmax, 1)} m protégés${c.feedRS ? ' (ligne du tableau divisionnaire comprise)' : ''} — un court-circuit en bout de ligne (≈ ${_bNum(calcIccMin(c, L))} A) ne ferait pas déclencher le ${c.curve || 'C'}${c.In} (${(CALC_IM[c.curve || 'C'] || 10) * c.In} A) : section supérieure ou calibre inférieur.`, c.id);
+    if (L > Lmax) push('err', `${c.id} ${c.name} : ${_bNum(L, 1)} m > ${_bNum(Lmax, 1)} m protégés${c.feedRS ? ' (ligne du tableau divisionnaire comprise)' : ''} — un court-circuit en bout de ligne (≈ ${_bNum(calcIccMin(c, L))} A) ne ferait pas déclencher le ${c.curve || 'C'}${c.In} (${(CALC_IM[c.curve || 'C'] || 10) * c.In} A) : section supérieure, calibre inférieur${(c.curve || 'C') !== 'B' ? ' ou courbe B' : ''}.`, c.id);
   }
   // Différentiels
   const byR = (r) => cs.filter((c) => c.rcd === r.id);
