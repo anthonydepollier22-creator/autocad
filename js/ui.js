@@ -1323,11 +1323,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Nouveautés : une fois par version (pas quand on arrive par un lien de démo)
   try {
-    const NEWS = '1.18';
+    const NEWS = '1.19';
     if (localStorage.getItem('electricad-news') !== NEWS) {
       localStorage.setItem('electricad-news', NEWS);
       if (!location.search) {
-        setTimeout(() => showToast('<b>Nouveau</b> : application Android — exports enregistrés dans <b>Téléchargements/ElectriCAD</b> et dossiers en <b>PDF</b> ; en 3D, « <b>Volet</b> » posé en visant une fenêtre, volets baissés la nuit ; tableau sans plan avec volets et photovoltaïque.', 9000), 1200);
+        setTimeout(() => showToast('<b>Nouveau</b> : <b>carnet de câbles</b> (composition, conduit ICTA, longueur de chaque liaison) ; schémas développés des <b>contacteurs heures creuses</b> et horloges ; <b>onduleur photovoltaïque</b> posé sur le plan ; palette NF : borne de recharge, moteur de volet, bornier, terre PE, renvoi de folio.', 9000), 1200);
       }
     }
   } catch (_) { /* stockage indisponible */ }
