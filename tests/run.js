@@ -1311,6 +1311,15 @@ r = run(`(function(){
 })()`);
 check('Sommaire : 14 séries et documents joints au-dessus du cartouche', r.n >= 14 && r.y !== null && r.y < r.top - 4, JSON.stringify(r));
 
+// Unifilaire : chaque départ se termine par le symbole de son récepteur, repris dans la légende
+r = run(`(function(){
+  var h = buildHouse('t4'); addShutters(h); var d = designInstallation(h.components, h.wires), svg = unifilarSVGs(d, {}).join('');
+  var kinds = d.circuits.map(_uLoadKind);
+  return { lamp: kinds.indexOf('lamp') >= 0 && svg.indexOf('>Point lumineux<') > 0, socket: svg.indexOf('>Prises 2P+T<') > 0, heat: svg.indexOf('>Chauffage<') > 0,
+    motor: kinds.indexOf('motor') >= 0 && svg.indexOf('>Moteur<') > 0, box: svg.indexOf('>ECS<') > 0 && svg.indexOf('>Appareil<') > 0, noTd: svg.indexOf('vers un TD') < 0 };
+})()`);
+check('Unifilaire : récepteur au bout de chaque départ (lampe, prise, chauffage, moteur, appareil repéré) et légende correspondante', r.lamp && r.socket && r.heat && r.motor && r.box && r.noTd, JSON.stringify(r));
+
 // Nomenclature du matériel : folio A3 du dossier, lignes du métré par catégorie
 r = run(`(function(){
   var h = buildHouse('t5'), d = designInstallation(h.components, h.wires), L = materialList(h.components, h.wires, d), svg = nomenclatureSVGs(d, { title: 'T5' }, h.components, h.wires).join('');

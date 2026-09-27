@@ -497,6 +497,24 @@ function _uInverter(ctx, x, y) {
   ctx.beginPath(); ctx.moveTo(x + 1.5, y + 13.5); ctx.quadraticCurveTo(x + 3.2, y + 10.5, x + 4.5, y + 13); ctx.quadraticCurveTo(x + 5.8, y + 15.5, x + 7.2, y + 12.5); ctx.stroke(); // ~
 }
 function _uArrow(ctx, x, y) { ctx.beginPath(); ctx.moveTo(x - 3.5, y); ctx.lineTo(x + 3.5, y); ctx.lineTo(x, y + 6); ctx.closePath(); ctx.fill(); }
+// Récepteur au bout d'un départ (CEI 60617 simplifiée) : lampe, prise, chauffage, moteur, appareil
+const _U_APPL = { water_heater: 'ECS', cooktop: 'PC', oven: 'FO', washer: 'LL', dishwasher: 'LV', dryer: 'SL', ev_charger: 'VE', freezer: 'CG', fridge: 'RF' };
+function _uLoadKind(c) {
+  if (c.kind === 'sub' || c.kind === 'pv') return null;
+  if (c.kind === 'light') return 'lamp';
+  if (c.kind === 'socket') return 'socket';
+  if (c.kind === 'heating') return 'heat';
+  if (c.appliance === 'shutter' || c.appliance === 'vmc' || /volet|vmc|pompe|portail|moteur/i.test(c.name)) return 'motor';
+  return 'box';
+}
+function _uLoad(ctx, x, y, kind, tag) { // y : haut du symbole (le conducteur arrive d'en haut)
+  ctx.lineWidth = 1.1;
+  if (kind === 'lamp') { ctx.beginPath(); ctx.arc(x, y + 6, 6, 0, Math.PI * 2); ctx.stroke(); _uLine(ctx, x - 4.2, y + 1.8, x + 4.2, y + 10.2, 1); _uLine(ctx, x - 4.2, y + 10.2, x + 4.2, y + 1.8, 1); }
+  else if (kind === 'socket') { _uLine(ctx, x - 7, y + 2, x + 7, y + 2, 1.1); ctx.beginPath(); ctx.arc(x, y + 2, 6, 0, Math.PI); ctx.stroke(); _uLine(ctx, x - 7, y + 11, x + 7, y + 11, 0.9); }
+  else if (kind === 'heat') { ctx.strokeRect(x - 7, y, 14, 10); for (let i = 0; i < 3; i++) _uLine(ctx, x - 5 + i * 4, y + 10, x - 1 + i * 4, y, 0.7); }
+  else if (kind === 'motor') { ctx.beginPath(); ctx.arc(x, y + 7, 7, 0, Math.PI * 2); ctx.stroke(); ctx.save(); ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('M', x, y + 9.5); ctx.restore(); }
+  else { ctx.strokeRect(x - 8, y, 16, 11); ctx.save(); ctx.font = 'bold 5.5px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(tag || '', x, y + 7.8); ctx.restore(); }
+}
 
 // Cadre A3 et cartouche communs aux folios (unifilaire, note de calcul)
 function _uCartouche(ctx, design, meta, subtitle, k, nF) {
@@ -570,13 +588,23 @@ function drawUnifilar(ctx, design, meta, folio) {
     if (sup.surge) L.push(['Parafoudre', 'type 2', (x, y) => { ctx.lineWidth = 1.2; ctx.strokeRect(x - 6, y + 4, 12, 24); _uLine(ctx, x, y + 9, x - 3, y + 16, 1); _uLine(ctx, x - 3, y + 16, x + 3, y + 16, 1); _uLine(ctx, x + 3, y + 16, x, y + 24, 1); }]);
     if (sup.shed) L.push(['Délesteur', 'fil pilote', (x, y) => { ctx.lineWidth = 1.2; ctx.strokeRect(x - 10, y + 6, 20, 18); text('DL', x, y + 19, { size: 7, bold: true, align: 'center' }); }]);
     if (cs.some((c) => c.kind === 'pv')) L.push(['Onduleur', 'photovoltaïque', (x, y) => _uInverter(ctx, x, y + 6)]);
-    L.push(['Terre', '', (x, y) => _uEarth(ctx, x, y + 6)], ['Départ', 'vers les récepteurs', (x, y) => { _uLine(ctx, x, y + 4, x, y + 16, 1.3); _uArrow(ctx, x, y + 16); }]);
-    const lx = W - 330, ly = 28, rows = Math.ceil(L.length / 3);
+    const kinds = new Set(cs.map(_uLoadKind));
+    if (kinds.has('lamp')) L.push(['Point lumineux', '', (x, y) => _uLoad(ctx, x, y + 8, 'lamp')]);
+    if (kinds.has('socket')) L.push(['Prises 2P+T', '16 A', (x, y) => _uLoad(ctx, x, y + 8, 'socket')]);
+    if (kinds.has('heat')) L.push(['Chauffage', 'radiateurs', (x, y) => _uLoad(ctx, x, y + 8, 'heat')]);
+    if (kinds.has('motor')) L.push(['Moteur', 'volets, VMC…', (x, y) => _uLoad(ctx, x, y + 6, 'motor')]);
+    if (kinds.has('box')) {
+      const tags = [...new Set(cs.filter((c) => _uLoadKind(c) === 'box' && _U_APPL[c.appliance]).map((c) => _U_APPL[c.appliance]))];
+      L.push(['Appareil', tags.length ? tags.slice(0, 5).join(', ') : 'spécialisé', (x, y) => _uLoad(ctx, x, y + 8, 'box', tags[0] || '')]);
+    }
+    L.push(['Terre', '', (x, y) => _uEarth(ctx, x, y + 6)]);
+    if (cs.some((c) => c.kind === 'sub')) L.push(['Départ', 'vers un TD', (x, y) => { _uLine(ctx, x, y + 4, x, y + 16, 1.3); _uArrow(ctx, x, y + 16); }]);
+    const per = 4, lw = 400, lx = W - 25 - lw, ly = 28, rows = Math.ceil(L.length / per);
     layer('TEXTES');
-    ctx.lineWidth = 0.8; ctx.strokeRect(lx, ly, 305, 22 + rows * 40);
+    ctx.lineWidth = 0.8; ctx.strokeRect(lx, ly, lw, 22 + rows * 40);
     text('Légende', lx + 8, ly + 13, { bold: true, size: 8.5 });
     L.forEach(([t1, t2, draw, off], i) => {
-      const x = lx + 20 + (i % 3) * 100, y = ly + 18 + Math.floor(i / 3) * 40;
+      const x = lx + 20 + (i % per) * 97, y = ly + 18 + Math.floor(i / per) * 40;
       layer('UNIFILAIRE'); ctx.strokeStyle = ink; ctx.fillStyle = ink; draw(x, y);
       layer('TEXTES');
       const tx = x + (off || 16); // le contacteur a sa bobine à droite
@@ -718,6 +746,7 @@ function drawUnifilar(ctx, design, meta, folio) {
       if (c.contactor || c.teleruptor) { _uContactor(ctx, x, y + 4, 38, c.contactor ? (c.contactor === 'hc' ? 'HC' : c.contactor === 'ih' ? 'IH' : 'KM') : 'TL'); _uLine(ctx, x, y, x, y + 4, 1.3); y += 42; }
       else { _uLine(ctx, x, y, x, y + 42, 1.3); y += 42; }
       if (c.kind === 'pv') { _uLine(ctx, x, y, x, y + 4, 1.3); _uInverter(ctx, x, y + 4); } // production : l'onduleur au bout du circuit
+      else if (_uLoadKind(c)) { _uLine(ctx, x, y, x, y + 8, 1.3); _uLoad(ctx, x, y + 8, _uLoadKind(c), _U_APPL[c.appliance] || ''); } // récepteur au bout du départ
       else { _uLine(ctx, x, y, x, y + 10, 1.3); _uArrow(ctx, x, y + 10); }
       if (c.phase === '3P') for (let i = 0; i < 4; i++) _uLine(ctx, x - 5, y - 26 + i * 4, x + 5, y - 30 + i * 4, 0.9); // 3 phases + neutre
       layer('TEXTES');
