@@ -1315,7 +1315,7 @@ function initHouseUI(app) {
   // « Mur placo / maçonné » change le matériau du mur visé.
   const IMPLANT = {
     socket_wall: { label: 'Prise', wall: true }, switch_sa: { label: 'Interrupteur', wall: true },
-    switch_vv_wall: { label: 'Va-et-vient', wall: true }, wall_light: { label: 'Applique', wall: true },
+    switch_vv_wall: { label: 'Va-et-vient', wall: true }, switch_shutter: { label: 'Commande de volet', wall: true }, wall_light: { label: 'Applique', wall: true },
     rj45: { label: 'RJ45', wall: true }, dcl: { label: 'Point lumineux', ceil: true }, smoke_detector: { label: 'DAAF', ceil: true },
     radiator: { label: 'Radiateur', wall: true, furn: true, value: '1000 W' }, vmc: { label: 'Bouche VMC', ceil: true },
     panel_sub: { label: 'Tableau divisionnaire', wall: true, furn: true },
@@ -1519,10 +1519,10 @@ function initHouseUI(app) {
     }
     implantChanged(`Pose : <b>${esc(SYMBOLS[k].name)}</b> ${esc(c.label)}${tg.room ? ' — ' + esc(tg.room) : ''}` +
       (IMPLANT[k].ceil ? ' (plafond)' : k === 'ev_charger' ? `, contre ${tg.mat ? esc(tg.mat.label.toLowerCase()) : 'le mur'} (circuit dédié 40 A en 10 mm², différentiel type F)` : IMPLANT[k].furn ? `, contre ${tg.mat ? esc(tg.mat.label.toLowerCase()) : 'le mur'} (sortie de câble à 30 cm)`
-        : ` à ${h}, ${tg.mat ? esc(tg.mat.label.toLowerCase()) + (tg.mat.hollow ? ' → boîte cloison sèche' : ' → boîte maçonnerie') : ''}`) +
+        : ` à ${h}, ${tg.mat ? esc(tg.mat.label.toLowerCase()) + (tg.mat.doublage ? ' → boîte étanche à l’air' : tg.mat.hollow ? ' → boîte cloison sèche' : ' → boîte maçonnerie') : ''}`) +
       (tg.stud ? ` ; décalée de ${Math.max(1, Math.round(tg.stud.by))} cm pour ne pas tomber sur un montant` : '') + '. Annulable (Ctrl+Z).');
   }
-  const WALL_H = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light']); // hauteur réglable
+  const WALL_H = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'switch_shutter', 'rj45', 'wall_light']); // hauteur réglable
   function implantHover(id, p) {
     const k = v3.implant;
     let h = '';

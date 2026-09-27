@@ -436,11 +436,15 @@ function designInstallation(components, wires, board) {
       heat.forEach((g, i) => add({ kind: 'heating', name: heatNames[i], In: 20, S: 2.5, devices: g.list, rooms: roomsLabel(g.list), points: g.list.length }));
       // Volets roulants : un circuit 16 A en 1,5 mm² (dix moteurs au plus), avec leurs commandes
       const vr = byRoom(D.filter((c) => c.type === 'shutter')), vrGroups = chunk(vr, 10), vrNames = nm('Volets roulants', vrGroups);
+      const vrRooms = new Set(vr.map(roomOf));
+      const lone = D.filter((c) => c.type === 'switch_shutter' && !vrRooms.has(roomOf(c))); // commande sans moteur dans sa pièce
       vrGroups.forEach((g, i) => {
         const rooms = new Set(g.map(roomOf));
-        const sw = D.filter((c) => c.type === 'switch_shutter' && rooms.has(roomOf(c)));
+        const sw = D.filter((c) => c.type === 'switch_shutter' && rooms.has(roomOf(c))).concat(i === vrGroups.length - 1 ? lone : []);
         add({ kind: 'other', appliance: 'shutter', name: vrNames[i], In: 16, S: 1.5, devices: g.concat(sw), rooms: roomsLabel(g), points: g.length });
       });
+      if (!vrGroups.length && lone.length) add({ kind: 'other', appliance: 'shutter', name: 'Volets roulants' + tag, In: 16, S: 1.5, devices: lone, rooms: roomsLabel(lone), points: 0 });
+      if (lone.length) design.issues.push({ level: 'warn', msg: `${lone.map((c) => c.label || 'Commande').join(', ')} : commande de volet sans moteur dans la pièce — pose les volets (bouton « Volets ») ou retire la commande.` });
       // Circuits spécialisés : un par appareil
       for (const c of byRoom(D.filter((c) => LOADS[c.type] && LOADS[c.type].cls === 'dedicated'))) {
         const s = LOADS[c.type];

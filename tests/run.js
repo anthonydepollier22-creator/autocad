@@ -1229,6 +1229,17 @@ r = run(`(function(){
 })()`);
 check('Volets : commande toujours dégagée (ni derrière un meuble haut, ni dans une porte, ni dans le volume 2) sur les maisons T3, T4, T5', r.bad.length === 0, JSON.stringify(r));
 
+// Commande de volet posée seule (implantation 3D) : sur le circuit des volets, signalée tant qu'aucun moteur n'est posé
+r = run(`(function(){
+  var h = buildHouse('t3'), sw = h.components.find(function(c){ return c.type === 'switch_sa'; });
+  h.components.push({ id: 'svx', type: 'switch_shutter', x: sw.x + 25, y: sw.y, rot: sw.rot || 0, label: 'SV1' });
+  var d = designInstallation(h.components, h.wires), vr = d.circuits.find(function(c){ return c.appliance === 'shutter'; });
+  addShutters(h); var d2 = designInstallation(h.components, h.wires);
+  return { circ: !!vr && vr.devices.indexOf('svx') >= 0 && vr.points === 0, warn: d.issues.some(function(i){ return /SV1 : commande de volet sans moteur/.test(i.msg); }),
+    after: d2.issues.some(function(i){ return /sans moteur/.test(i.msg); }) === false || d2.circuits.some(function(c){ return c.appliance === 'shutter' && c.devices.indexOf('svx') >= 0; }) };
+})()`);
+check('Commande de volet posée seule : rattachée au circuit des volets et signalée « sans moteur »', r.circ && r.warn && r.after, JSON.stringify(r));
+
 // Mise à la terre : prise de terre, barrette, borne principale, PE par section, TD, LEP, LES des salles d'eau
 r = run(`(function(){
   var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d0 = designInstallation(h.components, h.wires), b = boardFromDesign(d0);
