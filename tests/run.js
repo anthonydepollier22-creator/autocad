@@ -562,6 +562,12 @@ r = run(`(function(){
   return { checked: (html.match(/☑/g) || []).length, open: html.split('class="st ">☐').length - 1, total: selfCheckList(null, null).manual.length };
 })()`);
 check('Autocontrôle : les points cochés sur place (onglet Norme) passent « vérifié » dans le dossier', r.checked === 2 && r.open === r.total - 2, `${r.checked} / ${r.total}`);
+r = run(`(function(){
+  var d = getExampleData('maison-t3'), des = designInstallation(d.components, d.wires);
+  var html = buildDossier({ meta: { title: 'T3', tests: { C1: { iso: '0,3' }, gen: { ra: '40' } } }, design: des, report: checkNFC15100(d.components, d.wires), images: [], testSVGs: testSVGs(des, { tests: { C1: { iso: '0,3' } } }) });
+  return { line: /Essais et mesures de mise en service[\\s\\S]{0,120}1 mesure hors critères sur 2/.test(html), page: html.indexOf('<h2>Essais et mesures de mise en service</h2>') > 0 };
+})()`);
+check('Dossier : mesures saisies dans l’autocontrôle (hors critères signalées) et fiche d’essais jointe', r.line && r.page, JSON.stringify(r));
 
 // ---------------------------------------------------------------------------
 group('Maison à étage (R+1)');

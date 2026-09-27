@@ -150,7 +150,13 @@ function buildDossier(o) {
 
   // Autocontrôle avant le Consuel
   if ((rep && rep.hasPlan) || (d && d.ok)) {
-    const L = selfCheckList(rep, d), lab = { ok: '✓', warn: '!', err: '✗', todo: '☐' }, txt = { ok: 'conforme', warn: 'à vérifier', err: 'à corriger', todo: 'à faire' };
+    const L = selfCheckList(rep, d);
+    // essais et mesures saisis dans l'application (vue « Essais » du tableau)
+    if (d && d.ok && o.meta && o.meta.tests && typeof testJudge === 'function') {
+      const J = testJudge(d, o.meta);
+      if (J.n) L.auto.push({ st: J.bad.size ? 'err' : 'ok', label: 'Essais et mesures de mise en service', note: J.bad.size ? `${J.bad.size} mesure${J.bad.size > 1 ? 's' : ''} hors critères sur ${J.n}` : `${J.n} mesure${J.n > 1 ? 's' : ''} dans les critères` });
+    }
+    const lab = { ok: '✓', warn: '!', err: '✗', todo: '☐' }, txt = { ok: 'conforme', warn: 'à vérifier', err: 'à corriger', todo: 'à faire' };
     h += '<section class="page"><h2>Autocontrôle avant la visite du Consuel</h2>' +
       '<p class="small">Vérifié par ÉlectriCAD sur le plan et le tableau (contrôle simplifié, sans valeur d’attestation) :</p><table class="checklist"><tbody>' +
       L.auto.map((x) => `<tr><td class="st ${x.st}">${lab[x.st]}</td><td>${esc(x.label)}${x.note ? ` <span class="small">— ${esc(x.note)}</span>` : ''}</td><td class="st ${x.st}">${txt[x.st]}</td></tr>`).join('') +
