@@ -143,6 +143,7 @@ function buildDossier(o) {
     if (o.elevationSVGs && o.elevationSVGs.length) h += o.elevationSVGs.map((svg, k) => `<section class="page"><h2>Élévations des murs${o.elevationSVGs.length > 1 ? ` (${k + 1}/${o.elevationSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
     if (o.vdiSVGs && o.vdiSVGs.length) h += o.vdiSVGs.map((svg, k) => `<section class="page"><h2>Communication (VDI)${o.vdiSVGs.length > 1 ? ` (${k + 1}/${o.vdiSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
     if (o.calcNoteSVGs && o.calcNoteSVGs.length) h += o.calcNoteSVGs.map((svg, k) => `<section class="page"><h2>Note de calcul${o.calcNoteSVGs.length > 1 ? ` (${k + 1}/${o.calcNoteSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
+    if (o.cableSVGs && o.cableSVGs.length) h += o.cableSVGs.map((svg, k) => `<section class="page"><h2>Carnet de câbles${o.cableSVGs.length > 1 ? ` (${k + 1}/${o.cableSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
   }
 
   // Autocontrôle avant le Consuel

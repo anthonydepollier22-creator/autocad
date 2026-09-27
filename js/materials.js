@@ -126,12 +126,12 @@ function materialList(components, wires, design) {
       add('Câbles et conduits', `Gaine ICTA préfilée 3G${String(S).replace('.', ',')} mm²`, Math.ceil(bySection[S] * 1.1), 'm', P.cable[S] || 1.2, `${Math.round(bySection[S])} m mesurés + 10 %`);
     }
     const bySection5 = {};
-    for (const c of design.circuits) if (c.phase === '3P' && c.kind !== 'sub') bySection5[c.S] = (bySection5[c.S] || 0) + c.length;
+    for (const c of design.circuits) if (c.phase === '3P' && c.kind !== 'sub' && !c.buried) bySection5[c.S] = (bySection5[c.S] || 0) + c.length;
     for (const S of Object.keys(bySection5).map(Number).sort((a, b) => a - b)) {
-      add('Câbles et conduits', `Câble U1000 R2V 5G${String(S).replace('.', ',')} mm² (triphasé)`, Math.ceil(bySection5[S] * 1.1), 'm', (P.cable[S] || 1.2) * 1.6, `${Math.round(bySection5[S])} m mesurés + 10 %`);
+      add('Câbles et conduits', `Gaine ICTA préfilée 5G${String(S).replace('.', ',')} mm² (triphasé)`, Math.ceil(bySection5[S] * 1.1), 'm', (P.cable[S] || 1.2) * 1.6, `${Math.round(bySection5[S])} m mesurés + 10 %`);
     }
     // ligne de chaque tableau divisionnaire : câble rigide (enterré sous fourreau TPC vers une annexe)
-    for (const c of design.circuits.filter((x) => (x.kind === 'sub' || x.buried) && !(x.phase === '3P' && x.kind !== 'sub'))) {
+    for (const c of design.circuits.filter((x) => x.kind === 'sub' || x.buried)) {
       const five = c.phase === '3P';
       add('Câbles et conduits', `Câble U1000 R2V ${five ? '5G' : '3G'}${String(c.S).replace('.', ',')} mm² (${c.kind === 'sub' ? 'ligne ' + (c.panelRef || 'TD') : c.id + ' ' + c.name})`, Math.ceil(Math.round(c.length * 110) / 100), 'm', Math.round((P.cable[c.S] || 1.2) * (five ? 1.6 : 1.3) * 100) / 100, `${Math.round(c.length)} m + 10 %${c.buried ? ' ; enterré' : ' ; sous fourreau TPC rouge s’il est enterré'}`);
     }

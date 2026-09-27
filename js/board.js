@@ -959,6 +959,194 @@ function calcNoteCSV(design) {
 }
 
 // ---------------------------------------------------------------------------
+// Carnet de câbles : chaque liaison (repère W…), son origine et sa destination,
+// la nature du câble, sa composition, le conduit (conducteurs dans le tiers au
+// plus de la section intérieure, NF C 15-100) et la longueur mesurée sur le plan
+// ---------------------------------------------------------------------------
+const CAB_ROWS = 38; // lignes par folio
+const CAB_D = { // diamètres extérieurs types (mm), à confirmer sur la fiche du câble retenu
+  h07: { 1.5: 3.0, 2.5: 3.6, 4: 4.2, 6: 4.8, 10: 6.3, 16: 7.4, 25: 8.9 },
+  r2v3: { 1.5: 9.5, 2.5: 10.5, 4: 11.5, 6: 13, 10: 15.5, 16: 18, 25: 22 },
+  r2v5: { 1.5: 11, 2.5: 12.5, 4: 14, 6: 16, 10: 19.5, 16: 22, 25: 27 },
+  solar: 5.5,
+};
+const ICTA_DI = [[16, 10.7], [20, 14.1], [25, 18.3], [32, 24.3], [40, 31.2], [50, 39.6], [63, 50.6]]; // Ø nominal, Ø intérieur (mm)
+// Plus petit conduit ICTA dont le tiers de la section intérieure loge les conducteurs
+function cableConduit(diams) {
+  const A = diams.reduce((s, d) => s + Math.PI * d * d / 4, 0);
+  const hit = ICTA_DI.find(([, di]) => 3 * A <= Math.PI * di * di / 4);
+  return hit ? hit[0] : null;
+}
+function cableSchedule(design, components, wires) {
+  const D = design.root || design, rows = [], byLabel = {};
+  for (const c of components || []) { byLabel[c.id] = c; if (c.label) byLabel[c.label] = c; }
+  const N = calcNote(D), m1 = (v) => Math.round(v * 10) / 10;
+  const icta = (d) => (d ? `ICTA Ø ${d}` : 'goulotte');
+  const h07 = (S) => CAB_D.h07[S] || 1.9 * Math.sqrt(S) + 0.8;
+  const dist = (a, b) => (Math.abs(a.x - b.x) + Math.abs(a.y - b.y)) / PLAN_UNITS_PER_M;
+  const pl = (n, w) => `${n} ${w}${n > 1 ? 's' : ''}`;
+  let n = 0;
+  const add = (r) => rows.push({ ref: 'W' + (++n), ct: '', sub: false, incl: false, L: null, conduit: '—', note: '', ...r });
+  // arrivée : AGCP → têtes de groupe du tableau principal, dans la GTL
+  if (N.agcp && N.agcp.setting) {
+    const S = boardLinkSection(N.agcp.setting);
+    add({ name: 'Liaison AGCP → tableau', from: 'AGCP', to: 'têtes de groupe du TP', nature: 'H07V-R', comp: `${N.tri ? 4 : 2} × ${_bS(S)} (${N.tri ? 'L1 L2 L3 N' : 'L N'})`, conduit: 'dans la GTL', note: `AGCP réglé à ${N.agcp.setting} A` });
+  }
+  const lc = typeof lightingControls === 'function' ? lightingControls(D, components, wires) : [];
+  const vr = typeof shutterCircuits === 'function' ? shutterCircuits(D, components) : [];
+  for (const c of D.circuits) {
+    const five = c.phase === '3P', k = five ? 5 : 3, heat = c.kind === 'heating';
+    const r2v = c.kind === 'sub' || c.buried;
+    let conduit;
+    if (c.buried) conduit = 'TPC Ø 63 enterré';
+    else if (r2v) conduit = icta(cableConduit([CAB_D[five ? 'r2v5' : 'r2v3'][c.S] || 20]));
+    else conduit = icta(cableConduit(Array(k).fill(h07(c.S)).concat(heat ? [h07(1.5)] : [])));
+    const note = c.kind === 'sub' ? `ligne du tableau divisionnaire${c.buried ? ' ; enterrée à 0,50 m, grillage avertisseur' : ''}`
+      : c.buried ? 'enterré à 0,50 m au moins, grillage avertisseur rouge'
+      : heat ? 'fil pilote noir ou gris dans le même conduit'
+      : c.kind === 'light' ? pl(c.points || 0, 'point') + ' lumineux' + (c.teleruptor ? ', télérupteur' : '')
+      : c.kind === 'socket' ? pl(c.points || 0, 'socle')
+      : c.kind === 'pv' ? 'côté alternatif : ΔU ≤ 1 %, coupure AC près de l’onduleur'
+      : c.appliance === 'ev_charger' ? 'circuit dédié à la borne' : '';
+    add({ ct: c.id, name: c.kind === 'sub' ? `Ligne ${c.panelRef || 'TD'} — ${c.name}` : c.name, from: c.kind === 'sub' ? 'TP' : c.panelRef || 'TP',
+      to: c.kind === 'sub' ? `${c.panelRef || 'TD'} (${c.rooms || c.name})` : c.rooms || c.name,
+      nature: r2v ? 'U-1000 R2V' : 'H07V-U', comp: `${k}G${_bS(c.S)}${heat ? ' + fil pilote 1,5' : ''}`, conduit, L: c.length ? m1(c.length) : null, note });
+    // commandes d'éclairage : conducteurs entre les interrupteurs et les points lumineux
+    if (c.kind === 'light') {
+      const K = { sa: [2, 'phase, retour lampe'], vv: [3, 'phase ou retour, deux navettes'], tl: [2, 'phase, bobine du télérupteur'] };
+      for (const g of lc.filter((x) => x.ct === c && K[x.kind])) {
+        const lamps = g.lamps.map((l) => byLabel[l]).filter(Boolean), sws = g.switches.map((l) => byLabel[l]).filter(Boolean);
+        const L = lamps.length && sws.length ? m1(sws.reduce((s, sw) => s + Math.min(...lamps.map((l) => dist(sw, l))) + 1.4, 0)) : null;
+        const [nc, what] = K[g.kind];
+        add({ ct: c.id, sub: true, incl: true, name: `${DEV_KIND[g.kind]} — ${g.room}`, from: g.switches.join(', '), to: g.lamps.length > 3 ? `${g.lamps.slice(0, 3).join(', ')}…` : g.lamps.join(', '),
+          nature: 'H07V-U', comp: `${nc} × 1,5${g.kind === 'tl' ? ' par poussoir' : ''}`, conduit: icta(cableConduit(Array(nc).fill(h07(1.5)))), L, note: what });
+      }
+    }
+    // volets roulants : de chaque commande à son moteur, montée et descente
+    for (const g of vr.filter((x) => x.c === c)) {
+      const motors = g.list.map((x) => [byLabel[x.ref], byLabel[x.sw]]).filter(([a, b]) => a && b);
+      const L = motors.length ? m1(motors.reduce((s, [a, b]) => s + dist(a, b) + 1.1, 0)) : null;
+      add({ ct: c.id, sub: true, incl: true, name: `Commandes → ${pl(g.list.length, 'moteur')}`, from: [...new Set(g.list.map((x) => x.sw))].slice(0, 3).join(', '), to: g.list.slice(0, 3).map((x) => x.ref).join(', ') + (g.list.length > 3 ? '…' : ''),
+        nature: 'H07V-U', comp: '4 × 1,5', conduit: icta(cableConduit(Array(4).fill(h07(1.5)))), L, note: 'montée, descente, neutre, terre' });
+    }
+    // photovoltaïque : côté continu et équipotentialité du champ
+    if (c.kind === 'pv') {
+      const P = typeof pvLayout === 'function' ? pvLayout(c) : { strings: 1 };
+      add({ ct: c.id, sub: true, name: 'Côté continu', from: 'champ de modules', to: 'coffret DC, onduleur', nature: 'H1Z2Z2-K', comp: `${2 * P.strings} × 4 (+ et −)`,
+        conduit: icta(cableConduit(Array(2 * P.strings).fill(CAB_D.solar))) + ' (DC seul)', L: 15, note: 'estimation ; + et − côte à côte, étiquetés' });
+      add({ ct: c.id, sub: true, name: 'Équipotentialité du champ', from: 'cadres et supports', to: 'borne principale de terre', nature: 'H07V-R vert-jaune', comp: '1 × 6', note: '6 mm² Cu au moins' });
+    }
+  }
+  // communication : un câble catégorie 6 par prise, en étoile depuis le coffret
+  if ((components || []).some((c) => c.type === 'rj45') && typeof vdiDesign === 'function') {
+    const V = vdiDesign(components, wires);
+    if (V.ok && V.links.length) add({ ct: 'VDI', name: 'Communication', from: 'coffret de communication', to: pl(V.links.length, 'prise') + ' RJ45', nature: 'Cat. 6 F/UTP', comp: `${V.links.length} × 4 paires`, conduit: 'ICTA Ø 20 par prise', L: m1(V.links.reduce((s, l) => s + l.len, 0)), note: 'courants faibles : conduits séparés de la puissance' });
+  }
+  // terre et liaisons équipotentielles (folio « Mise à la terre »)
+  add({ ct: 'PE', name: 'Conducteur de terre', from: 'prise de terre', to: 'barrette de coupure', nature: 'H07V-R vert-jaune', comp: `1 × ${EARTH_S.earth}`, note: `ou cuivre nu ${EARTH_S.bare} mm² en fond de fouille` });
+  add({ ct: 'PE', name: 'Conducteur principal de protection', from: 'barrette de coupure', to: 'bornier de terre du TP', nature: 'H07V-R vert-jaune', comp: `1 × ${EARTH_S.main}` });
+  add({ ct: 'PE', name: 'Liaison équipotentielle principale', from: 'borne principale', to: 'eau, gaz, chauffage', nature: 'H07V-R vert-jaune', comp: `1 × ${earthLepS()}`, note: 'canalisations métalliques à leur entrée' });
+  for (const w of earthWetRooms(D)) add({ ct: 'PE', name: 'Liaison équipotentielle suppl.', from: w.name, to: 'masses et éléments conducteurs', nature: 'H07V-R vert-jaune', comp: `1 × ${EARTH_S.les}`, note: `${_bS(EARTH_S.lesConduit)} mm² si protégée sous conduit` });
+  // bilans : longueurs par conduit et par câble (liaisons mesurées, hors estimations comprises)
+  const conduits = {}, cables = {};
+  for (const r of rows) {
+    if (r.incl || r.L == null) continue;
+    if (/^(ICTA|TPC)/.test(r.conduit)) { const key = r.conduit.replace(/ \(.*\)$/, '').replace(/ (enterré|par prise)$/, ''); conduits[key] = (conduits[key] || 0) + r.L; }
+    const ck = r.ct === 'VDI' ? r.nature : `${r.nature} ${r.comp}`; cables[ck] = (cables[ck] || 0) + r.L;
+  }
+  return { rows, conduits, cables };
+}
+function cableFolios(S) { return Math.max(1, Math.ceil(S.rows.length / CAB_ROWS)); }
+function drawCables(ctx, design, meta, S, folio) {
+  const nF = cableFolios(S), k = Math.min(folio || 0, nF - 1), rows = S.rows.slice(k * CAB_ROWS, (k + 1) * CAB_ROWS);
+  const ink = '#1a2230', mute = '#5b6b82', pe = '#1e7b34';
+  const layer = (n) => { if ('layer' in ctx) ctx.layer = n; };
+  const text = (t, x, y, o) => {
+    o = o || {};
+    ctx.save(); ctx.fillStyle = o.color || ink; ctx.font = `${o.bold ? 'bold ' : ''}${o.size || 8}px sans-serif`;
+    ctx.textAlign = o.align || 'left'; ctx.fillText(t, x, y); ctx.restore();
+  };
+  const fit = (t, n) => (String(t).length > n ? String(t).slice(0, n - 1) + '…' : String(t));
+  ctx.save(); ctx.strokeStyle = ink; ctx.lineCap = 'round';
+  layer('CARTOUCHE');
+  _uCartouche(ctx, design, meta, 'Carnet de câbles (liaisons, compositions, conduits)', k, nF);
+  layer('TEXTES');
+  text('Carnet de câbles', 30, 46, { bold: true, size: 17 });
+  text('Chaque liaison repérée W… : origine, destination, nature, composition, conduit (conducteurs dans le tiers au plus de sa section intérieure) et longueur mesurée sur le plan', 190, 45, { size: 8.5, color: mute });
+  const cols = [
+    ['Câble', 40, (r) => r.ref, { bold: true }],
+    ['Circuit', 44, (r) => r.ct || '—'],
+    ['Désignation', 172, (r) => (r.sub ? '   ' + fit(r.name, 34) : fit(r.name, 37))],
+    ['Origine → destination', 228, (r) => fit(`${r.from} → ${r.to}`, 50)],
+    ['Nature', 96, (r) => r.nature],
+    ['Composition', 124, (r) => r.comp],
+    ['Conduit', 112, (r) => r.conduit],
+    ['L (m)', 52, (r) => (r.L == null ? '—' : r.incl ? `(${_bNum(r.L, 1)})` : _bNum(r.L, 1)), { right: true }],
+  ];
+  const tx0 = 30, tx1 = UNI.W - 30, ty = 66, hh = 22, rh = 13.5;
+  const used = cols.reduce((s, c) => s + c[1], 0);
+  cols.push(['Observations', tx1 - tx0 - used, (r) => fit(r.note || '', 60)]);
+  const y1 = ty + hh + rows.length * rh;
+  if (!('layer' in ctx)) { // fonds (SVG seulement : le DXF garde le trait)
+    ctx.fillStyle = '#e8eef6'; ctx.beginPath(); ctx.rect(tx0, ty, tx1 - tx0, hh); ctx.fill();
+    rows.forEach((r, i) => {
+      if (r.sub || i % 2) { ctx.fillStyle = r.sub ? '#f7f5ee' : '#f5f7fa'; ctx.beginPath(); ctx.rect(tx0, ty + hh + i * rh, tx1 - tx0, rh); ctx.fill(); }
+    });
+  }
+  layer('CARTOUCHE');
+  ctx.strokeStyle = ink;
+  _uLine(ctx, tx0, ty, tx1, ty, 1.1); _uLine(ctx, tx0, ty + hh, tx1, ty + hh, 1); _uLine(ctx, tx0, y1, tx1, y1, 1.1);
+  for (let i = 1; i < rows.length; i++) _uLine(ctx, tx0, ty + hh + i * rh, tx1, ty + hh + i * rh, 0.4);
+  let x = tx0;
+  for (const c of cols) { _uLine(ctx, x, ty, x, y1, x === tx0 ? 1.1 : 0.5); x += c[1]; }
+  _uLine(ctx, tx1, ty, tx1, y1, 1.1);
+  layer('TEXTES');
+  x = tx0;
+  for (const [lab, w, f, o] of cols) {
+    const oo = o || {};
+    text(lab, oo.right ? x + w - 5 : x + 5, ty + 14.5, { bold: true, size: 8, align: oo.right ? 'right' : 'left' });
+    rows.forEach((r, i) => {
+      const color = r.ct === 'PE' && lab === 'Circuit' ? pe : r.sub && lab !== 'Câble' ? mute : ink;
+      text(String(f(r)), oo.right ? x + w - 5 : x + 5, ty + hh + i * rh + 9.9, { size: 8, bold: !!oo.bold, color, align: oo.right ? 'right' : 'left' });
+    });
+    x += w;
+  }
+  const yb = Math.min(y1 + 20, UNI.H - 15 - 62 - 104);
+  if (k === nF - 1) {
+    const fm = (o) => Object.keys(o).sort((a, b) => o[b] - o[a]).map((key) => `${key} : ${_bNum(o[key])} m`);
+    const cd = fm(S.conduits), cb = fm(S.cables);
+    text('Longueurs mesurées (hors chutes, 10 % à ajouter à la commande)', tx0, yb, { bold: true, size: 8.5 });
+    text('Conduits : ' + (cd.length ? cd.join(' · ') : '—'), tx0, yb + 15, { size: 8 });
+    const half = Math.ceil(cb.length / 2);
+    text('Câbles : ' + (cb.slice(0, half).join(' · ') || '—'), tx0, yb + 29, { size: 8 });
+    if (cb.length > half) text(cb.slice(half).join(' · '), tx0 + 40, yb + 42, { size: 8 });
+    [
+      '( ) : longueur estimée des liaisons de commande, déjà comptée dans celle du circuit ; — : à relever sur place. Longueur d’un circuit : tableau → appareils, dérivations comprises.',
+      'Couleurs réservées : neutre bleu clair, conducteur de protection vert-jaune ; phase, retours et navettes d’une autre couleur (rouge, marron, noir, orange, violet…).',
+      'Conduits : section totale des conducteurs (isolant compris) au plus égale au tiers de la section intérieure ; diamètres extérieurs types (H07V-U : 3,0 mm en 1,5 mm², 3,6 mm en 2,5 mm²).',
+      'Courants faibles (communication) dans des conduits distincts ; côté continu photovoltaïque séparé du côté alternatif ; liaisons enterrées en U-1000 R2V sous fourreau TPC rouge.',
+    ].forEach((t, i) => text(t, tx0, yb + 60 + i * 12, { size: 7.5, color: mute }));
+  } else text(`Suite folio ${k + 2} →`, tx1, yb, { size: 8, color: mute, align: 'right' });
+  ctx.restore();
+}
+function cableSVGs(design, meta, components, wires) {
+  const S = cableSchedule(design, components, wires), out = [];
+  for (let k = 0; k < cableFolios(S); k++) { const ctx = new SVGContext(); drawCables(ctx, design, meta, S, k); out.push(_folioWrap(ctx.out.join(''))); }
+  return out;
+}
+function cableDXF(design, meta, components, wires) {
+  const S = cableSchedule(design, components, wires), ctx = new DXFContext(), n = cableFolios(S);
+  for (let k = 0; k < n; k++) { ctx.save(); ctx.translate(0, k * (UNI.H + 60)); drawCables(ctx, design, meta, S, k); ctx.restore(); }
+  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: n * (UNI.H + 60) }, { U: 1 / 0.3528, insunits: 4, layers: [['TEXTES', 7], ['CARTOUCHE', 8]] });
+}
+function cableCSV(design, components, wires) {
+  const S = cableSchedule(design, components, wires), q = (v) => `"${String(v).replace(/"/g, '""')}"`;
+  let csv = 'Câble;Circuit;Désignation;Origine;Destination;Nature;Composition;Conduit;Longueur (m);Longueur estimée;Observations\n';
+  for (const r of S.rows) csv += [q(r.ref), q(r.ct), q(r.name), q(r.from), q(r.to), q(r.nature), q(r.comp), q(r.conduit), r.L == null ? '' : String(r.L).replace('.', ','), r.incl ? 'oui' : '', q(r.note)].join(';') + '\n';
+  return csv;
+}
+
+// ---------------------------------------------------------------------------
 // Nomenclature du matériel (folios A3) : les lignes du métré (materials.js),
 // par catégorie, numérotées ; la catégorie reprise en tête de folio
 // ---------------------------------------------------------------------------
@@ -2172,6 +2360,8 @@ function _technicalSeries(design, components, wires) {
   S.push({ title: 'Schéma unifilaire', what: (td ? 'Tableau principal' + td + ' : ' : 'Arrivée, AGCP, ') + 'différentiels, disjoncteurs, nomenclature des départs', n: unifilarLayout(design).folios.length, draw: (ctx, m, k) => drawUnifilar(ctx, design, m, k) });
   S.push({ title: 'Câblage du tableau', what: td ? 'Tableau principal' + td + ' : liaisons, peignes, départs, borniers de terre' : 'Liaison AGCP, peignes, départs, bornier de terre', n: boardWiringFolios(design), draw: (ctx, m, k) => drawBoardWiring(ctx, design, m, k) });
   S.push({ title: 'Note de calcul', what: 'Ib, In, Iz, ΔU, Icc mini, longueur maximale protégée, bilan de puissance', n: calcNoteFolios(design), draw: (ctx, m, k) => drawCalcNote(ctx, design, m, k) });
+  const cab = cableSchedule(design, components, wires);
+  S.push({ title: 'Carnet de câbles', what: 'Chaque liaison : origine, destination, composition, conduit, longueur', n: cableFolios(cab), draw: (ctx, m, k) => drawCables(ctx, design, m, cab, k) });
   const lc = lightingControls(design, components, wires);
   S.push({ title: 'Schémas développés', what: 'Commandes d’éclairage pièce par pièce', n: devFolios(lc), draw: (ctx, m, k) => drawDeveloped(ctx, design, m, lc, k) });
   const hc = heatingCircuits(design, components);

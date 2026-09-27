@@ -1356,6 +1356,24 @@ r = run(`(function(){
 })()`);
 check('Détails de pose : cloison placo (montants à 60 cm, boîte à 6 cm au moins), hauteurs, doublage étanche, tranchée ; dossier, DXF', r.parts && r.set && r.dxf && !r.nan, JSON.stringify(r));
 
+// Carnet de câbles : une liaison par circuit (composition, conduit au tiers), commandes, terre ; dossier, DXF, CSV
+r = run(`(function(){
+  var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d = designInstallation(h.components, h.wires);
+  var S = cableSchedule(d, h.components, h.wires), T = technicalSet(d, {}, h.components, h.wires), svg = cableSVGs(d, {}, h.components, h.wires).join('');
+  var main = S.rows.filter(function(r){ return !r.sub && d.circuits.some(function(c){ return c.id === r.ct; }); });
+  var sock = S.rows.find(function(r){ return !r.sub && /^3G2,5$/.test(r.comp) && r.nature === 'H07V-U'; }), sub = S.rows.find(function(r){ return /^Ligne /.test(r.name); });
+  var vv = S.rows.find(function(r){ return /^Va-et-vient/.test(r.name); }), heat = S.rows.find(function(r){ return /fil pilote/.test(r.comp); });
+  var csv = cableCSV(d, h.components, h.wires);
+  return { all: main.length === d.circuits.length, ref: S.rows.every(function(r, i){ return r.ref === 'W' + (i + 1); }),
+    icta: [cableConduit([3, 3, 3]), cableConduit([3.6, 3.6, 3.6]), cableConduit([4.8, 4.8, 4.8]), cableConduit([60])],
+    sock: sock && sock.conduit, sub: sub && sub.nature + ' ' + sub.conduit, vv: vv && vv.comp + ' ' + vv.incl, heat: heat && heat.conduit,
+    pe: S.rows.some(function(r){ return r.name === 'Conducteur de terre' && r.comp === '1 × 16'; }), les: S.rows.some(function(r){ return /suppl/.test(r.name); }),
+    tot: Object.keys(S.conduits).length > 1 && S.cables['H07V-U 3G1,5'] > 0,
+    set: T.entries.some(function(e){ return e.title === 'Carnet de câbles'; }), txt: ['Carnet de câbles', 'ICTA Ø 20', 'vert-jaune', 'tiers au plus'].every(function(t){ return svg.indexOf(t) > 0; }),
+    nan: /NaN|undefined/.test(svg + csv), dxf: /EOF\\s*$/.test(cableDXF(d, {}, h.components, h.wires)), csv: csv.split('\\n').length - 2 === S.rows.length };
+})()`);
+check('Carnet de câbles : chaque circuit (H07V-U / R2V, conduit ICTA au tiers), commandes, terre, bilans ; dossier, DXF, CSV', r.all && r.ref && r.icta.join() === '16,20,25,' && r.sock === 'ICTA Ø 20' && /U-1000 R2V/.test(r.sub) && r.vv === '3 × 1,5 true' && r.heat === 'ICTA Ø 20' && r.pe && r.les && r.tot && r.set && r.txt && !r.nan && r.dxf && r.csv, JSON.stringify(r));
+
 // TD avec borne : départ automatique au-dessus de la borne (pleine puissance, sélectivité) ; forcé à 32 A → avertissement
 r = run(`(function(){
   var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d = designInstallation(h.components, h.wires);

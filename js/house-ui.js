@@ -1884,6 +1884,7 @@ function initHouseUI(app) {
         boardFrontSVG: d && d.ok ? boardFrontSVG(d, { ...editor.meta, vdi: (() => { const v = editor.components.some((c) => c.type === 'rj45') ? vdiDesign(editor.components, editor.wires) : null; return v && v.ok ? { ports: v.ports, panel: v.panel } : null; })() }) : '',
         wiringSVGs: d && d.ok ? boardWiringSVGs(d, editor.meta) : [],
         calcNoteSVGs: d && d.ok ? calcNoteSVGs(d, editor.meta) : [],
+        cableSVGs: d && d.ok ? cableSVGs(d, editor.meta, editor.components, editor.wires) : [],
         developedSVGs: d && d.ok ? developedSVGs(d, editor.meta, editor.components, editor.wires) : [],
         heatingSVGs: d && d.ok && d.circuits.some((c) => c.kind === 'heating') ? heatingSVGs(d, editor.meta, editor.components) : [],
         shutterSVGs: d && d.ok && d.circuits.some((c) => c.appliance === 'shutter') ? shutterSVGs(d, editor.meta, editor.components) : [],

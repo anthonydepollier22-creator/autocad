@@ -275,6 +275,14 @@ l'éditeur du tableau, **avec ou sans plan** :
   3 kA), formules, bilan de puissance et des phases. La **prise de terre** mesurée se
   saisit dans le tableau (100 Ω au plus avec l'AGCP 500 mA). Export SVG, DXF et
   **CSV** (tableur) ;
+- **Carnet de câbles** (folio A3, vue « Câbles ») : chaque liaison repérée W1, W2… avec
+  son circuit, son origine et sa destination, la nature (H07V-U sous ICTA, U-1000 R2V
+  pour les lignes de tableau divisionnaire et les liaisons enterrées, câble solaire,
+  catégorie 6), la composition (3G2,5, 3G2,5 + fil pilote, 5G… en triphasé, navettes
+  d'un va-et-vient, 4 conducteurs d'un moteur de volet), le **conduit ICTA** choisi pour
+  que les conducteurs n'occupent pas plus du tiers de sa section intérieure, et la
+  longueur mesurée sur le plan ; arrivée AGCP, terre et liaisons équipotentielles ;
+  longueurs totales par conduit et par câble. Export SVG, DXF et CSV ;
 - **Schémas développés** de l'éclairage (folios A3), pièce par pièce d'après les
   interrupteurs du plan : **simple allumage**, **va-et-vient** (navettes) ou
   **télérupteur** et ses **poussoirs** en parallèle sur la bobine KL dès trois commandes
@@ -848,7 +856,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-215 vérifications sans dépendance : valeurs numériques de chaque simulation
+216 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
