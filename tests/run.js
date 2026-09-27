@@ -1304,6 +1304,15 @@ r = run(`(function(){
 })()`);
 check('Borne de recharge (IRVE) : folio du point de charge (TD du garage, différentiel type F, mode 3, pilotage, règles), dossier, DXF', r.n === 1 && r.td && r.parts && r.type && r.set && r.none && r.dxf, JSON.stringify(r));
 
+// Détails de pose : cloison placo (entraxe 60 cm, boîte hors montant), hauteurs, doublage, tranchée
+r = run(`(function(){
+  var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d = designInstallation(h.components, h.wires), svg = detailsSVG(d, {});
+  var T = technicalSet(d, {}, h.components, h.wires);
+  return { parts: ['Cloison placo 72/48', '60 cm (entraxe des montants)', STUD_CLEAR + ' cm au moins', '0,90 à 1,30 m', 'boîte étanche à l’air', '0,50 m au moins', 'grillage avertisseur rouge'].every(function(t){ return svg.indexOf(t) > 0; }),
+    set: T.entries.some(function(e){ return e.title === 'Détails de pose'; }), dxf: /EOF\\s*$/.test(detailsDXF(d, {})), nan: /NaN|undefined/.test(svg) };
+})()`);
+check('Détails de pose : cloison placo (montants à 60 cm, boîte à 6 cm au moins), hauteurs, doublage étanche, tranchée ; dossier, DXF', r.parts && r.set && r.dxf && !r.nan, JSON.stringify(r));
+
 // TD avec borne : départ automatique au-dessus de la borne (pleine puissance, sélectivité) ; forcé à 32 A → avertissement
 r = run(`(function(){
   var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d = designInstallation(h.components, h.wires);

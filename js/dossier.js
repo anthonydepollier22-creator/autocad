@@ -138,6 +138,7 @@ function buildDossier(o) {
     if (o.wetRoomSVGs && o.wetRoomSVGs.length) h += o.wetRoomSVGs.map((svg, k) => `<section class="page"><h2>Salles d’eau — volumes${o.wetRoomSVGs.length > 1 ? ` (${k + 1}/${o.wetRoomSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
     if (o.evSVGs && o.evSVGs.length) h += o.evSVGs.map((svg, k) => `<section class="page"><h2>Borne de recharge (IRVE)${o.evSVGs.length > 1 ? ` (${k + 1}/${o.evSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
     if (o.pvSVGs && o.pvSVGs.length) h += o.pvSVGs.map((svg, k) => `<section class="page"><h2>Photovoltaïque — schéma de principe${o.pvSVGs.length > 1 ? ` (${k + 1}/${o.pvSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
+    if (o.detailsSVG) h += `<section class="page"><h2>Détails de pose</h2><div class="svg">${o.detailsSVG}</div></section>`;
     if (o.earthingSVG) h += `<section class="page"><h2>Mise à la terre et liaisons équipotentielles</h2><div class="svg">${o.earthingSVG}</div></section>`;
     if (o.elevationSVGs && o.elevationSVGs.length) h += o.elevationSVGs.map((svg, k) => `<section class="page"><h2>Élévations des murs${o.elevationSVGs.length > 1 ? ` (${k + 1}/${o.elevationSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
     if (o.vdiSVGs && o.vdiSVGs.length) h += o.vdiSVGs.map((svg, k) => `<section class="page"><h2>Communication (VDI)${o.vdiSVGs.length > 1 ? ` (${k + 1}/${o.vdiSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');

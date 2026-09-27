@@ -302,6 +302,12 @@ l'éditeur du tableau, **avec ou sans plan** :
   interrupteur horaire, câble et ΔU, borne mode 3 (socle type 2, détection 6 mA DC),
   véhicule ; pilotage de la recharge, règles (circuit et différentiel dédiés,
   installateur qualifié au-delà de 3,7 kW) et vérifications ; export SVG et DXF ;
+- **Détails de pose** (folio A3, vue « Détails ») : coupe d'une cloison placo 72/48
+  (montants M48 à 60 cm d'entraxe, boîte Ø 67 mm dont l'axe reste à 6 cm au moins
+  du montant, gaine par la lumière des profilés), hauteurs de pose (prises à 5 cm au
+  moins, commandes de 0,90 à 1,30 m, plan de travail), doublage (boîte étanche à
+  l'air, embout de gaine), coupe de tranchée d'une liaison enterrée (0,50 m, 0,85 m
+  sous passage de véhicules, fourreau TPC rouge, grillage avertisseur) ; SVG et DXF ;
 - **Salles d'eau — volumes** (folios A3, vue « Salles d'eau », NF C 15-100 § 701) :
   chaque local avec douche ou baignoire redessiné à l'échelle normalisée (1:20, 1:25,
   1:50…), volumes 1 et 2 teintés, chaque appareil situé (hauteur, distance au volume 1,
@@ -831,7 +837,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-209 vérifications sans dépendance : valeurs numériques de chaque simulation
+210 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

@@ -2016,6 +2016,143 @@ function evDXF(design, meta) {
 }
 
 // ---------------------------------------------------------------------------
+// Détails de pose : cloison placo (montants tous les 60 cm, boîte hors montant),
+// hauteurs de pose, doublage (boîte étanche à l'air), tranchée d'une liaison enterrée
+// ---------------------------------------------------------------------------
+function drawDetails(ctx, design, meta, opts) {
+  const D = design.root || design, o = opts || {};
+  const ink = '#1a2230', mute = '#5b6b82', red = '#b3261e', blue = '#1668c4', grey = '#9aa4b2', plaster = '#d7dde6';
+  const layer = (n) => { if ('layer' in ctx) ctx.layer = n; };
+  const text = (t, x, y, q) => {
+    q = q || {};
+    ctx.save(); ctx.fillStyle = q.color || ink; ctx.font = `${q.bold ? 'bold ' : ''}${q.size || 8}px sans-serif`;
+    ctx.textAlign = q.align || 'left'; ctx.fillText(t, x, y); ctx.restore();
+  };
+  const line = (pts, col, w, dash) => { ctx.save(); ctx.strokeStyle = col || ink; ctx.lineWidth = w || 1; if (dash) ctx.setLineDash(dash); ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); };
+  const rect = (x, y, w, h, col, fill, lw) => { ctx.save(); if (fill) { ctx.fillStyle = fill; ctx.beginPath(); ctx.rect(x, y, w, h); ctx.fill(); } ctx.strokeStyle = col || ink; ctx.lineWidth = lw || 1; ctx.strokeRect(x, y, w, h); ctx.restore(); };
+  // cote : trait, flèches (tirets obliques), texte au milieu
+  const dim = (x1, y1, x2, y2, t, side) => {
+    line([[x1, y1], [x2, y2]], mute, 0.7);
+    for (const [x, y] of [[x1, y1], [x2, y2]]) line([[x - 3, y + 3], [x + 3, y - 3]], mute, 0.9);
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    if (y1 === y2) text(t, mx, my + (side || -4), { size: 7, align: 'center', color: mute });
+    else { ctx.save(); ctx.translate(mx + (side || -4), my); ctx.rotate(-Math.PI / 2); text(t, 0, 0, { size: 7, align: 'center', color: mute }); ctx.restore(); }
+  };
+  const hatch = (x, y, w, h, step, col) => { ctx.save(); ctx.strokeStyle = col || grey; ctx.lineWidth = 0.5; ctx.beginPath(); for (let k = -h; k < w; k += step) { const a = Math.max(0, k), b = Math.min(w, k + h); if (b <= a) continue; ctx.moveTo(x + a, y + h - (a - k)); ctx.lineTo(x + b, y + h - (b - k)); } ctx.stroke(); ctx.restore(); };
+  const panel = (x, y, w, h, title, sub) => { rect(x, y, w, h, '#c8d0dc', null, 0.8); text(title, x + 10, y + 16, { bold: true, size: 9.5 }); if (sub) text(sub, x + 10, y + 28, { size: 7, color: mute }); };
+  ctx.save(); ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  layer('CARTOUCHE');
+  _uCartouche(ctx, D, meta, 'Détails de pose', 0, 1);
+  layer('TEXTES');
+  text('Détails de pose — cloisons sèches, hauteurs, doublage, liaison enterrée', 30, 46, { bold: true, size: 17 });
+  text('Détails types (sans échelle) à appliquer sur le chantier ; les positions exactes figurent sur le plan d’implantation et les élévations', 30, 62, { size: 8, color: mute });
+
+  // A. Cloison 72/48 en coupe horizontale : montants tous les 60 cm, boîte entre deux montants
+  const ax = 30, ay = 78;
+  layer('TEXTES'); panel(ax, ay, 560, 300, 'A — Cloison placo 72/48 : coupe horizontale', 'une plaque BA13 de chaque côté, montants M48 à 60 cm d’entraxe ; boîte d’encastrement Ø 67 mm pour cloison sèche (à griffes)');
+  layer('SCHEMA');
+  // échelle ≈ 1:5 (1 cm = 6 pt) : plaques 12,5 mm, vide de 48 mm, montants en C (ailes de 35 mm)
+  const k3 = 6, cx0 = ax + 30, cx1 = ax + 540, cy = ay + 150, px = (cm) => cx0 + cm * k3, pl = 1.25 * k3, gap = 4.8 * k3;
+  const yA = cy - gap / 2, yB = cy + gap / 2; // faces intérieures des plaques
+  rect(cx0, yA - 2 * pl, cx1 - cx0, 2 * pl, ink, plaster, 0.7); rect(cx0, yB, cx1 - cx0, 2 * pl, ink, plaster, 0.7); // BA13 (épaisseur exagérée ×2 pour la lisibilité)
+  for (const cm of [0, 60]) {
+    const x = px(cm + 12), fl = 3.5 * k3 / 2;
+    line([[x + fl, yA], [x - fl, yA], [x - fl, yB], [x + fl, yB]], ink, 1.3); // profilé M48 : âme + ailes
+    line([[x, yA - 2 * pl - 18], [x, yB + 2 * pl + 12]], grey, 0.5, [3, 2]);
+  }
+  const box = (cm, col) => { const x = px(cm + 12), r = 3.35 * k3, dpt = 4 * k3; ctx.save(); ctx.fillStyle = '#ffffff'; ctx.beginPath(); ctx.rect(x - r, yA - 2 * pl, 2 * r, dpt + 2 * pl); ctx.fill(); ctx.restore(); rect(x - r, yA - 2 * pl, 2 * r, dpt + 2 * pl, col, null, 1.3); line([[x - r - 4, yA - 2 * pl], [x + r + 4, yA - 2 * pl]], col, 2); return x; };
+  const bBad = box(0, red), bOk = box(30, blue), bMin = box(60 - STUD_CLEAR, blue);
+  line([[bBad - 12, yA - 2 * pl - 10], [bBad + 12, yA + 14]], red, 1.6); line([[bBad + 12, yA - 2 * pl - 10], [bBad - 12, yA + 14]], red, 1.6);
+  line([[bOk, yA + 4 * k3], [bOk, yB - 3], [px(72) + 20, yB - 3]], red, 1.3, [5, 2]); // gaine entre les plaques, par la lumière du montant
+  layer('TEXTES');
+  text('boîte Ø 67 mm', bOk, yA - 2 * pl - 8, { size: 7, color: blue, align: 'center' });
+  text('au plus près', bMin, yA - 2 * pl - 8, { size: 7, color: blue, align: 'center' });
+  text('interdit : sur un montant', bBad, yA - 2 * pl - 8, { size: 7, color: red, align: 'center' });
+  text('gaine ICTA par la lumière du montant', px(36), yB + 2 * pl + 14, { size: 7, color: red });
+  text('montant M48', px(72) + 14, yB + 2 * pl + 14, { size: 7, color: mute });
+  text('Pièce A', cx0, yA - 2 * pl - 50, { size: 7, color: mute }); text('Pièce B', cx0, yB + 2 * pl + 34, { size: 7, color: mute });
+  layer('SCHEMA');
+  dim(px(12), yB + 2 * pl + 50, px(72), yB + 2 * pl + 50, '60 cm (entraxe des montants)', 12);
+  dim(px(72 - STUD_CLEAR), yA - 2 * pl - 36, px(72), yA - 2 * pl - 36, `${STUD_CLEAR} cm`, -5);
+  layer('TEXTES');
+  text(`axe de la boîte à ${STUD_CLEAR} cm au moins de l’axe du montant`, px(72 - STUD_CLEAR) - 8, yA - 2 * pl - 33, { size: 7, color: mute, align: 'right' });
+  text('Montants repérés au détecteur ou au pas de 60 cm depuis l’about de la cloison ; ÉlectriCAD décale la boîte hors montant (onglet Norme).', ax + 10, ay + 288, { size: 7, color: mute });
+
+  // B. Élévation d'une cloison : hauteurs de pose et cheminement des gaines
+  const bx = 610, by = 78;
+  layer('TEXTES'); panel(bx, by, 550, 300, 'B — Hauteurs de pose et cheminement', 'axe des boîtes depuis le sol fini ; gaines verticales ou horizontales, jamais en biais');
+  layer('SCHEMA');
+  const fy = by + 280, sc = 0.085; // 1 cm = 0,085 pt × 10 → hauteur 2,50 m ≈ 212 pt
+  const hy = (cm) => fy - cm * sc * 10 / 1.2;
+  line([[bx + 30, fy], [bx + 520, fy]], ink, 1.4); hatch(bx + 30, fy, 490, 8, 6);
+  line([[bx + 30, hy(250)], [bx + 520, hy(250)]], ink, 1); // plafond
+  for (let k = 0; k <= 6; k++) { const x = bx + 60 + k * 72; line([[x, hy(250)], [x, fy]], grey, 0.6, [4, 3]); }
+  const dev = (x, cm, lbl) => { rect(x - 7, hy(cm) - 7, 14, 14, blue, '#ffffff', 1.1); layer('TEXTES'); text(lbl, x + 11, hy(cm) + 3, { size: 7.5 }); layer('SCHEMA'); };
+  const xs1 = bx + 96, xs2 = bx + 230, xs3 = bx + 330;
+  line([[xs1, hy(250)], [xs1, hy(110) - 7]], red, 1.3); line([[xs1, hy(110) + 7], [xs1, hy(30) - 7]], red, 1.3, [5, 2]);
+  line([[xs2, hy(30) + 7], [xs2, hy(12)], [xs1 + 7, hy(12)]], red, 1.3); line([[xs1, hy(30) + 7], [xs1, hy(12)]], red, 1.3);
+  line([[xs3, hy(250)], [xs3, hy(110) - 7]], red, 1.3);
+  dev(xs1, 110, 'interrupteur'); dev(xs1, 30, 'prise'); dev(xs2, 30, 'prise'); dev(xs3, 110, 'commande de volet');
+  dev(bx + 480, 110, ''); layer('TEXTES'); text('prise plan de travail', bx + 440, hy(128), { size: 7 }); text('à 1,10 m', bx + 440, hy(128) + 9, { size: 7, color: mute }); layer('SCHEMA');
+  line([[bx + 440, hy(90)], [bx + 520, hy(90)]], ink, 2);
+  // bande d'accessibilité des commandes
+  ctx.save(); ctx.fillStyle = '#e6f0fb'; ctx.beginPath(); ctx.rect(bx + 34, hy(130), 18, hy(90) - hy(130)); ctx.fill(); ctx.restore();
+  dim(bx + 43, hy(90), bx + 43, hy(130), '0,90 à 1,30 m', -10);
+  dim(xs2 + 30, fy, xs2 + 30, hy(30), '0,30 m', 12); dim(xs2 + 60, fy, xs2 + 60, hy(5), '', 0);
+  layer('TEXTES');
+  text('prises : axe à 5 cm au moins du sol fini', xs2 + 68, hy(6), { size: 7, color: mute });
+  text('commandes : 0,90 à 1,30 m (accessibilité)', bx + 60, hy(140), { size: 7, color: mute });
+  text('gaines depuis le plafond ou la plinthe', xs3 + 12, hy(200), { size: 7, color: red });
+
+  // C. Doublage d'un mur extérieur : boîte étanche à l'air
+  const cx = 30, cy2 = 396;
+  layer('TEXTES'); panel(cx, cy2, 560, 240, 'C — Doublage collé ou sur ossature : boîte étanche à l’air', 'mur maçonné, isolant, plaque de plâtre ; l’étanchéité à l’air du logement ne doit pas être percée par l’appareillage');
+  layer('SCHEMA');
+  const wx = cx + 60, wy = cy2 + 60;
+  rect(wx, wy, 90, 150, ink, '#efe6da', 1); hatch(wx, wy, 90, 150, 8, '#b8a998');
+  rect(wx + 90, wy, 80, 150, ink, '#fff7c9', 0.9); for (let k = 0; k < 7; k++) line([[wx + 90, wy + 10 + k * 20], [wx + 170, wy + 20 + k * 20]], '#d6c56b', 0.6);
+  rect(wx + 170, wy, 14, 150, ink, plaster, 0.9);
+  const eb = wy + 60;
+  rect(wx + 136, eb, 48, 40, blue, '#ffffff', 1.3); line([[wx + 184, eb - 6], [wx + 184, eb + 46]], blue, 2);
+  line([[wx + 136, eb + 20], [wx + 100, eb + 20], [wx + 100, wy + 150]], red, 1.4);
+  ctx.save(); ctx.lineWidth = 1; ctx.strokeStyle = blue; ctx.beginPath(); ctx.arc(wx + 131, eb + 20, 5, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); // embout de gaine étanche
+  layer('TEXTES');
+  text('maçonnerie', wx + 45, wy + 166, { size: 7, align: 'center', color: mute }); text('isolant', wx + 130, wy + 166, { size: 7, align: 'center', color: mute }); text('BA13', wx + 177, wy + 166, { size: 7, align: 'center', color: mute });
+  const tx = cx + 290;
+  ['Boîte étanche à l’air (membrane ou joint à lèvre)', 'Entrée de gaine par embout étanche, sans percer la membrane', 'Gaine ICTA dans l’isolant ou le vide technique, jamais écrasée', 'Placo sur ossature : boîte hors fourrure, comme pour une cloison', 'Mur extérieur : pas de saignée dans l’isolant côté froid']
+    .forEach((t, i) => text('— ' + t, tx, cy2 + 70 + i * 18, { size: 7.5 }));
+
+  // D. Liaison enterrée : coupe de tranchée
+  const dx = 610, dy = 396, buried = D.circuits.filter((c) => c.buried);
+  layer('TEXTES'); panel(dx, dy, 550, 240, 'D — Liaison enterrée : coupe de tranchée', buried.length ? `circuits concernés : ${buried.map((c) => c.id).join(', ')}` : 'à appliquer pour tout circuit extérieur enterré (portail, abri, annexe, borne)');
+  layer('SCHEMA');
+  const gy = dy + 70, gx0 = dx + 60, gx1 = dx + 300, dpt = 120; // 0,50 m ≈ 120 pt
+  line([[dx + 30, gy], [gx0, gy]], ink, 1.4); line([[gx1, gy], [dx + 330, gy]], ink, 1.4);
+  line([[gx0, gy], [gx0 + 20, gy + dpt + 30], [gx1 - 20, gy + dpt + 30], [gx1, gy]], ink, 1);
+  ctx.save(); ctx.fillStyle = '#f3e9c6'; ctx.beginPath(); ctx.rect(gx0 + 16, gy + dpt - 4, gx1 - gx0 - 32, 34); ctx.fill(); ctx.restore(); // lit de sable
+  const tc = [(gx0 + gx1) / 2, gy + dpt + 10];
+  ctx.save(); ctx.strokeStyle = red; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.arc(tc[0], tc[1], 14, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
+  ctx.save(); ctx.fillStyle = ink; ctx.beginPath(); ctx.arc(tc[0], tc[1], 5, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  line([[gx0 + 26, gy + dpt - 42], [gx1 - 26, gy + dpt - 42]], red, 1.6, [3, 2]); // grillage avertisseur
+  layer('TEXTES');
+  text('fourreau TPC rouge Ø 63', tc[0] + 20, tc[1] + 3, { size: 7, color: red }); text('câble U1000 R2V', tc[0] + 20, tc[1] + 13, { size: 7, color: mute });
+  text('grillage avertisseur rouge', gx0 + 30, gy + dpt - 48, { size: 7, color: red }); text('lit de sable', gx0 + 24, gy + dpt + 26, { size: 7, color: mute });
+  layer('SCHEMA');
+  dim(gx1 + 20, gy, gx1 + 20, tc[1], '0,50 m au moins', 12);
+  dim(gx1 - 34, tc[1] - 14, gx1 - 34, gy + dpt - 42, '≈ 0,20 m', 12);
+  layer('TEXTES');
+  ['0,85 m sous un passage de véhicules', 'Remontées protégées jusqu’à 1 m hors sol', 'Tracé relevé sur le plan de récolement', 'Circuit protégé par un différentiel 30 mA'].forEach((t, i) => text('— ' + t, dx + 340, dy + 80 + i * 18, { size: 7.5 }));
+  layer('TEXTES');
+  text('Principe : le placo n’est jamais percé sur un montant (fixation impossible, gaine écrasée) ; le passage d’un montant à l’autre se fait par les lumières des profilés.', 30, UNI.H - 15 - 62 - 22, { size: 7.5, color: mute });
+  ctx.restore();
+}
+function detailsSVG(design, meta) { const ctx = new SVGContext(); drawDetails(ctx, design, meta); return _folioWrap(ctx.out.join('')); }
+function detailsDXF(design, meta) {
+  const ctx = new DXFContext(); drawDetails(ctx, design, meta);
+  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: UNI.H }, { U: 1 / 0.3528, insunits: 4, layers: [['SCHEMA', 7], ['TEXTES', 2], ['CARTOUCHE', 8]] });
+}
+
+// ---------------------------------------------------------------------------
 // Dossier technique : les folios A3 dans l'ordre, numérotés à la suite, et
 // leur sommaire (folio 1)
 // ---------------------------------------------------------------------------
@@ -2050,6 +2187,7 @@ function _technicalSeries(design, components, wires) {
     const E = elevations(components, wires);
     S.push({ title: 'Élévations des murs', what: 'Hauteurs de pose de l’appareillage, pièce par pièce', n: elevLayout(E).length, draw: (ctx, m, k) => drawElevations(ctx, design, m, E, k) });
   }
+  S.push({ title: 'Détails de pose', what: 'Cloison placo et montants, hauteurs de pose, doublage, tranchée', n: 1, draw: (ctx, m) => drawDetails(ctx, design, m) });
   if (rj && typeof vdiDesign === 'function') {
     const V = vdiDesign(components, wires);
     S.push({ title: 'Communication (VDI)', what: 'Coffret grade 2TV, câblage en étoile catégorie 6', n: vdiFolios(V), draw: (ctx, m, k) => drawVDI(ctx, design, m, V, k) });
