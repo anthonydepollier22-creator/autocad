@@ -121,6 +121,17 @@ function buildSVG(components, wires, symbols, meta) {
       const d = roomRuns(info, i).map((r) => `M${r.x} ${r.y}h${r.w}v${r.h}h${-r.w}Z`).join('');
       if (d) ctx.out.push(`<path d="${d}" fill="${room.color}" fill-opacity="0.14" stroke="none"/>`);
     });
+    // Volumes 1 et 2 des douches et baignoires (NF C 15-100, § 701), comme dans l'éditeur
+    if (typeof wetZones === 'function') {
+      for (const z of wetZones(components, wires)) {
+        const v2 = z.v2.map((r) => `M${r.x} ${r.y}h${r.w}v${r.h}h${-r.w}Z`).join('');
+        if (v2) ctx.out.push(`<path d="${v2}" fill="#3b8fd9" fill-opacity="0.13" stroke="none"/>`);
+        ctx.out.push(`<path d="M${z.v1.map((p) => `${ctx._n(p.x)} ${ctx._n(p.y)}`).join('L')}Z" fill="#1f6fd1" fill-opacity="0.2" stroke="#1f6fd1" stroke-opacity="0.5" stroke-width="1"/>`);
+        const cx = z.v1.reduce((t, p) => t + p.x, 0) / 4, cy = z.v1.reduce((t, p) => t + p.y, 0) / 4;
+        ctx.out.push(`<text x="${ctx._n((z.v1[0].x * 2 + cx) / 3)}" y="${ctx._n((z.v1[0].y * 2 + cy) / 3)}" font-family="sans-serif" font-size="13" font-weight="700" fill="#1f6fd1" text-anchor="middle">V1</text>`);
+        if (z.v2.length) { const big = z.v2.reduce((m, r) => (r.w * r.h > m.w * m.h ? r : m), z.v2[0]); ctx.out.push(`<text x="${ctx._n(big.x + big.w / 2)}" y="${ctx._n(big.y + big.h / 2 + 4)}" font-family="sans-serif" font-size="12" font-weight="700" fill="#3b8fd9" text-anchor="middle">V2</text>`); }
+      }
+    }
   }
 
   // Fils, murs, goulottes
