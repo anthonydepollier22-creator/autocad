@@ -4,10 +4,12 @@
  * Embarque l'application web (dossier www, copié par tools/copy-web.js) :
  * elle fonctionne entièrement hors ligne. Les liens externes s'ouvrent dans
  * le navigateur ; les exports (JSON, PNG, SVG) passent par la boîte
- * « Enregistrer sous » du système.
+ * « Enregistrer sous » du système ; les dossiers s'enregistrent directement en PDF.
  */
-const { app, BrowserWindow, Menu, shell, dialog, net } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, net, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
+const os = require('os');
 
 const SITE = 'https://anthonydepollier22-creator.github.io/autocad/';
 const REPO = 'https://github.com/anthonydepollier22-creator/autocad';
@@ -141,7 +143,7 @@ function createWindow() {
     width: 1440, height: 900, minWidth: 960, minHeight: 620,
     title: 'ÉlectriCAD', backgroundColor: '#12151c', show: false,
     icon: path.join(__dirname, 'build', 'icon.png'),
-    webPreferences: { contextIsolation: true, sandbox: true, spellcheck: false },
+    webPreferences: { contextIsolation: true, sandbox: true, spellcheck: false, preload: path.join(__dirname, 'preload.js') },
   });
   win.once('ready-to-show', () => {
     win.show();
@@ -158,6 +160,32 @@ function createWindow() {
   });
   win.loadFile(path.join(WWW, 'app.html'));
 }
+
+// Dossier (HTML autonome) → PDF : « Enregistrer sous », puis rendu dans une fenêtre cachée,
+// sans script (le document se contente de son CSS : pages A3 paysage, A4…)
+async function savePDF(event, { html, name, a3 }) {
+  const parent = BrowserWindow.fromWebContents(event.sender) || win;
+  const base = String(name || 'ElectriCAD.pdf').replace(/[\\/:*?"<>|]+/g, '-').replace(/\.pdf$/i, '') + '.pdf';
+  const { canceled, filePath } = await dialog.showSaveDialog(parent, {
+    title: 'Enregistrer en PDF', defaultPath: path.join(app.getPath('documents'), base), filters: [{ name: 'Document PDF', extensions: ['pdf'] }],
+  });
+  if (canceled || !filePath) return { ok: false, canceled: true };
+  const tmp = path.join(os.tmpdir(), `electricad-${process.pid}-${Date.now()}.html`);
+  const w = new BrowserWindow({ show: false, webPreferences: { javascript: false, sandbox: true, contextIsolation: true } });
+  try {
+    fs.writeFileSync(tmp, html, 'utf8');
+    await w.loadFile(tmp);
+    const pdf = await w.webContents.printToPDF({ pageSize: a3 ? 'A3' : 'A4', landscape: !!a3, printBackground: true, preferCSSPageSize: true, margins: { marginType: 'none' } });
+    fs.writeFileSync(filePath, pdf);
+    return { ok: true, name: path.basename(filePath), path: filePath };
+  } catch (e) {
+    return { ok: false, error: (e && e.message) || String(e) };
+  } finally {
+    w.destroy();
+    fs.rm(tmp, { force: true }, () => {});
+  }
+}
+ipcMain.handle('electricad:save-pdf', savePDF);
 
 app.setAppUserModelId('fr.electricad.app');
 app.whenReady().then(() => {

@@ -42,8 +42,9 @@ Page de téléchargement : https://anthonydepollier22-creator.github.io/autocad/
 
 - **Bureau (Electron)** : menus Fichier / Édition / Affichage / Aide, raccourcis
   (`Ctrl+S`, `Ctrl+O`, `F3` pour la 3D…), boîtes « Enregistrer sous » du système,
-  impression, une seule fenêtre à la fois, et **« Rechercher une mise à jour »**
-  (vérifiée aussi au démarrage).
+  **dossiers enregistrés directement en PDF** (dossier technique : folios A3 paysage,
+  face avant et étiquettes en A4 ; dossier du projet en A4), une seule fenêtre à la
+  fois, et **« Rechercher une mise à jour »** (vérifiée aussi au démarrage).
 - **Android (Capacitor)** : l'éditeur s'ouvre directement, en tactile — pincer pour
   zoomer, deux doigts pour déplacer, tiroirs pour la palette et les propriétés,
   joystick pour la visite 3D. Les exports (SVG, DXF, CSV, PNG, projet) sont
@@ -835,7 +836,7 @@ python3 -m http.server 8000
 ├── screenshots/       # Captures de la fiche d'installation (PWA)
 ├── fonts/             # IBM Plex Sans / Condensed / Mono (licence OFL), pour le site
 ├── img/accueil/       # Captures 3D du site vitrine
-├── desktop/           # Application de bureau Electron (main.js, icônes, electron-builder)
+├── desktop/           # Application de bureau Electron (main.js, preload.js, icônes, electron-builder)
 ├── mobile/            # Application Android Capacitor (config, icônes, clé de signature)
 ├── tools/copy-web.js  # Copie le site dans desktop/www ou mobile/www
 ├── .github/workflows/ # deploy.yml (GitHub Pages), apps.yml (applications + release)

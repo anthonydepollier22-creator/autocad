@@ -1867,7 +1867,7 @@ function initHouseUI(app) {
   }
   function openDossier() {
     const d = ensureDesign();
-    const native = window.ElectriCADFiles && window.ElectriCADFiles.nativeApp();
+    const F = window.ElectriCADFiles, native = F && (F.directPrint ? F.directPrint() : F.nativeApp()); // application : impression native ou PDF direct
     const win = native ? null : window.open('', '_blank');
     if (!native && !win) { showToast('Autorise les fenêtres surgissantes pour ouvrir le dossier.'); return; }
     if (win) win.document.write('<!DOCTYPE html><title>Préparation du dossier…</title><p style="font:14px system-ui;padding:20px">Préparation du dossier…</p>');
@@ -1901,7 +1901,7 @@ function initHouseUI(app) {
         images: hasPlan() ? dossierImages(d) : [],
         day: dayData,
       }).replace('</body>', '<script>window.onload = function () { setTimeout(function () { window.print(); }, 350); };<\/script></body>');
-      if (native) { window.ElectriCADFiles.printHTML(html, (editor.meta.title || 'Installation') + ' - dossier du projet', false); showToast('Impression du dossier : choisis « Enregistrer au format PDF » pour garder le fichier.', 5000); return; }
+      if (native) { F.printHTML(html, (editor.meta.title || 'Installation') + ' - dossier du projet', false); return; }
       win.document.open();
       win.document.write(html);
       win.document.close();

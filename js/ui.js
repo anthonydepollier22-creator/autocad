@@ -387,16 +387,33 @@ document.addEventListener('DOMContentLoaded', () => {
     for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
     return new Blob([u8], { type: (/:(.*?);/.exec(head) || [])[1] || 'application/octet-stream' });
   }
-  // Document HTML à imprimer (dossiers) : impression native dans l'application Android ;
-  // renvoie false ailleurs (le navigateur ouvre alors sa fenêtre d'impression)
+  // Application de bureau (Electron) : les dossiers s'enregistrent directement en PDF
+  function desktopApp() {
+    const E = window.electricadDesktop;
+    return E && typeof E.savePDF === 'function' ? E : null;
+  }
+  // Impression gérée par l'application (Android ou bureau) plutôt que par le navigateur
+  function directPrint() { return !!(nativeApp() || desktopApp()); }
+  // Document HTML à imprimer (dossiers) : impression native dans l'application Android, PDF
+  // direct dans l'application de bureau ; renvoie false ailleurs (fenêtre d'impression du navigateur)
   function printHTML(html, title, a3) {
     const C = nativeApp();
-    if (!C) return false;
-    C.nativePromise('ElectriCAD', 'printHtml', { html, title: title || 'ElectriCAD', a3: a3 !== false })
-      .catch((e) => showToast('Impression impossible : ' + _escHtml((e && e.message) || String(e)), 4000));
-    return true;
+    if (C) {
+      C.nativePromise('ElectriCAD', 'printHtml', { html, title: title || 'ElectriCAD', a3: a3 !== false })
+        .catch((e) => showToast('Impression impossible : ' + _escHtml((e && e.message) || String(e)), 4000));
+      showToast('Impression : choisis « Enregistrer au format PDF » pour garder le fichier.', 5000);
+      return true;
+    }
+    const E = desktopApp();
+    if (E) {
+      E.savePDF(html, fileName((title || 'ElectriCAD') + '.pdf'), a3 !== false)
+        .then((r) => { if (r && r.ok) showToast(`PDF enregistré : <b>${_escHtml(r.name)}</b>`, 4500); else if (r && r.error) showToast('PDF impossible : ' + _escHtml(r.error), 5000); })
+        .catch((e) => showToast('PDF impossible : ' + _escHtml((e && e.message) || String(e)), 5000));
+      return true;
+    }
+    return false;
   }
-  window.ElectriCADFiles = { download, dataURLBlob, printHTML, nativeApp };
+  window.ElectriCADFiles = { download, dataURLBlob, printHTML, nativeApp, directPrint };
 
   // --- Panneau de propriétés / barre d'état -------------------------------
   const propBox = document.getElementById('props');
