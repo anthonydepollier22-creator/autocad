@@ -1324,6 +1324,18 @@ r = run(`(function(){
 })()`);
 check('TD du garage avec borne : départ dimensionné sur la pleine puissance de recharge et au-dessus de la borne ; départ trop petit signalé (sélectivité)', r.auto && r.S >= 16 && r.warn, JSON.stringify(r));
 
+// Maison R+1 : tableau divisionnaire sur le palier = tableau d'étage (tout l'étage en part)
+r = run(`(function(){
+  var h = buildHouse('r1'), td = addSubPanel(h, /palier/i), d = designInstallation(h.components, h.wires);
+  var F = d.circuits.find(function(c){ return c.kind === 'sub'; }), stairs = h.components.find(function(c){ return c.type === 'stairs' && c.value === 'haut'; });
+  var byId = {}; h.components.forEach(function(c){ byId[c.id] = c; });
+  var up = d.circuits.filter(function(c){ return c.panel === (F && F.id); }), down = d.circuits.filter(function(c){ return !c.panel && c.kind !== 'sub'; });
+  var x0 = td.x - 100; // l'étage est à droite de la séparation des plans
+  var upOk = up.every(function(c){ return c.devices.every(function(id){ return byId[id].x > stairs.x - 400; }); });
+  return { td: !!td, name: F && F.name, n: up.length, upOk: upOk, errs: checkBoard(d).filter(function(m){ return m.level === 'err'; }).map(function(m){ return m.msg; }), orphans: d.orphans.length, big: F && F.In > Math.max.apply(null, up.map(function(c){ return c.In; })) };
+})()`);
+check('Maison R+1 : tableau divisionnaire sur le palier = tableau d’étage (« Étage », tous les circuits de l’étage), sans non-conformité', r.td && r.name === 'Étage' && r.n >= 5 && !r.errs.length && !r.orphans && r.big, JSON.stringify(r));
+
 // Sommaire : quel que soit le nombre de séries, le tableau et les documents joints restent au-dessus du cartouche
 r = run(`(function(){
   var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data; addShutters(h);

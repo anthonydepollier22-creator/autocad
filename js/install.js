@@ -292,6 +292,18 @@ function designInstallation(components, wires, board) {
   const tbA = pA[0], sp = sps[0];
   const tbRiser = MOUNT_H.panel_house - 0.1;
   const riserOf = (p) => (MOUNT_H[p.type] || 1.5) - 0.1;
+  // Maison à étage : jamais un circuit à cheval sur deux niveaux (plans côte à côte,
+  // séparés au milieu des deux escaliers)
+  let split = null;
+  if (components.some((c) => c.type === 'stairs' && c.value === 'haut')) {
+    // milieu du plus grand vide entre les murs : la séparation des deux plans
+    const xs = [...new Set(wires.filter((w) => w.kind === 'wall').flatMap((w) => w.points.map((p) => p.x)))].sort((a, b) => a - b);
+    let gap = 0;
+    for (let i = 1; i < xs.length; i++) if (xs[i] - xs[i - 1] > gap) { gap = xs[i] - xs[i - 1]; split = (xs[i] + xs[i - 1]) / 2; }
+  }
+  const levelOf = (c) => (split !== null && c.x >= split ? 1 : 0);
+  // TD d'étage : posé sur le palier (ou un dégagement) de l'étage d'une maison R+1
+  const isFloorTd = (t) => { const r = roomOf(t); return split !== null && levelOf(t) === 1 && r >= 0 && !!info.rooms[r].type && info.rooms[r].type.key === 'circ'; };
   // appareils d'un TD du plan : ceux de sa pièce ; tableau personnalisé : ceux des circuits de ses ID
   const devPanel = {};
   if (tdComps.length) {
@@ -303,7 +315,10 @@ function designInstallation(components, wires, board) {
         if (i >= 0 && i < tdComps.length) for (const id of bc.devices || []) devPanel[id] = i + 1;
       }
     } else {
-      tdComps.forEach((t, i) => { const r = roomOf(t); if (r >= 0) for (const c of devs) if (roomOf(c) === r) devPanel[c.id] = i + 1; });
+      // TD d'étage : posé sur le palier (ou un dégagement) de l'étage, il alimente tout l'étage ;
+      // sinon (garage, atelier) : les appareils de sa pièce
+      tdComps.forEach((t, i) => { if (isFloorTd(t)) for (const c of devs) if (levelOf(c) === 1) devPanel[c.id] = i + 1; });
+      tdComps.forEach((t, i) => { const r = roomOf(t); if (r >= 0 && !isFloorTd(t)) for (const c of devs) if (roomOf(c) === r) devPanel[c.id] = i + 1; });
     }
   }
   // chemin dans les goulottes depuis le tableau pi jusqu'au nœud d'ancrage A
@@ -350,16 +365,6 @@ function designInstallation(components, wires, board) {
     const da = ra >= 0 ? roomDist[ra] : 1e9, db = rb >= 0 ? roomDist[rb] : 1e9;
     return da - db || ra - rb || route[a.id].len - route[b.id].len;
   });
-  // Maison à étage : jamais un circuit à cheval sur deux niveaux (plans côte à côte,
-  // séparés au milieu des deux escaliers)
-  let split = null;
-  if (components.some((c) => c.type === 'stairs' && c.value === 'haut')) {
-    // milieu du plus grand vide entre les murs : la séparation des deux plans
-    const xs = [...new Set(wires.filter((w) => w.kind === 'wall').flatMap((w) => w.points.map((p) => p.x)))].sort((a, b) => a - b);
-    let gap = 0;
-    for (let i = 1; i < xs.length; i++) if (xs[i] - xs[i - 1] > gap) { gap = xs[i] - xs[i - 1]; split = (xs[i] + xs[i - 1]) / 2; }
-  }
-  const levelOf = (c) => (split !== null && c.x >= split ? 1 : 0);
   const chunk = (list, n) => {
     const out = [];
     const levels = split === null ? [list] : [list.filter((c) => levelOf(c) === 0), list.filter((c) => levelOf(c) === 1)];
@@ -457,7 +462,7 @@ function designInstallation(components, wires, board) {
     tdComps.forEach((t, i) => {
       const D = devs.filter((c) => devPanel[c.id] === i + 1);
       const r = roomOf(t);
-      const f = add({ kind: 'sub', name: r >= 0 ? roomName(r) : 'Tableau divisionnaire', In: 32, S: 6, devices: [], rooms: roomName(r), points: 0, auto: true, manual: true, lengthIn: 0, Pin: 0 });
+      const f = add({ kind: 'sub', name: isFloorTd(t) ? 'Étage' : r >= 0 ? roomName(r) : 'Tableau divisionnaire', In: 32, S: 6, devices: [], rooms: roomName(r), points: 0, auto: true, manual: true, lengthIn: 0, Pin: 0 });
       const n0 = circuits.length;
       autoGroup(D, ' ' + (/^[A-Za-z]{1,4}\d+$/.test(t.label || '') ? t.label : 'TD' + (i + 1)));
       for (const c of circuits.slice(n0)) c.panel = f.id;

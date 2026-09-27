@@ -405,8 +405,11 @@ function initHouseUI(app) {
     const doc = buildHouse(T.key, opts);
     if ($('ho-shutters') && $('ho-shutters').checked && opts.elec) addShutters(doc); // volets roulants motorisés
     // tableau divisionnaire au garage (maison avec garage, électricité implantée)
-    const td = $('ho-td') && $('ho-td').checked && opts.elec ? addSubPanel(doc, /garage/i) : null;
-    if ($('ho-td') && $('ho-td').checked && opts.elec && !td) setTimeout(() => showToast('Cette maison n’a pas de garage : pas de tableau divisionnaire.', 3500), 5400);
+    // tableaux divisionnaires : au garage, et à l'étage d'une maison R+1 (sur le palier, pour tout l'étage)
+    const wantTd = $('ho-td') && $('ho-td').checked && opts.elec;
+    const td = wantTd ? addSubPanel(doc, /garage/i) : null;
+    const tdUp = wantTd && doc.components.some((c) => c.type === 'stairs') ? addSubPanel(doc, /palier/i) : null;
+    if (wantTd && !td && !tdUp) setTimeout(() => showToast('Cette maison n’a ni garage ni étage : pas de tableau divisionnaire.', 3500), 5400);
     closeHouses();
     editor.load(doc);
     sim.events = []; sim.energy = 0; sim.t = 0;

@@ -245,7 +245,10 @@ l'éditeur du tableau, **avec ou sans plan** :
   le tableau principal, le départ est dimensionné (32, 40 ou 63 A au-dessus du courant
   d'emploi — borne de recharge comptée à pleine puissance — et de chaque départ aval,
   section du calibre, augmentée si la ligne est longue) et le TD reçoit ses ID (AC, A ou F selon ses appareils) —
-  exemple « Maison T5 + garage — tableau divisionnaire » (`app.html?ex=maison-t5-td`) ;
+  exemple « Maison T5 + garage — tableau divisionnaire » (`app.html?ex=maison-t5-td`).
+  Posé sur le **palier** d'une maison R+1, c'est un **tableau d'étage** (« Étage ») :
+  tous les appareils de l'étage en partent ; l'option « Tableaux divisionnaires
+  (garage, étage) » de la création de maison les pose tous deux ;
 - **Folio unifilaire normalisé** (A3 paysage, symboles CEI 60617) : réseau, compteur,
   disjoncteur de branchement 500 mA, parafoudre, borne principale et prise de terre,
   jeu de barres, différentiels, disjoncteurs, contacteurs, **récepteur au bout de
@@ -838,7 +841,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-210 vérifications sans dépendance : valeurs numériques de chaque simulation
+211 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
