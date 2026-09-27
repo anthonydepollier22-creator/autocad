@@ -718,6 +718,59 @@ const SYMBOLS = {
       line(ctx, 20, 20, 40, 20);
     },
   },
+  ev_station: {
+    name: 'Borne de recharge (mode 3)', category: 'Domestique (NF)', prefix: 'VE',
+    terminals: T2, bbox: { x: -40, y: -18, w: 80, h: 36 },
+    draw(ctx) {
+      line(ctx, -40, 0, -16, 0); line(ctx, 16, 0, 40, 0);
+      ctx.strokeRect(-16, -16, 32, 32);
+      circle(ctx, 0, 3, 7); // socle type 2
+      dot(ctx, -3, 1, 1.3); dot(ctx, 3, 1, 1.3); dot(ctx, 0, 6, 1.3);
+      ctx.save(); ctx.fillStyle = ctx.strokeStyle; ctx.font = 'bold 7px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('VE', 0, -10); ctx.restore();
+    },
+  },
+  motor_vr: {
+    name: 'Moteur de volet roulant', category: 'Domestique (NF)', prefix: 'VR',
+    terminals: [{ x: -2 * U, y: -U }, { x: -2 * U, y: U }, { x: 2 * U, y: 0 }], // montée, descente, neutre
+    bbox: { x: -40, y: -26, w: 80, h: 52 },
+    draw(ctx) {
+      line(ctx, -40, -20, -18, -20); line(ctx, -18, -20, -10, -10);
+      line(ctx, -40, 20, -18, 20); line(ctx, -18, 20, -10, 10);
+      line(ctx, 14, 0, 40, 0);
+      circle(ctx, 0, 0, 14);
+      ctx.save(); ctx.fillStyle = ctx.strokeStyle; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('M', 0, 1); ctx.restore();
+      line(ctx, -30, -14, -30, -24); line(ctx, -30, -24, -33, -20); line(ctx, -30, -24, -27, -20); // montée
+      line(ctx, -30, 14, -30, 24); line(ctx, -30, 24, -33, 20); line(ctx, -30, 24, -27, 20); // descente
+    },
+  },
+  terminal_block: {
+    name: 'Borne de raccordement (bornier)', category: 'Domestique (NF)', prefix: 'X',
+    terminals: T2, bbox: { x: -40, y: -10, w: 80, h: 20 },
+    draw(ctx) {
+      line(ctx, -40, 0, -8, 0); line(ctx, 8, 0, 40, 0);
+      ctx.strokeRect(-8, -7, 16, 14);
+      circle(ctx, 0, 0, 3); line(ctx, -2, 2, 2, -2); // vis
+    },
+  },
+  earth_pe: {
+    name: 'Terre de protection (PE)', category: 'Domestique (NF)', prefix: 'PE',
+    terminals: [{ x: 0, y: -1 * U }], bbox: { x: -18, y: -20, w: 36, h: 40 },
+    draw(ctx) {
+      line(ctx, 0, -20, 0, 0);
+      line(ctx, -9, 0, 9, 0); line(ctx, -6, 4, 6, 4); line(ctx, -3, 8, 3, 8);
+      circle(ctx, 0, 3, 13);
+    },
+  },
+  folio_ref: {
+    name: 'Renvoi de folio', category: 'Domestique (NF)', prefix: 'R',
+    terminals: [{ x: -2 * U, y: 0 }], bbox: { x: -40, y: -10, w: 66, h: 20 },
+    draw(ctx) {
+      line(ctx, -40, 0, -12, 0);
+      ctx.beginPath(); ctx.moveTo(-12, -8); ctx.lineTo(14, -8); ctx.lineTo(24, 0); ctx.lineTo(14, 8); ctx.lineTo(-12, 8); ctx.closePath(); ctx.stroke();
+    },
+  },
   bell: {
     name: 'Sonnerie', category: 'Domestique (NF)', prefix: 'H',
     terminals: T2, bbox: { x: -40, y: -18, w: 80, h: 22 },

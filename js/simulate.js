@@ -74,7 +74,7 @@ function collectElements(components, wires, symbols) {
   const nl = buildNets(components, wires, symbols);
   const tn = nl.terminalNet;
   const ground = new Set();
-  for (const c of components) if (c.type === 'ground') ground.add(tn[c.id][0]);
+  for (const c of components) if (c.type === 'ground' || c.type === 'earth_pe') ground.add(tn[c.id][0]);
 
   const E = { R: [], V: [], I: [], C: [], L: [], D: [], Q: [] };
   const warnings = [];
@@ -109,8 +109,12 @@ function collectElements(components, wires, symbols) {
       E.Q.push({ b: t[0], c: t[1], e: t[2], Is: BJT_IS, bf: parseValue(c.value, 100), br: BJT_BR, pol: c.type === 'transistor_npn' ? 1 : -1, comp: c });
     } else if (c.type === 'switch' || c.type === 'push_button' || c.type === 'breaker' || c.type === 'rcd' || c.type === 'agcp' || c.type === 'contactor' || c.type === 'teleruptor' || c.type === 'ddr' || c.type === 'isolator' || c.type === 'timer_switch') {
       if (c.closed) E.R.push({ a: t[0], b: t[1], R: 1e-6, comp: c });
-    } else if (c.type === 'meter_kwh') {
-      E.R.push({ a: t[0], b: t[1], R: 1e-6, comp: c }); // compteur : pas de chute de tension
+    } else if (c.type === 'meter_kwh' || c.type === 'terminal_block') {
+      E.R.push({ a: t[0], b: t[1], R: 1e-6, comp: c }); // compteur, borne : pas de chute de tension
+    } else if (c.type === 'ev_station') {
+      E.R.push({ a: t[0], b: t[1], R: 7.15, comp: c }); // 7,4 kW sous 230 V
+    } else if (c.type === 'motor_vr') {
+      E.R.push({ a: t[0], b: t[2], R: 400, comp: c }); E.R.push({ a: t[1], b: t[2], R: 400, comp: c }); // montée ou descente
     } else if (c.type === 'sw_vv') {
       // va-et-vient : COM relié à L1 (haut) ou L2 (bas) selon la position
       E.R.push({ a: t[0], b: c.closed ? t[2] : t[1], R: 1e-6, comp: c });

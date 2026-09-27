@@ -219,7 +219,11 @@ l'éditeur du tableau, **avec ou sans plan** :
 - **Palette « Domestique (NF) »** complétée pour dessiner un unifilaire à la main :
   disjoncteur différentiel 30 mA, interrupteur-sectionneur, interrupteur horaire
   (manœuvrables au double-clic et simulés comme des interrupteurs), onduleur
-  photovoltaïque, délesteur ; « Dans l'éditeur » les emploie pour le tableau ;
+  photovoltaïque, délesteur, **borne de recharge** (simulée comme une charge de 7,4 kW),
+  **moteur de volet roulant** (montée, descente, neutre), **borne de raccordement**
+  (bornier), **terre de protection PE** (référence de la simulation) et **renvoi de
+  folio** pour poursuivre un schéma d'un folio à l'autre ; « Dans l'éditeur » les
+  emploie pour le tableau ;
 - **Interrupteur horaire** par circuit (bouton « IH » à côté de « HC » et « TL ») :
   éclairage extérieur, chauffe-eau programmé… — module IH à la face avant, organe de
   commande à l'unifilaire, compté au métré à part des contacteurs heures creuses ;
@@ -860,7 +864,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-217 vérifications sans dépendance : valeurs numériques de chaque simulation
+218 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

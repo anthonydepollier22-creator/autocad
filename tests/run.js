@@ -889,6 +889,20 @@ r = run(`(function(){
 check('Tableau → schéma dans l’éditeur : chaque disjoncteur sous son ID, chaque ID sur le jeu de barres, contacteur HC, parafoudre', r.okC && r.okR && r.hc === 1 && r.surge && /unifilaire/.test(r.title));
 check('Symboles NF en simulation : AGCP fermé et compteur conduisent (9 V / 100 Ω = 90 mA), AGCP ouvert coupe', near(Math.abs(r.Ion), 0.09, 1e-3) && Math.abs(r.Ioff) < 1e-9, `${(Math.abs(r.Ion) * 1000).toFixed(1)} mA`);
 
+// Symboles NF ajoutés : borne de raccordement (conduit), borne de recharge (charge 7,4 kW), terre PE (référence), renvoi de folio
+r = run(`(function(){
+  var comps = [ { id: 'B', type: 'dc_source', x: 0, y: 0, rot: 90, value: '9 V' }, { id: 'X', type: 'terminal_block', x: 100, y: -80, rot: 0 },
+      { id: 'K', type: 'meter_kwh', x: 240, y: -80, rot: 0 }, { id: 'VE', type: 'ev_station', x: 380, y: -80, rot: 0 },
+      { id: 'G', type: 'earth_pe', x: 0, y: 80, rot: 0 }, { id: 'R', type: 'folio_ref', x: 600, y: 200, rot: 0, label: 'R1', value: 'F3' },
+      { id: 'M', type: 'motor_vr', x: 600, y: 0, rot: 0 } ];
+  var wires = [ { id: 'w1', points: [{ x: 0, y: -40 }, { x: 0, y: -80 }, { x: 60, y: -80 }] }, { id: 'w2', points: [{ x: 140, y: -80 }, { x: 200, y: -80 }] },
+      { id: 'w3', points: [{ x: 280, y: -80 }, { x: 340, y: -80 }] }, { id: 'w4', points: [{ x: 420, y: -80 }, { x: 460, y: -80 }, { x: 460, y: 40 }, { x: 0, y: 40 }] },
+      { id: 'w5', points: [{ x: 0, y: 40 }, { x: 0, y: 60 }] } ];
+  var sim = simulateDC(comps, wires, SYMBOLS), svg = buildSVG(comps, wires, SYMBOLS, {});
+  return { I: sim.compI.VE, nan: /NaN/.test(svg), names: ['ev_station', 'motor_vr', 'terminal_block', 'earth_pe', 'folio_ref'].every(function(k){ return SYMBOLS[k] && SYMBOLS[k].category === 'Domestique (NF)'; }) };
+})()`);
+check('Symboles NF : borne de raccordement et compteur conduisent, borne de recharge chargée (9 V / 7,15 Ω), terre PE en référence ; moteur de volet, renvoi de folio', near(Math.abs(r.I), 9 / 7.15, 1e-3) && !r.nan && r.names, JSON.stringify(r));
+
 // Triphasé : phases équilibrées, AGCP 4P, ΔU sous 400 V, simulation par phase
 r = run(`(function(){
   var b = boardTemplate(180, { tri: true, ev: true }), d = designInstallation([], [], b);

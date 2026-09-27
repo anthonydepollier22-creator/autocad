@@ -750,6 +750,11 @@ const BUILDERS3D = {
   },
   sw_vv: (v, c) => BUILDERS3D.switch(v, c),
   bell: (v, c) => { v.dome(c.x, 4, c.y, 14, C3D.gold); v.cyl(c.x, 0, c.y, 14, 4, C3D.dark); },
+  ev_station: (v, c) => { v.box(c.x, 0, c.y, 34, 40, 20, '#e8ebf0', c.rot || 0); v.cyl(c.x, 40, c.y, 8, 2, '#2b3342'); },
+  motor_vr: (v, c) => { v.cyl(c.x, 0, c.y, 12, 30, '#9aa3ae'); v.cyl(c.x, 30, c.y, 5, 6, C3D.dark); },
+  terminal_block: (v, c) => { v.box(c.x, 0, c.y, 12, 22, 26, '#8a97ab', c.rot || 0); v.box(c.x, 22, c.y, 6, 2, 6, '#c9cdd3', c.rot || 0); },
+  earth_pe: (v, c) => { v.box(c.x, 0, c.y, 28, 10, 12, '#2e9e46', c.rot || 0); v.box(c.x, 10, c.y, 20, 3, 8, '#e0c34a', c.rot || 0); },
+  folio_ref: (v, c) => { v.box(c.x, 0, c.y, 30, 4, 14, '#d5d9df', c.rot || 0); },
 
   // ----- Plan de maison : architecture ------------------------------------
   // Porte : huisserie, linteau au-dessus du passage, vantail ouvert à 90°
