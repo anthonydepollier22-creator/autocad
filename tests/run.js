@@ -1278,9 +1278,10 @@ r = run(`(function(){
   var L2 = wetRoomsAudit(h.components, h.wires), x = [].concat.apply([], L2.map(function(R){ return R.devs; })).find(function(v){ return v.c.id === 'pz'; });
   var svg1 = wetRoomSVGs(d, {}, h.components, h.wires).join(''), nf = checkNFC15100(h.components, h.wires);
   return { ok0: ok0, rooms: L.map(function(R){ return R.name; }).every(function(n){ return svg0.indexOf(n) > 0; }), set: T.entries.some(function(e){ return /Salles d’eau/.test(e.title); }),
-    pz: x ? x.vol + ':' + x.level : null, flag: /à déplacer hors des volumes/.test(svg1), nf: nf.errors > 0, dxf: /EOF\\s*$/.test(wetRoomDXF(d, {}, h.components, h.wires)) };
+    pz: x ? x.vol + ':' + x.level : null, flag: /à déplacer hors des volumes/.test(svg1), nf: nf.errors > 0, dxf: /EOF\\s*$/.test(wetRoomDXF(d, {}, h.components, h.wires)),
+    plan: buildSVG(h.components, h.wires, SYMBOLS, {}).indexOf('>V1<') > 0 && buildDXF(h.components, h.wires, SYMBOLS, {}).indexOf('VOLUMES') > 0 };
 })()`);
-check('Salles d’eau : folio des volumes 1 et 2 (plan à l’échelle, appareils situés), prise en volume 2 signalée « à déplacer » et par le contrôle NF, dossier, DXF', r.ok0 && r.rooms && r.set && r.pz === '2:err' && r.flag && r.nf && r.dxf, JSON.stringify(r));
+check('Salles d’eau : folio des volumes 1 et 2 (plan à l’échelle, appareils situés), prise en volume 2 signalée « à déplacer » et par le contrôle NF, dossier, DXF ; volumes sur le plan exporté (SVG, DXF)', r.ok0 && r.rooms && r.set && r.pz === '2:err' && r.flag && r.nf && r.dxf && r.plan, JSON.stringify(r));
 
 // Photovoltaïque : schéma de principe (champ, coffret DC, onduleur, coupure AC, protection au tableau)
 r = run(`(function(){

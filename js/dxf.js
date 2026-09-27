@@ -10,7 +10,7 @@
  */
 
 const DXF_LAYERS = [
-  ['MURS', 7], ['MURS-HACHURES', 8], ['MENUISERIES', 30], ['MOBILIER', 8], ['ELECTRICITE', 1], ['GOULOTTES', 9],
+  ['MURS', 7], ['MURS-HACHURES', 8], ['VOLUMES', 5], ['MENUISERIES', 30], ['MOBILIER', 8], ['ELECTRICITE', 1], ['GOULOTTES', 9],
   ['FILS', 5], ['PIECES', 3], ['REPERES', 2], ['COTES', 4], ['CARTOUCHE', 7], ['ESCALIER', 6], ['CIRCUITS', 1],
 ];
 
@@ -109,6 +109,16 @@ function buildDXF(components, wires, symbols, meta) {
     }
     else if (w.kind === 'conduit') { ctx.layer = 'GOULOTTES'; ctx.poly(pts, false, w.riser ? 0 : 5); }
     else { ctx.layer = 'FILS'; ctx.poly(pts, false); }
+  }
+  // Volumes 1 et 2 des salles d'eau (contours), calque dédié
+  if (isPlan && typeof wetZones === 'function') {
+    ctx.layer = 'VOLUMES';
+    for (const z of wetZones(components, wires)) {
+      ctx.poly(z.v1.map((p) => ctx._ap(p.x, p.y)), true);
+      for (const r of z.v2) ctx.poly([ctx._ap(r.x, r.y), ctx._ap(r.x + r.w, r.y), ctx._ap(r.x + r.w, r.y + r.h), ctx._ap(r.x, r.y + r.h)], true);
+      const cx = z.v1.reduce((t, p) => t + p.x, 0) / 4, cy = z.v1.reduce((t, p) => t + p.y, 0) / 4;
+      ctx.font = '12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('V1', cx, cy);
+    }
   }
   // Symboles et leurs repères
   for (const c of components) {
