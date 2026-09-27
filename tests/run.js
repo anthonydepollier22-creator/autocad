@@ -1374,6 +1374,17 @@ r = run(`(function(){
 })()`);
 check('Carnet de câbles : chaque circuit (H07V-U / R2V, conduit ICTA au tiers), commandes, terre, bilans ; dossier, DXF, CSV', r.all && r.ref && r.icta.join() === '16,20,25,' && r.sock === 'ICTA Ø 20' && /U-1000 R2V/.test(r.sub) && r.vv === '3 × 1,5 true' && r.heat === 'ICTA Ø 20' && r.pe && r.les && r.tot && r.set && r.txt && !r.nan && r.dxf && r.csv, JSON.stringify(r));
 
+// Schémas développés : contacteur heures creuses (compteur C1-C2, sélecteur, bobine, deux pôles) et horloge
+r = run(`(function(){
+  var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d0 = designInstallation(h.components, h.wires);
+  var b = boardFromDesign(d0), ev = b.circuits.find(function(c){ return c.appliance === 'ev_charger'; }); ev.contactor = 'ih';
+  var d = designInstallation(h.components, h.wires, b), L = developedList(d, h.components, h.wires), svg = developedSVGs(d, {}, h.components, h.wires).join('');
+  var hc = L.find(function(g){ return g.kind === 'hc'; }), ih = L.find(function(g){ return g.kind === 'ih'; }), T = technicalSet(d, {}, h.components, h.wires);
+  return { hc: hc && hc.ct.appliance, ih: ih && ih.ct.appliance, parts: ['C1 C2', 'KM' + hc.ct.id.slice(1), 'IH' + ih.ct.id.slice(1), 'Chauffe-eau', '3-4', 'éclairage et contacteurs', 'il commande un contacteur'].every(function(t){ return svg.indexOf(t) > 0; }),
+    set: T.entries.some(function(e){ return /contacteurs heures creuses/.test(e.what); }), dxf: /EOF\\s*$/.test(developedDXF(d, {}, h.components, h.wires)), nan: /NaN|undefined/.test(svg) };
+})()`);
+check('Schémas développés : contacteur heures creuses du chauffe-eau (C1-C2, sélecteur Auto / I, bobine, deux pôles) et horloge de la borne ; dossier, DXF', r.hc === 'water_heater' && r.ih === 'ev_charger' && r.parts && r.set && r.dxf && !r.nan, JSON.stringify(r));
+
 // TD avec borne : départ automatique au-dessus de la borne (pleine puissance, sélectivité) ; forcé à 32 A → avertissement
 r = run(`(function(){
   var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d = designInstallation(h.components, h.wires);

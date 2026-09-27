@@ -289,7 +289,11 @@ l'éditeur du tableau, **avec ou sans plan** :
   (l'implantation automatique pose alors le télérupteur au tableau, le métré compte
   télérupteurs et poussoirs), entre la phase et le neutre, conducteurs en couleur
   (phase, neutre bleu, retour lampe, navettes) ; un schéma type par circuit pour un
-  tableau sans plan. Export SVG et DXF (calques SCHEMA / TEXTES / CARTOUCHE) ;
+  tableau sans plan ; à la suite, chaque circuit commandé : **contacteur heures creuses**
+  (contact C1-C2 du compteur, sélecteur 0 / Auto / I de marche forcée, bobine A1-A2,
+  pôles 1-2 et 3-4 sur la charge) ou **interrupteur horaire** (moteur de l'horloge et son
+  contact ; au-delà de 16 A, il commande un contacteur). Export SVG et DXF (calques
+  SCHEMA / TEXTES / CARTOUCHE) ;
 - **Chauffage (fil pilote)** (folios A3) : pour chaque circuit de chauffage, le
   disjoncteur puis chaque radiateur raccordé en phase, neutre, fil pilote et terre, le
   fil pilote venant du délesteur (ou d'un programmateur en option) ; rappel : fil pilote
@@ -856,7 +860,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-216 vérifications sans dépendance : valeurs numériques de chaque simulation
+217 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

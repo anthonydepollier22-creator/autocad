@@ -1241,7 +1241,13 @@ function nomenclatureDXF(design, meta, components, wires) {
 // phase et le neutre, les commandes (simple allumage, va-et-vient, télérupteur
 // et ses poussoirs) et les points lumineux, conducteurs en couleur.
 // ---------------------------------------------------------------------------
-const DEV_KIND = { sa: 'Simple allumage', vv: 'Va-et-vient', tl: 'Télérupteur', direct: 'Sans commande' };
+const DEV_KIND = { sa: 'Simple allumage', vv: 'Va-et-vient', tl: 'Télérupteur', direct: 'Sans commande', hc: 'Contacteur heures creuses', ih: 'Interrupteur horaire' };
+// Circuits commandés par un contacteur heures creuses ou un interrupteur horaire
+function contactorControls(design) {
+  return design.circuits.filter((c) => c.contactor === 'hc' || c.contactor === 'ih').map((ct) => ({ ct, room: ct.name, kind: ct.contactor, lamps: [], switches: [] }));
+}
+// Tous les schémas développés : éclairage pièce par pièce, puis les contacteurs
+function developedList(design, components, wires) { return lightingControls(design, components, wires).concat(contactorControls(design)); }
 function lightingControls(design, components, wires) {
   const byId = {};
   for (const c of components || []) byId[c.id] = c;
@@ -1300,9 +1306,10 @@ function drawDeveloped(ctx, design, meta, list, folio) {
   const dot = (x, y) => { ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill(); };
   ctx.save(); ctx.strokeStyle = ink; ctx.fillStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   layer('CARTOUCHE');
-  _uCartouche(ctx, design, meta, 'Schémas développés des commandes d’éclairage', k, nF);
+  const withKM = list.some((g) => g.kind === 'hc' || g.kind === 'ih');
+  _uCartouche(ctx, design, meta, withKM ? 'Schémas développés des commandes (éclairage, contacteurs)' : 'Schémas développés des commandes d’éclairage', k, nF);
   layer('TEXTES');
-  text('Schémas développés — commandes d’éclairage', 30, 46, { bold: true, size: 17 });
+  text(withKM ? 'Schémas développés — éclairage et contacteurs' : 'Schémas développés — commandes d’éclairage', 30, 46, { bold: true, size: 17 });
   const leg = [['Phase', DEV_COLORS.L, 'rouge ou marron'], ['Neutre', DEV_COLORS.N, 'bleu clair (obligatoire)'], ['Retour lampe', DEV_COLORS.ret, 'orange'], ['Navettes', DEV_COLORS.nav, 'violet ou noir']];
   let lx = 480;
   for (const [n, c, t] of leg) { layer('SCHEMA'); wire(c, [[lx, 42], [lx + 22, 42]]); layer('TEXTES'); text(`${n} : ${t}`, lx + 28, 45, { size: 8.5 }); lx += 28 + 8.5 * 0.52 * (n.length + t.length + 3) + 18; }
@@ -1359,6 +1366,59 @@ function drawDeveloped(ctx, design, meta, list, folio) {
       layer('SCHEMA');
       wire(DEV_COLORS.ret, [[x, y2 + 28], [x, y2 + 44]]);
       lamps(x, y2 + 44, x);
+    } else if (g.kind === 'hc' || g.kind === 'ih') { // commande (à gauche) et circuit de puissance (à droite)
+      const n = ct.id.replace(/^C/, ''), km = (g.kind === 'ih' ? 'IH' : 'KM') + n, xa = cx + 44, xp = cx + cw - 62;
+      const load = ct.appliance === 'water_heater' ? 'Chauffe-eau' : ct.appliance === 'ev_charger' ? 'Borne' : fit(ct.name, 14);
+      const yR = yL + 84, dash = (pts) => { ctx.save(); ctx.setLineDash([3, 2.5]); ctx.lineWidth = 0.8; ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); };
+      let yLink;
+      if (g.kind === 'hc') {
+        const xf = xa + 42, yS = yL + 18, yC1 = yS + 52, yJ = yC1 + 50, yK = yJ + 16;
+        // sélecteur du contacteur : « Auto » par le contact du compteur, « I » en marche forcée
+        wire(DEV_COLORS.L, [[xa, yL], [xa, yS]]); wire(DEV_COLORS.L, [[xf, yL], [xf, yS]]);
+        ctx.fillStyle = DEV_COLORS.L; dot(xa, yL); dot(xf, yL); ctx.fillStyle = ink;
+        _dNO(ctx, xa, yS, 40); _dNO(ctx, xf, yS, 40);
+        dash([[xa - 18, yS - 4], [xf + 14, yS - 4], [xf + 14, yS + 44], [xa - 18, yS + 44], [xa - 18, yS - 4]]);
+        wire(DEV_COLORS.ret, [[xa, yS + 40], [xa, yC1]]);
+        _dNO(ctx, xa, yC1, 40);
+        wire(DEV_COLORS.ret, [[xa, yC1 + 40], [xa, yK]]); wire(DEV_COLORS.ret, [[xf, yS + 40], [xf, yJ], [xa, yJ]]);
+        ctx.fillStyle = DEV_COLORS.ret; dot(xa, yJ); ctx.fillStyle = ink;
+        ctx.lineWidth = 1.3; ctx.strokeRect(xa - 9, yK, 18, 26);
+        wire(DEV_COLORS.N, [[xa, yK + 26], [xa, yN]]); ctx.fillStyle = DEV_COLORS.N; dot(xa, yN); ctx.fillStyle = ink;
+        layer('TEXTES');
+        text('Auto', xa + 5, yS + 12, { size: 6.5, bold: true }); text('I', xf + 5, yS + 12, { size: 6.5, bold: true });
+        text('sélecteur', xf + 18, yS + 18, { size: 6.5, color: mute }); text('0 · Auto · I', xf + 18, yS + 27, { size: 6.5, color: mute });
+        text('C1 C2', xa + 8, yC1 + 24, { size: 7.5, bold: true }); text('compteur', xa + 8, yC1 + 33, { size: 6.5, color: mute });
+        text(km, xa - 13, yK + 16, { size: 7.5, bold: true, align: 'right' }); text('A1', xa + 11, yK + 7, { size: 6 }); text('A2', xa + 11, yK + 25, { size: 6 });
+        layer('SCHEMA');
+        yLink = yK + 13;
+      } else {
+        // horloge : moteur alimenté entre phase et neutre, son contact sur la charge
+        const yM = yL + 70;
+        wire(DEV_COLORS.L, [[xa, yL], [xa, yM - 12]]); ctx.fillStyle = DEV_COLORS.L; dot(xa, yL); ctx.fillStyle = ink;
+        ctx.lineWidth = 1.3; ctx.beginPath(); ctx.arc(xa, yM, 12, 0, Math.PI * 2); ctx.stroke();
+        _uLine(ctx, xa, yM, xa, yM - 8, 1.1); _uLine(ctx, xa, yM, xa + 6, yM + 3, 1.1);
+        wire(DEV_COLORS.N, [[xa, yM + 12], [xa, yN]]); ctx.fillStyle = DEV_COLORS.N; dot(xa, yN); ctx.fillStyle = ink;
+        layer('TEXTES'); text(km, xa - 16, yM + 3, { size: 7.5, bold: true, align: 'right' }); text('horloge', xa + 15, yM - 6, { size: 6.5, color: mute }); layer('SCHEMA');
+        yLink = yM;
+      }
+      // circuit de puissance : phase par le contact, charge, neutre (second pôle du contacteur)
+      wire(DEV_COLORS.L, [[xp, yL], [xp, yL + 20]]); ctx.fillStyle = DEV_COLORS.L; dot(xp, yL); ctx.fillStyle = ink;
+      _dNO(ctx, xp, yL + 20, 40);
+      wire(DEV_COLORS.L, [[xp, yL + 60], [xp, yR]]);
+      ctx.lineWidth = 1.3; ctx.strokeRect(xp - 7, yR, 14, 40);
+      const yNc = yR + 58;
+      if (g.kind === 'hc') {
+        wire(DEV_COLORS.N, [[xp, yR + 40], [xp, yNc]]); _dNO(ctx, xp, yNc, 40); wire(DEV_COLORS.N, [[xp, yNc + 40], [xp, yN]]);
+        dash([[xp - 14, yL + 40], [xp - 14, yNc + 20]]);
+      } else wire(DEV_COLORS.N, [[xp, yR + 40], [xp, yN]]);
+      ctx.fillStyle = DEV_COLORS.N; dot(xp, yN); ctx.fillStyle = ink;
+      dash([[xa + (g.kind === 'hc' ? 9 : 12), yLink], [xp - 14, yLink]]);
+      if (g.kind !== 'hc') dash([[xp - 14, yLink], [xp - 14, yL + 40]]);
+      layer('TEXTES');
+      text(km, xp + 8, yL + 36, { size: 7.5, bold: true }); if (g.kind === 'hc') { text('1-2', xp + 8, yL + 45, { size: 6.5, color: mute }); text('3-4', xp + 8, yNc + 25, { size: 6.5, color: mute }); }
+      text(load, xp + 11, yR + 23, { size: 7.5, bold: true });
+      text(g.kind === 'hc' ? 'Contact heures creuses du compteur (C1-C2) ; I : marche forcée' : ct.In > 16 ? 'Contact de l’horloge 16 A : au-delà, il commande un contacteur' : 'Plages programmées sur l’horloge (réserve de marche)', cx + 12, cy + ch - 10, { size: 7, color: g.kind === 'ih' && ct.In > 16 ? red : mute });
+      layer('SCHEMA');
     } else { // télérupteur : poussoirs en parallèle sur la bobine, contact KL sur les lampes
       const nP = Math.min(g.switches.length, 4), xc = cx + 44, yA = yL + 18, yB = yA + 54;
       const xp = xc + Math.max(nP - 1, 1) * 26 + 34;
@@ -1390,7 +1450,7 @@ function drawDeveloped(ctx, design, meta, list, folio) {
   ctx.restore();
 }
 function developedSVGs(design, meta, components, wires) {
-  const list = lightingControls(design, components, wires), out = [];
+  const list = developedList(design, components, wires), out = [];
   for (let k = 0; k < devFolios(list); k++) {
     const ctx = new SVGContext();
     drawDeveloped(ctx, design, meta, list, k);
@@ -1399,7 +1459,7 @@ function developedSVGs(design, meta, components, wires) {
   return out;
 }
 function developedDXF(design, meta, components, wires) {
-  const list = lightingControls(design, components, wires), ctx = new DXFContext(), n = devFolios(list);
+  const list = developedList(design, components, wires), ctx = new DXFContext(), n = devFolios(list);
   for (let k = 0; k < n; k++) { ctx.save(); ctx.translate(0, k * (UNI.H + 60)); drawDeveloped(ctx, design, meta, list, k); ctx.restore(); }
   return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: n * (UNI.H + 60) }, { U: 1 / 0.3528, insunits: 4, layers: [['SCHEMA', 7], ['TEXTES', 2], ['CARTOUCHE', 8]] });
 }
@@ -2362,8 +2422,8 @@ function _technicalSeries(design, components, wires) {
   S.push({ title: 'Note de calcul', what: 'Ib, In, Iz, ΔU, Icc mini, longueur maximale protégée, bilan de puissance', n: calcNoteFolios(design), draw: (ctx, m, k) => drawCalcNote(ctx, design, m, k) });
   const cab = cableSchedule(design, components, wires);
   S.push({ title: 'Carnet de câbles', what: 'Chaque liaison : origine, destination, composition, conduit, longueur', n: cableFolios(cab), draw: (ctx, m, k) => drawCables(ctx, design, m, cab, k) });
-  const lc = lightingControls(design, components, wires);
-  S.push({ title: 'Schémas développés', what: 'Commandes d’éclairage pièce par pièce', n: devFolios(lc), draw: (ctx, m, k) => drawDeveloped(ctx, design, m, lc, k) });
+  const lc = developedList(design, components, wires), km = lc.some((g) => g.kind === 'hc' || g.kind === 'ih');
+  S.push({ title: 'Schémas développés', what: 'Commandes d’éclairage pièce par pièce' + (km ? ', contacteurs heures creuses et horloges' : ''), n: devFolios(lc), draw: (ctx, m, k) => drawDeveloped(ctx, design, m, lc, k) });
   const hc = heatingCircuits(design, components);
   if (hc.length) S.push({ title: 'Chauffage (fil pilote)', what: 'Radiateurs de chaque circuit : phase, neutre, fil pilote, terre', n: heatingFolios(hc), draw: (ctx, m, k) => drawHeating(ctx, design, m, hc, k) });
   const vr = shutterCircuits(design, components);
