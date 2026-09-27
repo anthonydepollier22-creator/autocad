@@ -139,7 +139,8 @@ function buildDossier(o) {
     if (o.wetRoomSVGs && o.wetRoomSVGs.length) h += o.wetRoomSVGs.map((svg, k) => `<section class="page"><h2>Salles d’eau — volumes${o.wetRoomSVGs.length > 1 ? ` (${k + 1}/${o.wetRoomSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
     if (o.evSVGs && o.evSVGs.length) h += o.evSVGs.map((svg, k) => `<section class="page"><h2>Borne de recharge (IRVE)${o.evSVGs.length > 1 ? ` (${k + 1}/${o.evSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
     if (o.pvSVGs && o.pvSVGs.length) h += o.pvSVGs.map((svg, k) => `<section class="page"><h2>Photovoltaïque — schéma de principe${o.pvSVGs.length > 1 ? ` (${k + 1}/${o.pvSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
-    if (o.detailsSVG) h += `<section class="page"><h2>Détails de pose</h2><div class="svg">${o.detailsSVG}</div></section>`;
+    const det = o.detailsSVGs && o.detailsSVGs.length ? o.detailsSVGs : o.detailsSVG ? [o.detailsSVG] : [];
+    h += det.map((svg, k) => `<section class="page"><h2>Détails de pose${det.length > 1 ? ` (${k + 1}/${det.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
     if (o.earthingSVG) h += `<section class="page"><h2>Mise à la terre et liaisons équipotentielles</h2><div class="svg">${o.earthingSVG}</div></section>`;
     if (o.testSVGs && o.testSVGs.length) h += o.testSVGs.map((svg, k) => `<section class="page"><h2>Essais et mesures de mise en service${o.testSVGs.length > 1 ? ` (${k + 1}/${o.testSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');
     if (o.elevationSVGs && o.elevationSVGs.length) h += o.elevationSVGs.map((svg, k) => `<section class="page"><h2>Élévations des murs${o.elevationSVGs.length > 1 ? ` (${k + 1}/${o.elevationSVGs.length})` : ''}</h2><div class="svg">${svg}</div></section>`).join('');

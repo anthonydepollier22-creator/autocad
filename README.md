@@ -336,12 +336,16 @@ l'éditeur du tableau, **avec ou sans plan** :
   interrupteur horaire, câble et ΔU, borne mode 3 (socle type 2, détection 6 mA DC),
   véhicule ; pilotage de la recharge, règles (circuit et différentiel dédiés,
   installateur qualifié au-delà de 3,7 kW) et vérifications ; export SVG et DXF ;
-- **Détails de pose** (folio A3, vue « Détails ») : coupe d'une cloison placo 72/48
+- **Détails de pose** (deux folios A3, vue « Détails ») : coupe d'une cloison placo 72/48
   (montants M48 à 60 cm d'entraxe, boîte Ø 67 mm dont l'axe reste à 6 cm au moins
   du montant, gaine par la lumière des profilés), hauteurs de pose (prises à 5 cm au
   moins, commandes de 0,90 à 1,30 m, plan de travail), doublage (boîte étanche à
   l'air, embout de gaine), coupe de tranchée d'une liaison enterrée (0,50 m, 0,85 m
-  sous passage de véhicules, fourreau TPC rouge, grillage avertisseur) ; SVG et DXF ;
+  sous passage de véhicules, fourreau TPC rouge, grillage avertisseur) ; puis la gaine
+  technique logement en élévation (600 mm de large, 450 mm pour 35 m² au plus, 200 mm de
+  profondeur, du sol au plafond, organes de manœuvre entre 1,00 et 1,80 m), le point
+  lumineux DCL (boîte à crochet, douille ou fiche) et le tableau (un différentiel par
+  groupe, huit circuits au plus, réserve de 20 %, repérage) ; SVG et DXF ;
 - **Salles d'eau — volumes** (folios A3, vue « Salles d'eau », NF C 15-100 § 701) :
   chaque local avec douche ou baignoire redessiné à l'échelle normalisée (1:20, 1:25,
   1:50…), volumes 1 et 2 teintés, chaque appareil situé (hauteur, distance au volume 1,

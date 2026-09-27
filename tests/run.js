@@ -1374,9 +1374,10 @@ r = run(`(function(){
   var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d = designInstallation(h.components, h.wires), svg = detailsSVG(d, {});
   var T = technicalSet(d, {}, h.components, h.wires);
   return { parts: ['Cloison placo 72/48', '60 cm (entraxe des montants)', STUD_CLEAR + ' cm au moins', '0,90 à 1,30 m', 'boîte étanche à l’air', '0,50 m au moins', 'grillage avertisseur rouge'].every(function(t){ return svg.indexOf(t) > 0; }),
-    set: T.entries.some(function(e){ return e.title === 'Détails de pose'; }), dxf: /EOF\\s*$/.test(detailsDXF(d, {})), nan: /NaN|undefined/.test(svg) };
+    set: T.entries.some(function(e){ return e.title === 'Détails de pose' && e.to - e.from === 1; }), dxf: /EOF\\s*$/.test(detailsDXF(d, {})), nan: /NaN|undefined/.test(svg + detailsSVGs(d, {})[1]),
+    p2: ['Gaine technique logement', '600 mm au moins', 'entre 1,00 m et 1,80 m du sol fini', 'boîte DCL', '25 kg au plus', 'Réserve de 20 %', 'Huit circuits au plus'].every(function(t){ return detailsSVGs(d, {})[1].indexOf(t) > 0; }) };
 })()`);
-check('Détails de pose : cloison placo (montants à 60 cm, boîte à 6 cm au moins), hauteurs, doublage étanche, tranchée ; dossier, DXF', r.parts && r.set && r.dxf && !r.nan, JSON.stringify(r));
+check('Détails de pose : cloison placo (montants à 60 cm, boîte à 6 cm au moins), hauteurs, doublage étanche, tranchée ; GTL, point DCL, tableau (2e folio) ; dossier, DXF', r.parts && r.set && r.dxf && !r.nan && r.p2, JSON.stringify(r));
 
 // Carnet de câbles : une liaison par circuit (composition, conduit au tiers), commandes, terre ; dossier, DXF, CSV
 r = run(`(function(){

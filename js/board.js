@@ -2566,7 +2566,7 @@ function drawDetails(ctx, design, meta, opts) {
   const panel = (x, y, w, h, title, sub) => { rect(x, y, w, h, '#c8d0dc', null, 0.8); text(title, x + 10, y + 16, { bold: true, size: 9.5 }); if (sub) text(sub, x + 10, y + 28, { size: 7, color: mute }); };
   ctx.save(); ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
   layer('CARTOUCHE');
-  _uCartouche(ctx, D, meta, 'Détails de pose', 0, 1);
+  _uCartouche(ctx, D, meta, 'Détails de pose', 0, 2);
   layer('TEXTES');
   text('Détails de pose — cloisons sèches, hauteurs, doublage, liaison enterrée', 30, 46, { bold: true, size: 17 });
   text('Détails types (sans échelle) à appliquer sur le chantier ; les positions exactes figurent sur le plan d’implantation et les élévations', 30, 62, { size: 8, color: mute });
@@ -2670,10 +2670,126 @@ function drawDetails(ctx, design, meta, opts) {
   text('Principe : le placo n’est jamais percé sur un montant (fixation impossible, gaine écrasée) ; le passage d’un montant à l’autre se fait par les lumières des profilés.', 30, UNI.H - 15 - 62 - 22, { size: 7.5, color: mute });
   ctx.restore();
 }
+// Détails de pose, second folio : gaine technique logement (GTL), point lumineux DCL, tableau
+function drawDetails2(ctx, design, meta) {
+  const D = design.root || design, N = calcNote(D);
+  const ink = '#1a2230', mute = '#5b6b82', red = '#b3261e', blue = '#1668c4', grey = '#9aa4b2', plaster = '#d7dde6';
+  const layer = (n) => { if ('layer' in ctx) ctx.layer = n; };
+  const text = (t, x, y, q) => {
+    q = q || {};
+    ctx.save(); ctx.fillStyle = q.color || ink; ctx.font = `${q.bold ? 'bold ' : ''}${q.size || 8}px sans-serif`;
+    ctx.textAlign = q.align || 'left'; ctx.fillText(t, x, y); ctx.restore();
+  };
+  const line = (pts, col, w, dash) => { ctx.save(); ctx.strokeStyle = col || ink; ctx.lineWidth = w || 1; if (dash) ctx.setLineDash(dash); ctx.beginPath(); pts.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); ctx.stroke(); ctx.restore(); };
+  const rect = (x, y, w, h, col, fill, lw) => { ctx.save(); if (fill && !('layer' in ctx)) { ctx.fillStyle = fill; ctx.beginPath(); ctx.rect(x, y, w, h); ctx.fill(); } ctx.strokeStyle = col || ink; ctx.lineWidth = lw || 1; ctx.strokeRect(x, y, w, h); ctx.restore(); };
+  const dim = (x1, y1, x2, y2, t, side) => {
+    line([[x1, y1], [x2, y2]], mute, 0.7);
+    for (const [x, y] of [[x1, y1], [x2, y2]]) line([[x - 3, y + 3], [x + 3, y - 3]], mute, 0.9);
+    const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+    if (y1 === y2) text(t, mx, my + (side || -4), { size: 7, align: 'center', color: mute });
+    else { ctx.save(); ctx.translate(mx + (side || -4), my); ctx.rotate(-Math.PI / 2); text(t, 0, 0, { size: 7, align: 'center', color: mute }); ctx.restore(); }
+  };
+  const panel = (x, y, w, h, title, sub) => { layer('CARTOUCHE'); rect(x, y, w, h, '#c8d0dc', null, 0.8); layer('TEXTES'); text(title, x + 10, y + 16, { bold: true, size: 9.5 }); if (sub) text(sub, x + 10, y + 28, { size: 7, color: mute }); };
+  ctx.save(); ctx.strokeStyle = ink; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  layer('CARTOUCHE');
+  _uCartouche(ctx, D, meta, 'Détails de pose', 1, 2);
+  layer('TEXTES');
+  text('Détails de pose — gaine technique logement, point lumineux, tableau', 30, 46, { bold: true, size: 17 });
+  text('Détails types (échelle indicative) ; l’implantation réelle figure sur le plan, la face avant et les élévations', 30, 62, { size: 8, color: mute });
+  // --- E : GTL en élévation (échelle 1:25 environ : 0,2 pt par mm) ---------------------------
+  const ex = 40, ey = 76, ew = 545, eh = 672;
+  panel(ex, ey, ew, eh, 'E — Gaine technique logement (GTL)', 'élévation et vue de dessus ; regroupe les arrivées et le départ des circuits');
+  const k = 0.2, fy = ey + eh - 40, cy = fy - 2500 * k, gx = ex + 110, gw = (D.area && D.area <= 35 ? 450 : 600) * k;
+  layer('SCHEMA');
+  line([[ex + 20, fy], [ex + 330, fy]], ink, 1.4); line([[ex + 20, cy], [ex + 330, cy]], ink, 1.4);
+  layer('TEXTES'); text('sol fini', ex + 24, fy + 12, { size: 7, color: mute }); text('plafond', ex + 24, cy - 5, { size: 7, color: mute });
+  layer('SCHEMA');
+  rect(gx, cy, gw, fy - cy, ink, '#f3f5f9', 1.2);
+  const hy = (m) => fy - m * 1000 * k; // hauteur (m) → ordonnée
+  // disjoncteur de branchement, tableau (organes entre 1,00 et 1,80 m), coffret de communication
+  rect(gx + 22, hy(2.1), gw - 44, 40, ink, '#ffffff', 0.9);
+  rect(gx + 10, hy(1.8) - 4, gw - 20, (0.8 * 1000 * k) + 8, ink, '#ffffff', 1.1);
+  for (let r = 0; r < 3; r++) { const y = hy(1.8) + 8 + r * 50; line([[gx + 16, y + 20], [gx + gw - 16, y + 20]], grey, 3); for (let m = 0; m < 8; m++) rect(gx + 18 + m * ((gw - 36) / 8), y + 8, (gw - 36) / 8 - 2, 24, '#8a97ab', '#eef2f7', 0.6); }
+  rect(gx + 14, hy(0.95), gw - 28, 70, blue, '#eef4fc', 1);
+  rect(gx + 30, hy(0.95) + 80, 18, 16, ink, '#ffffff', 0.8); rect(gx + gw - 48, hy(0.95) + 80, 18, 16, ink, '#ffffff', 0.8);
+  layer('TEXTES');
+  text('AGCP', gx + gw / 2, hy(2.1) + 24, { size: 8, bold: true, align: 'center' });
+  text('Tableau', gx + gw / 2, hy(1.8) - 8, { size: 8, bold: true, align: 'center' });
+  text('Coffret de', gx + gw / 2, hy(0.95) + 30, { size: 7.5, bold: true, align: 'center', color: blue }); text('communication', gx + gw / 2, hy(0.95) + 41, { size: 7.5, bold: true, align: 'center', color: blue });
+  text('2P+T', gx + gw / 2, hy(0.95) + 92, { size: 6.5, align: 'center', color: mute });
+  layer('SCHEMA');
+  dim(gx, cy - 16, gx + gw, cy - 16, D.area && D.area <= 35 ? '450 mm (logement ≤ 35 m²)' : '600 mm au moins', -5);
+  dim(gx - 22, cy, gx - 22, fy, 'du sol au plafond', -6);
+  dim(gx + gw + 16, hy(1.8), gx + gw + 16, fy, '1,80 m au plus', 12);
+  dim(gx + gw + 46, hy(1.0), gx + gw + 46, fy, '1,00 m au moins', 12);
+  line([[gx + gw, hy(1.8)], [gx + gw + 20, hy(1.8)]], mute, 0.5, [2, 2]); line([[gx + gw, hy(1.0)], [gx + gw + 50, hy(1.0)]], mute, 0.5, [2, 2]);
+  // vue de dessus : profondeur 200 mm
+  const tx = ex + 360, ty = ey + 70;
+  rect(tx, ty, gw, 200 * k, ink, '#f3f5f9', 1); line([[tx - 10, ty], [tx + gw + 10, ty]], ink, 2);
+  layer('TEXTES'); text('vue de dessus', tx, ty - 8, { size: 7, color: mute }); text('mur', tx + gw + 14, ty + 3, { size: 7, color: mute });
+  layer('SCHEMA'); dim(tx + gw + 14, ty, tx + gw + 14, ty + 200 * k, '200 mm', 12);
+  layer('TEXTES');
+  [['Dans le logement, du sol au plafond,', 'de préférence près de l’entrée'],
+    ['AGCP, tableau, coffret de communication', 'et ses prises 2P+T'],
+    ['Organes de manœuvre du tableau', 'entre 1,00 m et 1,80 m du sol fini'],
+    ['Goulottes ou conduits de la GTL :', 'arrivées et départs des circuits'],
+    [D.panels && D.panels.length ? 'Tableau principal ici ; divisionnaires' : 'Tableau : une rangée par groupe', D.panels && D.panels.length ? 'dans leur local (garage, étage…)' : 'de circuits, réserve de 20 %']]
+    .forEach(([a, b], i) => { text('— ' + a, ex + 340, ey + 150 + i * 30, { size: 7.5 }); text(b, ex + 350, ey + 161 + i * 30, { size: 7.5 }); });
+  // --- F : point lumineux DCL -------------------------------------------------
+  const fx = 605, fy0 = 76, fw = 545, fh = 330;
+  panel(fx, fy0, fw, fh, 'F — Point lumineux : boîte et douille DCL', 'point de centre au plafond ou applique : le luminaire se raccorde sans outil');
+  const pc = fx + 150, py = fy0 + 110;
+  layer('SCHEMA');
+  rect(fx + 40, py - 18, 230, 18, '#c8d0dc', plaster, 0.8); // plaque de plâtre
+  for (let i = 0; i < 4; i++) rect(fx + 50 + i * 60, py - 40, 16, 22, '#9aa4b2', '#e7e9ec', 0.6); // fourrures
+  rect(pc - 16, py - 30, 32, 30, blue, '#ffffff', 1.2); // boîte DCL
+  line([[pc, py - 24], [pc, py - 8]], ink, 1.2); ctx.beginPath(); ctx.arc(pc, py - 5, 3, 0, Math.PI); ctx.stroke(); // crochet
+  rect(pc - 10, py + 4, 20, 14, ink, '#ffffff', 1); // douille / fiche DCL
+  line([[pc, py + 18], [pc, py + 70]], ink, 1); // fil de suspension
+  ctx.beginPath(); ctx.moveTo(pc - 34, py + 100); ctx.lineTo(pc - 14, py + 70); ctx.lineTo(pc + 14, py + 70); ctx.lineTo(pc + 34, py + 100); ctx.closePath(); ctx.stroke(); // luminaire
+  line([[pc + 90, py - 60], [pc + 16, py - 22]], red, 1.2); // gaine
+  layer('TEXTES');
+  text('boîte DCL (crochet)', pc + 20, py - 5, { size: 7, color: blue }); text('fiche + douille DCL', pc + 16, py + 14, { size: 7 }); text('luminaire', pc + 40, py + 92, { size: 7, color: mute });
+  text('gaine ICTA', pc + 92, py - 62, { size: 7, color: red }); text('plaque de plâtre', fx + 44, py + 12, { size: 7, color: mute }); text('fourrures', fx + 44, py - 46, { size: 7, color: mute });
+  ['Chaque point lumineux : boîte DCL + douille ou fiche DCL',
+    'Suspension du luminaire au crochet de la boîte DCL : 25 kg au plus',
+    'Plafond placo : boîte DCL pour plafond creux, entre deux fourrures',
+    'Conducteur de protection raccordé à la fiche DCL, même sans luminaire',
+    'Éclairage : 8 points au plus par circuit (1,5 mm², 16 A ou 10 A)'].forEach((t, i) => text('— ' + t, fx + 280, fy0 + 70 + i * 17, { size: 7.5 }));
+  // --- G : tableau — réserve, repérage, groupes -----------------------------------
+  const gx0 = 605, gy0 = 418, gw0 = 545, gh0 = 330;
+  panel(gx0, gy0, gw0, gh0, 'G — Tableau : groupes, réserve, repérage', 'la face avant et les étiquettes à l’échelle 1 sont jointes au dossier');
+  const bx = gx0 + 30, by = gy0 + 50;
+  layer('SCHEMA');
+  rect(bx, by, 240, 200, ink, '#fbfcfe', 1);
+  for (let r = 0; r < 3; r++) {
+    const y = by + 16 + r * 62;
+    line([[bx + 8, y + 22], [bx + 232, y + 22]], grey, 3);
+    for (let m = 0; m < 13; m++) { const free = r === 2 && m >= 9; rect(bx + 10 + m * 17, y + 6, 15, 32, free ? '#c8d0dc' : '#8a97ab', free ? '#ffffff' : m === 0 ? '#e8f0fd' : '#eef2f7', 0.6); }
+    rect(bx + 10, y + 42, 221, 9, '#c8d0dc', '#ffffff', 0.5);
+  }
+  layer('TEXTES');
+  text('ID', bx + 17.5, by + 42, { size: 6.5, align: 'center', color: blue }); text('réserve', bx + 200, by + 124 + 62, { size: 6.5, align: 'center', color: mute });
+  text('étiquettes des circuits', bx + 120, by + 222, { size: 7, align: 'center', color: mute });
+  const nId = D.rcds.length, nC = D.circuits.filter((c) => c.kind !== 'sub').length;
+  [`Un interrupteur différentiel 30 mA en tête de chaque groupe (${nId} ici)`,
+    'Huit circuits au plus par interrupteur différentiel',
+    'Type A : plaque de cuisson, lave-linge ; F (ou A-EV) : borne',
+    'Réserve de 20 % de modules libres, pour les ajouts futurs',
+    'Chaque circuit repéré : étiquette au-dessus du disjoncteur',
+    `Peignes phase et neutre ; bornier de terre (${nC} circuits terminaux ici)`,
+    `AGCP ${N.agcp ? N.agcp.setting + ' A ' : ''}différentiel 500 mA sélectif en tête de l’installation`].forEach((t, i) => text('— ' + t, gx0 + 290, gy0 + 64 + i * 17, { size: 7.5 }));
+  ctx.restore();
+}
 function detailsSVG(design, meta) { const ctx = new SVGContext(); drawDetails(ctx, design, meta); return _folioWrap(ctx.out.join('')); }
+function detailsSVGs(design, meta) {
+  const c2 = new SVGContext(); drawDetails2(c2, design, meta);
+  return [detailsSVG(design, meta), _folioWrap(c2.out.join(''))];
+}
 function detailsDXF(design, meta) {
   const ctx = new DXFContext(); drawDetails(ctx, design, meta);
-  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: UNI.H }, { U: 1 / 0.3528, insunits: 4, layers: [['SCHEMA', 7], ['TEXTES', 2], ['CARTOUCHE', 8]] });
+  ctx.save(); ctx.translate(0, UNI.H + 60); drawDetails2(ctx, design, meta); ctx.restore();
+  return _dxfWrite(ctx.ents, { minX: 0, minY: 0, maxX: UNI.W, maxY: 2 * UNI.H + 60 }, { U: 1 / 0.3528, insunits: 4, layers: [['SCHEMA', 7], ['TEXTES', 2], ['CARTOUCHE', 8]] });
 }
 
 // ---------------------------------------------------------------------------
@@ -2715,7 +2831,7 @@ function _technicalSeries(design, components, wires) {
     const E = elevations(components, wires);
     S.push({ title: 'Élévations des murs', what: 'Hauteurs de pose de l’appareillage, pièce par pièce', n: elevLayout(E).length, draw: (ctx, m, k) => drawElevations(ctx, design, m, E, k) });
   }
-  S.push({ title: 'Détails de pose', what: 'Cloison placo et montants, hauteurs de pose, doublage, tranchée', n: 1, draw: (ctx, m) => drawDetails(ctx, design, m) });
+  S.push({ title: 'Détails de pose', what: 'Cloison placo, hauteurs, doublage, tranchée, GTL, point lumineux DCL, tableau', n: 2, draw: (ctx, m, k) => (k ? drawDetails2(ctx, design, m) : drawDetails(ctx, design, m)) });
   if (rj && typeof vdiDesign === 'function') {
     const V = vdiDesign(components, wires);
     S.push({ title: 'Communication (VDI)', what: 'Coffret grade 2TV, câblage en étoile catégorie 6', n: vdiFolios(V), draw: (ctx, m, k) => drawVDI(ctx, design, m, V, k) });
