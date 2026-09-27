@@ -66,14 +66,15 @@ function materialList(components, wires, design) {
     const ddr = {}; // disjoncteurs différentiels : un appareil par circuit, compté à part
     for (const c of design.circuits) {
       if (c.ddr) { const k = `${c.phase === '3P' ? '3P+N' : '1P+N'} ${c.In} A 30 mA type ${c.ddr}`; ddr[k] = ddr[k] || { n: 0, price: Math.round(P.ddr[c.ddr] * (c.phase === '3P' ? 2.5 : 1)) }; ddr[k].n++; continue; }
-      const m = c.phase === '3P' ? byIn3 : byIn; m[c.In] = (m[c.In] || 0) + 1;
+      const m = c.phase === '3P' ? byIn3 : byIn, k = `${c.curve || 'C'}|${c.In}`; m[k] = (m[k] || 0) + 1; // courbe et calibre
     }
     for (const k of Object.keys(ddr).sort()) add('Tableau', `Disjoncteur différentiel ${k}`, ddr[k].n, 'u', ddr[k].price);
     if (design.supply && design.supply.surge) {
       add('Tableau', tri ? 'Parafoudre type 2 (triphasé)' : 'Parafoudre type 2 (monophasé)', 1, 'u', tri ? P.tri.surge : P.surge);
-      const m = tri ? byIn3 : byIn; m[10] = (m[10] || 0) + 1; // son disjoncteur de déconnexion
+      const m = tri ? byIn3 : byIn; m['C|10'] = (m['C|10'] || 0) + 1; // son disjoncteur de déconnexion
     }
-    for (const In of Object.keys(byIn3).map(Number).sort((a, b) => a - b)) add('Tableau', `Disjoncteur 3P+N ${In} A courbe C`, byIn3[In], 'u', P.tri.breaker3P);
+    const keys = (m) => Object.keys(m).sort((a, b) => +a.split('|')[1] - +b.split('|')[1] || a.localeCompare(b));
+    for (const k of keys(byIn3)) { const [cv, In] = k.split('|'); add('Tableau', `Disjoncteur 3P+N ${In} A courbe ${cv}`, byIn3[k], 'u', Math.round(P.tri.breaker3P * (cv === 'D' ? 1.5 : 1))); }
     if (design.supply && design.supply.shed) add('Tableau', `Délesteur ${Math.min(4, Math.max(1, design.circuits.filter((c) => c.kind === 'heating').length))} voie(s) (fil pilote)`, 1, 'u', P.shed, 'pilote les circuits de chauffage');
     add('Tableau', 'Contacteur jour / nuit 20 A (heures creuses)', design.circuits.filter((c) => c.contactor && c.contactor !== 'ih').length, 'u', P.contactor);
     add('Tableau', 'Interrupteur horaire modulaire (programmation journalière)', design.circuits.filter((c) => c.contactor === 'ih').length, 'u', P.timer);
@@ -81,8 +82,9 @@ function materialList(components, wires, design) {
     const tlRooms = typeof lightingControls === 'function' ? lightingControls(design, components, wires).filter((g) => g.kind === 'tl' && !g.generic) : [];
     add('Tableau', 'Télérupteur 16 A', Math.max(design.circuits.filter((c) => c.teleruptor).length, tlRooms.length), 'u', P.teleruptor);
     for (const g of tlRooms) for (const ref of g.switches) pushIds.add(ref);
-    for (const In of Object.keys(byIn).map(Number).sort((a, b) => a - b)) {
-      add('Tableau', `Disjoncteur phase + neutre ${In} A courbe C`, byIn[In], 'u', P.breaker[In] || 9);
+    for (const k of keys(byIn)) {
+      const [cv, In] = k.split('|');
+      add('Tableau', `Disjoncteur phase + neutre ${In} A courbe ${cv}`, byIn[k], 'u', Math.round((P.breaker[In] || 9) * (cv === 'D' ? 1.6 : 1) * 100) / 100);
     }
     add('Tableau', 'Peigne d’alimentation', rows, 'u', P.comb);
     if (typeof boardLinkSection === 'function' && design.agcp) {

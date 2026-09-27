@@ -3005,7 +3005,7 @@ function drawBoardFront(ctx, design, meta) {
       // manette
       box(x + w / 2 - 2.6 + 0.4, y + 14, 5.2, 12, m.kind === 'rcd' || m.kind === 'ddr' ? blue : '#2b3342', null, 0.2);
       text(m.ref, x + w / 2 + 0.4, y + 6.5, { size: 3, bold: true, color: m.kind === 'rcd' || m.kind === 'ddr' ? blue : ink });
-      const sub = m.kind === 'breaker' ? `C${m.In}${m.phase ? ' · ' + (m.phase === '3P' ? '3P+N' : m.phase) : ''}` : m.kind === 'ddr' ? `C${m.In} · 30 mA ${m.ddr}` : m.kind === 'rcd' ? m.text : m.kind === 'surge' ? 'Type 2' : m.kind === 'shed' ? 'Délest.' : m.kind === 'switch' ? `${m.In} A` : m.kind === 'contactor' ? m.tag || 'HC' : 'TL';
+      const cv = (m.ct && m.ct.curve) || 'C', sub = m.kind === 'breaker' ? `${cv}${m.In}${m.phase ? ' · ' + (m.phase === '3P' ? '3P+N' : m.phase) : ''}` : m.kind === 'ddr' ? `${cv}${m.In} · 30 mA ${m.ddr}` : m.kind === 'rcd' ? m.text : m.kind === 'surge' ? 'Type 2' : m.kind === 'shed' ? 'Délest.' : m.kind === 'switch' ? `${m.In} A` : m.kind === 'contactor' ? m.tag || 'HC' : 'TL';
       text(sub, x + w / 2 + 0.4, y + 34, { size: 2.8 });
       if (m.kind === 'rcd' || m.kind === 'ddr') { ctx.beginPath(); ctx.arc(x + w - 4, y + 38.5, 1.6, 0, Math.PI * 2); ctx.strokeStyle = ink; ctx.lineWidth = 0.3; ctx.stroke(); text('T', x + w - 4, y + 39.5, { size: 2 }); }
       // étiquette sous l'appareil
@@ -3187,7 +3187,7 @@ function drawBoardWiring(ctx, design, meta, folio) {
       for (const [, tx] of tt) { dot(tx, yb); dot(tx, yB); }
       layer('TEXTES');
       text(m.ref, p.x + p.w / 2, yb + 15 * sc, { bold: true, size: fs(7), align: 'center', color: m.kind === 'rcd' || m.kind === 'ddr' ? N : ink });
-      const sub = m.kind === 'breaker' || m.kind === 'ddr' ? `C${m.In}` : m.kind === 'rcd' ? `${m.rcd.In} A` : m.kind === 'surge' ? 'type 2' : m.kind === 'shed' ? 'délest.' : m.kind === 'contactor' ? m.tag || 'HC' : 'TL';
+      const sub = m.kind === 'breaker' || m.kind === 'ddr' ? `${(m.ct && m.ct.curve) || 'C'}${m.In}` : m.kind === 'rcd' ? `${m.rcd.In} A` : m.kind === 'surge' ? 'type 2' : m.kind === 'shed' ? 'délest.' : m.kind === 'contactor' ? m.tag || 'HC' : 'TL';
       text(sub, p.x + p.w / 2, yb + 27 * sc, { size: fs(6.5), align: 'center' });
       if (m.kind === 'rcd') text(`30 mA ${m.rcd.type}`, p.x + p.w / 2, yb + 39 * sc, { size: fs(6), align: 'center', color: mute });
       else if (m.kind === 'ddr') text(`30 mA ${m.ddr}${tri ? ' · ' + (m.ct.phase === '3P' ? '3P+N' : tt[0][0]) : ''}`, p.x + p.w / 2, yb + 39 * sc, { size: fs(6), align: 'center', color: mute });

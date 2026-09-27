@@ -1435,6 +1435,18 @@ r = run(`(function(){
 })()`);
 check('Tableau : éclairage extérieur, portail et piscine en liaison enterrée (R2V sous TPC), piscine sur horloge, sèche-serviettes, relevage, alarme — sous différentiel 30 mA', r.buried === 3 && r.pool === 'ih' && r.tpc === 3 && r.errs === 0 && r.rcd, JSON.stringify(r));
 
+// Courbe des disjoncteurs (B, C, D) : seuil magnétique, longueur protégée, métré, face avant
+r = run(`(function(){
+  var h = getExampleData('maison-t3'), d0 = designInstallation(h.components, h.wires), b = boardFromDesign(d0);
+  var c1 = b.circuits.find(function(c){ return c.kind === 'light'; }); c1.curve = 'D';
+  var c2 = b.circuits.find(function(c){ return c.kind === 'socket'; }); c2.curve = 'B';
+  var d = designInstallation(h.components, h.wires, b), N = calcNote(d);
+  var r1 = N.rows.find(function(r){ return r.id === c1.id; }), r2 = N.rows.find(function(r){ return r.id === c2.id; }), r0 = calcNote(d0).rows.find(function(r){ return r.id === c1.id; });
+  var mat = materialList(h.components, h.wires, d).lines.map(function(l){ return l.name; }).join('|');
+  return { im1: r1.Im / r1.In, im2: r2.Im / r2.In, lmax: r1.Lmax < r0.Lmax, cD: /courbe D/.test(mat), cB: /courbe B/.test(mat), front: boardFrontSVG(d, {}).indexOf('>D' + c1.In + '<') > 0 };
+})()`);
+check('Courbe B, C ou D par circuit : Im = 5, 10 ou 20 In, longueur protégée réduite en D, disjoncteurs comptés par courbe, face avant', r.im1 === 20 && r.im2 === 5 && r.lmax && r.cD && r.cB && r.front, JSON.stringify(r));
+
 // Schémas développés : contacteur heures creuses (compteur C1-C2, sélecteur, bobine, deux pôles) et horloge
 r = run(`(function(){
   var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d0 = designInstallation(h.components, h.wires);

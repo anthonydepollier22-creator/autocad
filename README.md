@@ -182,7 +182,8 @@ Le bouton **Tableau** (barre d'outils, ou **Folios** dans l'onglet Tableau) ouvr
 l'éditeur du tableau, **avec ou sans plan** :
 
 - **Tableau modifiable** : chaque interrupteur différentiel (25 / 40 / 63 A, type AC,
-  A, F ou B) et ses circuits — repère, désignation, type, calibre (C2 à C63), section
+  A, F ou B) et ses circuits — repère, désignation, type, **courbe B, C ou D** et
+  calibre (2 à 63 A : seuil magnétique, longueur protégée et métré suivent), section
   (1,5 à 16 mm²), charge (points, prises ou watts), longueur, contacteur heures
   creuses, télérupteur — ordre modifiable, **+ Circuit** d'après 32 circuits types
   (éclairage, prises, cuisine, plaque 32 A / 6 mm², four, lave-linge, chauffe-eau,
@@ -887,7 +888,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-223 vérifications sans dépendance : valeurs numériques de chaque simulation
+224 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

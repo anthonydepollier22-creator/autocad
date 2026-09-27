@@ -88,6 +88,8 @@ function initBoardUI(app) {
     const checks = d.checks || [];
     const flag = (ref) => { const l = checks.filter((c) => c.ref === ref && (c.level === 'err' || c.level === 'warn')); return l.length ? { cls: l.some((c) => c.level === 'err') ? 'err' : 'warn', tip: l.map((c) => c.msg).join('\n') } : null; };
     const opt = (list, v, fmt) => list.map((x) => `<option value="${x}"${+v === +x || v === x ? ' selected' : ''}>${fmt ? fmt(x) : x}</option>`).join('');
+    // courbe et calibre du disjoncteur : C d'abord (usage courant), puis B et D
+    const calibOpts = (c) => ['C', 'B', 'D'].map((k) => `<optgroup label="Courbe ${k}">` + BOARD_IN.map((x) => `<option value="${k}${x}"${(c.curve || 'C') === k && +c.In === x ? ' selected' : ''}>${k}${x}</option>`).join('') + '</optgroup>').join('');
     const pref = (r) => { const p = r.panel && (d.panels || []).find((x) => x.id === r.panel); return p ? ' · ' + p.ref : ''; };
     // ID du groupe, ou disjoncteur différentiel 30 mA propre au circuit (« ddr:A »)
     const rcdOpts = (v, dd, sub) => `<option value=""${!v && !dd ? ' selected' : ''}>—</option>` + d.rcds.map((r) => `<option value="${esc(r.id)}"${r.id === v ? ' selected' : ''}>${esc(r.id + pref(r))}</option>`).join('') +
@@ -135,7 +137,7 @@ function initBoardUI(app) {
           `<td class="bd-idc"><input class="bd-id" data-cf="id" value="${esc(c.id)}" maxlength="8" aria-label="Repère"><span class="bd-move"><button type="button" data-cact="up" title="Monter">▲</button><button type="button" data-cact="down" title="Descendre">▼</button></span></td>` +
           `<td><input class="bd-name" data-cf="name" value="${esc(c.name)}" maxlength="40" aria-label="Désignation">${c.rooms ? `<small>${esc(c.rooms)}</small>` : ''}</td>` +
           `<td><select data-cf="kind" aria-label="Type">${Object.entries(BOARD_KINDS).map(([k, v]) => `<option value="${k}"${c.kind === k ? ' selected' : ''}>${v}</option>`).join('')}</select></td>` +
-          `<td><select data-cf="In" aria-label="Calibre">${opt(BOARD_IN, c.In, (x) => 'C' + x)}</select></td>` +
+          `<td><select data-cf="calib" aria-label="Courbe et calibre" title="Courbe B (5 In : longues lignes), C (10 In : usage courant) ou D (20 In : moteurs, fortes pointes)">${calibOpts(c)}</select></td>` +
           `<td><select data-cf="S" aria-label="Section">${opt(BOARD_S, c.S, (x) => String(x).replace('.', ',') + ' mm²')}</select></td>` +
           `<td class="bd-load">${load}</td><td class="bd-load">${len}</td>` +
           (tri ? `<td><select data-cf="phase" aria-label="Phase" class="${c.phaseAuto ? 'bd-auto' : ''}" title="${c.phaseAuto ? 'Phase choisie pour équilibrer' : 'Phase'}">${['L1', 'L2', 'L3', '3P'].map((p) => `<option value="${p}"${c.phase === p ? ' selected' : ''}>${p === '3P' ? '3P+N' : p}</option>`).join('')}</select></td>` : '') +
@@ -270,6 +272,7 @@ function initBoardUI(app) {
       mutate((b) => {
         const c = findC(b, id);
         if (!c) return;
+        if (f === 'calib') { const m = /^([BCD])(\d+)$/.exec(v); if (m) { c.curve = m[1]; c.In = +m[2]; } return; }
         if (['In', 'S', 'points', 'P', 'length'].includes(f)) v = Math.max(0, +v || 0);
         const was = c.kind;
         if (f === 'rcd' && /^ddr:/.test(v)) { c.ddr = v.slice(4); c.rcd = null; return; } // disjoncteur différentiel du circuit
