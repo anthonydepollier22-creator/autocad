@@ -1056,7 +1056,7 @@ const BUILDERS3D = {
   shutter: (v, c) => {
     const m = _mount(v, c, 50), H = _wallH(v);
     _mb(v, m, 0, 0, Math.min(212, H - 22), 18, 92, 16, '#e7e9ec');
-    if (c.on) _mb(v, m, 0, 2, 95, Math.min(117, H - 118), 84, 2, '#c9ced6'); // tablier descendu
+    if (c.on || c.down) _mb(v, m, 0, 2, 95, Math.min(117, H - 118), 84, 2, '#c9ced6'); // tablier descendu (moteur en marche, ou volet baissé la nuit)
   },
   switch_shutter: (v, c) => {
     const m = _mount(v, c, 45), y = +c.h > 0 ? c.h - 4.5 : 106;

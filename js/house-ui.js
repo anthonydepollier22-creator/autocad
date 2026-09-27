@@ -86,7 +86,8 @@ function initHouseUI(app) {
     editor.planState = { lit: snap.lit, on };
     const sig = [...snap.lit].join() + '|' + [...on].join() + '|' +
       Object.values(sim.breakers).map((b) => (b.tripped ? 't' : b.closed ? '1' : '0') + Math.min(4, Math.floor(b.heat * 3))).join('') +
-      Object.values(sim.rcds).map((r) => (r.tripped ? 't' : r.closed ? '1' : '0')).join('') + (sim.agcp.closed ? 'A' : 'a');
+      Object.values(sim.rcds).map((r) => (r.tripped ? 't' : r.closed ? '1' : '0')).join('') + (sim.agcp.closed ? 'A' : 'a') +
+      editor.components.filter((c) => c.type === 'shutter' && c.down).map((c) => c.id).join(); // volets baissés (journée)
     if (sig !== lastSig) {
       lastSig = sig;
       editor.render();

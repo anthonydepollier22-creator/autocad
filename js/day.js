@@ -131,15 +131,16 @@ function dayApply(components, ctx, h, season, solarShift) {
       const key = ctx.typeOf(roomAt(ctx.info, c.x, c.y));
       c.on = S.heating && !!key && inAny(h, DAY_HEAT[key] || [[6, 8], [17.5, 22]]);
     } else if (c.type === 'socket_wall') c.on = false; // pas de radiateur d'appoint
+    else if (c.type === 'shutter') { c.on = false; c.down = h < 7 || h >= 21.5; } // volets baissés la nuit (moteur à l'arrêt)
   }
 }
 
 // États modifiés par la journée (pour les restaurer ensuite)
 function daySnapshotStates(components) {
-  return components.map((c) => [c, c.on, c.closed]);
+  return components.map((c) => [c, c.on, c.closed, c.down]);
 }
 function dayRestoreStates(saved) {
-  for (const [c, on, closed] of saved) { c.on = on; c.closed = closed; }
+  for (const [c, on, closed, down] of saved) { c.on = on; c.closed = closed; c.down = down; }
 }
 
 // Accumulateur : énergie par heure et par catégorie, pointe, heures creuses

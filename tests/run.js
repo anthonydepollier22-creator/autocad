@@ -1251,6 +1251,17 @@ r = run(`(function(){
 })()`);
 check('Volet posé sur une fenêtre choisie (3D) : un moteur et sa commande, même hors pièce de vie, pas de doublon', r.n === 1 && r.again === 0 && r.vr === 1 && r.sw === 1, JSON.stringify(r));
 
+// Journée type : volets baissés la nuit, levés le jour, moteur à l'arrêt (aucune énergie comptée)
+r = run(`(function(){
+  var h = buildHouse('t4'); addShutters(h); var ctx = dayContext(h.components, h.wires), vr = h.components.filter(function(c){ return c.type === 'shutter'; });
+  var saved = daySnapshotStates(h.components);
+  dayApply(h.components, ctx, 23, 'hiver'); var night = vr.every(function(c){ return c.down && !c.on; });
+  dayApply(h.components, ctx, 12, 'hiver'); var noon = vr.every(function(c){ return !c.down && !c.on; });
+  dayApply(h.components, ctx, 23, 'hiver'); dayRestoreStates(saved); var restored = vr.every(function(c){ return !c.down; });
+  return { n: vr.length, night: night, noon: noon, restored: restored };
+})()`);
+check('Journée type : volets baissés la nuit, levés le jour, sans consommation du moteur ; états restaurés', r.n > 0 && r.night && r.noon && r.restored, JSON.stringify(r));
+
 // Toutes les maisons avec volets roulants : tableau sans non-conformité (volets loin du tableau → 10 A)
 r = run(`(function(){
   var bad = [];
