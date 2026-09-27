@@ -2904,10 +2904,10 @@ function boardToSchematic(design, meta) {
   if (design.supply && design.supply.surge) {
     put('breaker', x, 440, 'QF', 'C10', { closed: true }); wire(x, BUS, x, 400);
     put('surge', x, 560, 'PF', 'type 2'); wire(x, 480, x, 520);
-    comps.push({ id: id(), type: 'ground', x, y: 640, rot: 0, label: '', value: '' }); wire(x, 600, x, 620);
+    comps.push({ id: id(), type: 'earth_pe', x, y: 640, rot: 0, label: 'PE', value: '' }); wire(x, 600, x, 620);
     x += 120;
   }
-  const loadType = (c) => (c.kind === 'pv' ? 'inverter' : c.kind === 'light' ? 'lamp' : c.kind === 'socket' ? 'socket' : ['vmc', 'hvac'].includes(c.appliance) || /pompe|clim|vmc/i.test(c.name) ? 'motor' : 'resistor_iec');
+  const loadType = (c) => (c.kind === 'pv' ? 'inverter' : c.appliance === 'ev_charger' || /recharge|irve/i.test(c.name) ? 'ev_station' : c.kind === 'light' ? 'lamp' : c.kind === 'socket' ? 'socket' : ['vmc', 'hvac'].includes(c.appliance) || /pompe|clim|vmc/i.test(c.name) ? 'motor' : 'resistor_iec');
   const cut = (t) => (t.length > 20 ? t.slice(0, 19) + '…' : t);
   const feeds = []; // départs vers les TD : [{ c, x }]
   // Groupes d'un tableau (ID + disjoncteurs + récepteurs) à partir de x ; renvoie l'abscisse du dernier départ

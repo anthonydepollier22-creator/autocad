@@ -899,9 +899,11 @@ r = run(`(function(){
       { id: 'w3', points: [{ x: 280, y: -80 }, { x: 340, y: -80 }] }, { id: 'w4', points: [{ x: 420, y: -80 }, { x: 460, y: -80 }, { x: 460, y: 40 }, { x: 0, y: 40 }] },
       { id: 'w5', points: [{ x: 0, y: 40 }, { x: 0, y: 60 }] } ];
   var sim = simulateDC(comps, wires, SYMBOLS), svg = buildSVG(comps, wires, SYMBOLS, {});
-  return { I: sim.compI.VE, nan: /NaN/.test(svg), names: ['ev_station', 'motor_vr', 'terminal_block', 'earth_pe', 'folio_ref'].every(function(k){ return SYMBOLS[k] && SYMBOLS[k].category === 'Domestique (NF)'; }) };
+  var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, dh = designInstallation(h.components, h.wires); dh.supply.surge = true;
+  var sch = boardToSchematic(dh, {}), ve = sch.components.some(function(c){ return c.type === 'ev_station'; }), pe = sch.components.some(function(c){ return c.type === 'earth_pe'; });
+  return { ve: ve, pe: pe, I: sim.compI.VE, nan: /NaN/.test(svg), names: ['ev_station', 'motor_vr', 'terminal_block', 'earth_pe', 'folio_ref'].every(function(k){ return SYMBOLS[k] && SYMBOLS[k].category === 'Domestique (NF)'; }) };
 })()`);
-check('Symboles NF : borne de raccordement et compteur conduisent, borne de recharge chargée (9 V / 7,15 Ω), terre PE en référence ; moteur de volet, renvoi de folio', near(Math.abs(r.I), 9 / 7.15, 1e-3) && !r.nan && r.names, JSON.stringify(r));
+check('Symboles NF : borne de raccordement et compteur conduisent, borne de recharge chargée (9 V / 7,15 Ω), terre PE en référence ; moteur de volet, renvoi de folio ; borne et PE dans le schéma éditable', near(Math.abs(r.I), 9 / 7.15, 1e-3) && !r.nan && r.names && r.ve && r.pe, JSON.stringify(r));
 
 // Triphasé : phases équilibrées, AGCP 4P, ΔU sous 400 V, simulation par phase
 r = run(`(function(){
