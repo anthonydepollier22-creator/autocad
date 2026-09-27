@@ -1240,6 +1240,17 @@ r = run(`(function(){
 })()`);
 check('Commande de volet posée seule : rattachée au circuit des volets et signalée « sans moteur »', r.circ && r.warn && r.after, JSON.stringify(r));
 
+// Volet posé à la main sur une fenêtre (implantation 3D) : toute pièce convient, une seule fenêtre traitée
+r = run(`(function(){
+  var h = buildHouse('t4'), info = computeRooms(h.components, h.wires);
+  var win = h.components.find(function(c){ if (c.type !== 'window_a') return false; var nw = nearestWall(h.wires, c.x, c.y, 30); if (!nw) return false;
+    return [1, -1].some(function(s){ var rr = roomAt(info, c.x + nw.nx * s * 40, c.y + nw.ny * s * 40); return rr >= 0 && info.rooms[rr].type && !SHUTTER_ROOMS.has(info.rooms[rr].type.key); }); });
+  var any = h.components.find(function(c){ return c.type === 'window_a'; }), w = win || any;
+  var n = addShutters(h, w.id), again = addShutters(h, w.id);
+  return { n: n, again: again, vr: h.components.filter(function(c){ return c.type === 'shutter'; }).length, sw: h.components.filter(function(c){ return c.type === 'switch_shutter'; }).length, other: !!win };
+})()`);
+check('Volet posé sur une fenêtre choisie (3D) : un moteur et sa commande, même hors pièce de vie, pas de doublon', r.n === 1 && r.again === 0 && r.vr === 1 && r.sw === 1, JSON.stringify(r));
+
 // Toutes les maisons avec volets roulants : tableau sans non-conformité (volets loin du tableau → 10 A)
 r = run(`(function(){
   var bad = [];

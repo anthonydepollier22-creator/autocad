@@ -1276,12 +1276,13 @@ function autoConduits(doc) {
 // (chambres, séjour, cuisine, bureau…) et sa commande montée / descente à 1,10 m, à côté
 // de la fenêtre ; goulottes retracées si le plan en a. Renvoie le nombre de volets posés.
 const SHUTTER_ROOMS = new Set(['chambre', 'sejour', 'cuisine', 'bureau', 'sdb']);
-function addShutters(doc) {
+// only : identifiant d'une fenêtre (pose à la main, en 3D) — alors toute pièce convient
+function addShutters(doc, only) {
   const info = computeRooms(doc.components, doc.wires);
   if (!info.owner) return 0;
   const ctx = { doc, info, devices: [] };
   let n = 0;
-  for (const win of doc.components.filter((c) => c.type === 'window_a')) {
+  for (const win of doc.components.filter((c) => c.type === 'window_a' && (!only || c.id === only))) {
     if (doc.components.some((c) => c.type === 'shutter' && Math.hypot(c.x - win.x, c.y - win.y) < 50)) continue;
     const nw = nearestWall(doc.wires, win.x, win.y, 30);
     if (!nw) continue;
@@ -1289,7 +1290,7 @@ function addShutters(doc) {
     let side = null, room = -1;
     for (const sd of [1, -1]) {
       const r = roomAt(info, win.x + nw.nx * sd * 40, win.y + nw.ny * sd * 40);
-      if (r >= 0 && info.rooms[r].type && SHUTTER_ROOMS.has(info.rooms[r].type.key)) { side = sd; room = r; break; }
+      if (r >= 0 && (only || (info.rooms[r].type && SHUTTER_ROOMS.has(info.rooms[r].type.key)))) { side = sd; room = r; break; }
     }
     if (side === null) continue;
     const nx = nw.nx * side, ny = nw.ny * side, L = Math.hypot(nw.b.x - nw.a.x, nw.b.y - nw.a.y);

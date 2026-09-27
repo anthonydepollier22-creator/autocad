@@ -1324,6 +1324,7 @@ function initHouseUI(app) {
     radiator: { label: 'Radiateur', wall: true, furn: true, value: '1000 W' }, vmc: { label: 'Bouche VMC', ceil: true },
     panel_sub: { label: 'Tableau divisionnaire', wall: true, furn: true },
     ev_charger: { label: 'Borne de recharge', wall: true, furn: true },
+    shutter: { label: 'Volet roulant', wall: true },
   };
   const IMPLANTED = new Set([...Object.keys(IMPLANT), 'radiator', 'jbox', 'vmc']);
   const isCeil = (t) => t === 'dcl' || t === 'smoke_detector' || t === 'vmc';
@@ -1348,8 +1349,9 @@ function initHouseUI(app) {
         const X = ray.o[0] + ray.d[0] * lam, Y = ray.o[1] + ray.d[1] * lam - L.dy, Z = ray.o[2] + ray.d[2] * lam;
         const t = (X - ax) * ux + (Z - az) * uz;
         if (t < -w.t / 2 || t > len + w.t / 2 || Y < 0 || Y > H) continue;
-        if ((w.ops || []).some(([o0, o1]) => t > o0 && t < o1 && Y > 95 && Y < 215)) continue; // dans une fenêtre
-        best = { lam, kind: 'wall', w, t: Math.max(0, Math.min(len, t)), y: Y, nx, nz, ux, uz };
+        const inWin = (w.ops || []).some(([o0, o1]) => t > o0 && t < o1 && Y > 95 && Y < 215);
+        if (inWin && v3.implant !== 'shutter') continue; // dans une fenêtre (sauf pour y poser un volet)
+        best = { lam, kind: 'wall', w, t: Math.max(0, Math.min(len, t)), y: Y, nx, nz, ux, uz, win: inWin };
       }
     }
     // Sol des niveaux visibles (points au plafond, à l'aplomb)
@@ -1365,6 +1367,14 @@ function initHouseUI(app) {
       if (r >= 0) best = { lam, kind: 'floor', x, y, room: info.rooms[r] };
     });
     return best;
+  }
+  // Fenêtre visée (dans la baie ou sur le mur à moins de 70 cm de son axe)
+  function windowAt(hit) {
+    if (!hit || hit.kind !== 'wall') return null;
+    const x = hit.w.a.x + hit.ux * hit.t, y = hit.w.a.y + hit.uz * hit.t;
+    let best = null;
+    for (const c of editor.components) if (c.type === 'window_a') { const d = Math.hypot(c.x - x, c.y - y); if (d < 70 && (!best || d < best.d)) best = { c, d }; }
+    return best && best.c;
   }
   // Pièce du côté où l'appareil est posé
   const roomNameAt = (x, y) => { const info = computeRooms(editor.components, editor.wires), r = roomAt(info, x, y); return r >= 0 ? info.rooms[r].name : ''; };
@@ -1509,6 +1519,18 @@ function initHouseUI(app) {
       implantChanged(`Mur : <b>${esc(wallMaterial(wire).label)}</b>.`);
       return;
     }
+    if (k === 'shutter') { // volet roulant : moteur au coffre de la fenêtre visée, commande à côté
+      const win = windowAt(hit);
+      if (!win) { showToast('Vise une fenêtre (ou le mur juste autour).'); return; }
+      if (editor.components.some((c) => c.type === 'shutter' && Math.hypot(c.x - win.x, c.y - win.y) < 50)) { showToast('Cette fenêtre a déjà son volet roulant.'); return; }
+      const doc = { components: editor.components, wires: editor.wires, counters: editor.counters };
+      const before = new Set(editor.components.map((c) => c.id));
+      if (!addShutters(doc, win.id)) { showToast('Fenêtre sans pièce reconnue derrière : nomme la pièce d’abord.'); return; }
+      editor.components = doc.components; editor.wires = doc.wires;
+      const added = editor.components.filter((c) => !before.has(c.id)), m = added.find((c) => c.type === 'shutter'), sw = added.find((c) => c.type === 'switch_shutter');
+      implantChanged(`Pose : <b>volet roulant</b> ${esc(m ? m.label : '')} au coffre de la fenêtre${sw ? `, commande <b>${esc(sw.label)}</b> à 1,10 m` : ''} — circuit « Volets roulants » 16 A. Annulable (Ctrl+Z).`);
+      return;
+    }
     const tg = implantTarget(hit);
     if (!tg) { showToast(IMPLANT[k].ceil ? 'Vise le sol de la pièce : le point se pose au plafond, à l’aplomb.' : 'Vise un mur (la face côté pièce).'); return; }
     const c = { id: editor.uid(), type: k, x: tg.x, y: tg.y, rot: tg.rot, label: editor.nextRef(k), value: IMPLANT[k].value || '' };
@@ -1558,6 +1580,9 @@ function initHouseUI(app) {
           const m = wallMaterial(wire);
           h = `<b>${esc(m.label)}</b><span>→ ${k === 'mat:placo' ? 'cloison placo 72/48' : k === 'mat:doublage' ? (wire.ext && !WALL_MATS[m.mat].hollow ? (m.doublage ? 'retirer le doublage' : 'doublage placo côté pièce') : 'mur extérieur maçonné seulement') : 'mur maçonné (parpaing)'}</span>`;
         }
+      } else if (k === 'shutter') {
+        const win = windowAt(hit);
+        if (win) h = `<b>Volet roulant</b>${roomNameAt(win.x + hit.nx * 40, win.y + hit.nz * 40) ? ' · ' + esc(roomNameAt(win.x + hit.nx * 40, win.y + hit.nz * 40)) : ''}<span>moteur au coffre, commande à 1,10 m à côté</span>`;
       } else {
         const tg = implantTarget(hit);
         if (tg) h = `<b>${esc(IMPLANT[k].label)}</b>${tg.room ? ' · ' + esc(tg.room) : ''}` +

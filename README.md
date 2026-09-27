@@ -288,7 +288,7 @@ l'éditeur du tableau, **avec ou sans plan** :
   au coffre de chaque fenêtre (chambres, séjour, cuisine, bureau, salle d'eau) et sa
   commande montée-descente à 1,10 m à côté (décalée hors montant sur placo, jamais
   derrière un meuble haut ni dans le volume 2, sinon près de la porte ; aussi posée
-  à la main en 3D, bouton « Cde volet » de la palette Implanter) ; circuit
+  à la main en 3D : « Volet » sur une fenêtre, « Cde volet » sur un mur, palette Implanter) ; circuit
   « Volets roulants » 16 A en 1,5 mm², 10 moteurs au plus ; le folio dessine le
   disjoncteur puis chaque inverseur et son moteur (phase, neutre, montée, descente,
   terre), colonne de suite au-delà de six ; métré (moteurs, inverseurs), 3D (coffre,
@@ -841,7 +841,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-211 vérifications sans dépendance : valeurs numériques de chaque simulation
+212 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
