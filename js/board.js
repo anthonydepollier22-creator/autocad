@@ -242,6 +242,7 @@ function checkBoard(design) {
     if (c.appliance === 'cooktop' && c.phase !== '3P' && (c.In < 32 || c.S < 6)) push('err', `${c.id} Plaque de cuisson : 32 A et 6 mm² en monophasé.`, c.id);
     if (c.appliance === 'cooktop' && c.phase === '3P' && (c.In < 16 || c.S < 2.5)) push('err', `${c.id} Plaque de cuisson triphasée : 20 A et 2,5 mm² (5G2,5).`, c.id);
     if (['oven', 'washer', 'dishwasher', 'dryer', 'water_heater'].includes(c.appliance) && (c.In < 16 || c.S < 2.5)) push('err', `${c.id} ${c.name} : circuit spécialisé 20 A en 2,5 mm².`, c.id);
+    if (c.contactor === 'ih' && c.In > 16) push('warn', `${c.id} ${c.name} : interrupteur horaire sur un circuit de ${c.In} A — son contact (16 A) doit commander un contacteur de puissance.`, c.id);
     // type du différentiel en amont : l'ID du groupe, ou le disjoncteur différentiel du circuit
     const rc = rcds.find((r) => r.id === c.rcd) || (c.ddr ? { id: 'son disjoncteur différentiel', type: c.ddr } : null);
     if (rc && c.typeA && !_rcdIsA(rc.type)) push('err', `${c.id} ${c.name} : sous ${rc.id} type ${rc.type} — il faut un différentiel type A (ou F).`, c.id);
