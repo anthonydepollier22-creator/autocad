@@ -682,7 +682,7 @@ function furnishPlan(doc) {
 // ---------------------------------------------------------------------------
 // Implantation électrique automatique
 // ---------------------------------------------------------------------------
-const LIGHT_TYPES = new Set(['dcl', 'wall_light']);
+const LIGHT_TYPES = new Set(['dcl', 'wall_light', 'light_ext']);
 const SWITCH_TYPES = new Set(['switch_sa', 'switch_vv_wall']);
 const HEATED = { sejour: 1, chambre: 1, bureau: 1, cuisine: 1, sdb: 1, circ: 1 };
 
@@ -1058,7 +1058,7 @@ function _switchOnSide(ctx, room, d, type, side) {
 // Appareils raccordés au tableau (le DAAF est autonome, la prise RJ45 part du
 // tableau de communication voisin : elle suit les mêmes goulottes).
 const WIRED_TYPES = new Set([
-  'socket_wall', 'switch_sa', 'switch_vv_wall', 'dcl', 'wall_light', 'rj45', 'vmc', 'oven', 'cooktop', 'washer',
+  'socket_wall', 'switch_sa', 'switch_vv_wall', 'dcl', 'wall_light', 'rj45', 'vmc', 'oven', 'cooktop', 'washer', 'socket_ext', 'light_ext',
   'dishwasher', 'dryer', 'water_heater', 'radiator', 'ev_charger', 'shutter', 'switch_shutter', 'pv_inverter',
 ]);
 const CEILING_TYPES = new Set(['dcl', 'vmc']);

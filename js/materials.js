@@ -25,7 +25,7 @@ const MAT_PRICES = {
   lep: 32, les: 16,     // liaisons équipotentielles : principale (10 mm², colliers), supplémentaire d'une salle d'eau (4 mm², colliers)
   cable: { 1.5: 0.82, 2.5: 1.18, 4: 2.1, 6: 3.25, 10: 5.6, 16: 8.9 }, // gaine ICTA préfilée 3G…, €/m
   conduit: 4.6,         // goulotte / plinthe technique, €/m
-  socket: 4.9, switchSa: 5.2, switchVv: 6.4, push: 5.9, dcl: 3.6, rj45: 12.5, cableOut32: 9.5, cableOut20: 6.5, smoke: 19.9,
+  socket: 4.9, socketExt: 12.9, lightExt: 34.9, switchSa: 5.2, switchVv: 6.4, push: 5.9, dcl: 3.6, rj45: 12.5, cableOut32: 9.5, cableOut20: 6.5, smoke: 19.9,
   box: 0.65, boxDcl: 3.2, boxPlaco: 0.95, boxAir: 1.9, // boîtes : maçonnerie, cloison sèche, étanche à l'air (doublage)
   gtl: 95,
   vdiBox: 185, cat6: 0.78, patch: 3.5, // coffret de communication grade 2TV, câble catégorie 6 (€/m), cordon
@@ -159,13 +159,15 @@ function materialList(components, wires, design) {
   add('Appareillage', 'Commande de volet roulant (montée / descente)', count('switch_shutter'), 'u', P.vrSwitch);
   add('Appareillage', 'Boîte de raccordement du moteur de volet (coffre)', count('shutter'), 'u', P.box);
   add('Appareillage', 'Point de centre DCL (douille + fiche)', count('dcl') + count('wall_light'), 'u', P.dcl);
+  add('Appareillage', 'Prise 2P+T étanche IP44 à clapet (extérieur)', count('socket_ext'), 'u', P.socketExt);
+  add('Appareillage', 'Applique extérieure IP44 à détecteur de mouvement', count('light_ext'), 'u', P.lightExt);
   add('Appareillage', 'Prise RJ45 grade 2TV', count('rj45'), 'u', P.rj45);
   add('Appareillage', 'Sortie de câble 32 A (plaque)', count('cooktop'), 'u', P.cableOut32);
   add('Appareillage', 'Sortie de câble 20 A (chauffe-eau, radiateurs)', count('water_heater') + count('radiator'), 'u', P.cableOut20);
   add('Appareillage', 'Détecteur de fumée (DAAF)', count('smoke_detector'), 'u', P.smoke);
   // Boîtes d'encastrement selon le mur : cloison sèche (placo, ossature bois), doublage
   // d'un mur extérieur (boîte étanche à l'air, RE 2020) ou maçonnerie
-  const BOXED = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'switch_shutter', 'rj45', 'cooktop', 'water_heater', 'radiator', 'washer', 'dishwasher', 'dryer', 'oven']);
+  const BOXED = new Set(['socket_ext', 'socket_wall', 'switch_sa', 'switch_vv_wall', 'switch_shutter', 'rj45', 'cooktop', 'water_heater', 'radiator', 'washer', 'dishwasher', 'dryer', 'oven']);
   const box = { placo: 0, air: 0, mac: 0 };
   for (const c of components) {
     if (!BOXED.has(c.type)) continue;

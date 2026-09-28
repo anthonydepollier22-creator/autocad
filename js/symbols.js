@@ -1053,6 +1053,30 @@ Object.assign(SYMBOLS, {
       line(ctx, -5, 11 - 20, 5, 1);
     },
   },
+  // Extérieur : appareillage étanche (IP44), sur la façade
+  socket_ext: {
+    name: 'Prise extérieure étanche (IP44)', category: 'Implantation élec.', prefix: 'PE', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -13, y: -24, w: 26, h: 36 },
+    draw(ctx) {
+      circle(ctx, 0, 0, 9);
+      line(ctx, 0, -9, 0, -18);
+      line(ctx, -7, -18, 7, -18);
+      ctx.beginPath(); ctx.moveTo(-6, 4); ctx.lineTo(6, 4); ctx.lineTo(0, -5); ctx.closePath(); ctx.stroke(); // étanche
+    },
+  },
+  light_ext: {
+    name: 'Applique extérieure à détecteur', category: 'Implantation élec.', prefix: 'AE', plan: true,
+    terminals: [{ x: 0, y: 0 }], bbox: { x: -14, y: -16, w: 28, h: 22 },
+    draw(ctx) {
+      ctx.beginPath();
+      ctx.arc(0, -4, 11, 0, Math.PI);
+      ctx.stroke();
+      line(ctx, -11, -4, 11, -4);
+      line(ctx, -5, 1, 5, -9);
+      line(ctx, -5, -9, 5, 1);
+      ctx.beginPath(); ctx.arc(0, -4, 5, Math.PI, 2 * Math.PI); ctx.stroke(); // détecteur (demi-sphère)
+    },
+  },
   jbox: {
     name: 'Boîte de dérivation', category: 'Implantation élec.', prefix: 'BD', plan: true,
     terminals: [{ x: 0, y: 0 }], bbox: { x: -10, y: -10, w: 20, h: 20 },

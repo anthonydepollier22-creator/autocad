@@ -81,7 +81,7 @@ function studShift(t, L) {
   return { t: near + dir * STUD_CLEAR, by: Math.abs(near + dir * STUD_CLEAR - t) };
 }
 // Décale hors des montants les boîtes posées sur une cloison sèche ou un doublage ; renvoie leur nombre
-const STUD_BOXED = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light', 'switch_shutter']);
+const STUD_BOXED = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'rj45', 'wall_light', 'switch_shutter', 'socket_ext']);
 function fixStudBoxes(components, wires) {
   let n = 0;
   for (const c of components) {

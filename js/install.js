@@ -41,6 +41,7 @@ const MOUNT_H = {
   socket_wall: 0.3, rj45: 0.3, switch_sa: 1.1, switch_vv_wall: 1.1, dcl: 2.5, wall_light: 1.9, vmc: 2.5,
   radiator: 0.3, oven: 0.9, cooktop: 0.9, washer: 0.3, dishwasher: 0.3, dryer: 0.3, water_heater: 1.2,
   ev_charger: 1.2, panel_house: 1.5, panel_sub: 1.5, shutter: 2.2, switch_shutter: 1.1, pv_inverter: 1.5,
+  socket_ext: 0.4, light_ext: 1.8,
 };
 
 // Hauteur de pose d'un appareil (m) : la sienne si elle a été choisie (c.h, en cm), sinon la hauteur usuelle
@@ -52,6 +53,8 @@ const LOADS = {
   dcl: { cls: 'light', P: 40, name: 'Point lumineux' },
   wall_light: { cls: 'light', P: 25, name: 'Applique' },
   socket_wall: { cls: 'socket', name: 'Prise' },
+  socket_ext: { cls: 'socket', name: 'Prise extérieure' },
+  light_ext: { cls: 'light', P: 20, name: 'Applique extérieure' },
   fridge: { cls: 'plug', P: 150, name: 'Réfrigérateur', always: true },
   tv_unit: { cls: 'plug', P: 120, name: 'Télévision' },
   desk: { cls: 'plug', P: 90, name: 'Ordinateur' },
@@ -212,7 +215,7 @@ function _shortest(net, src) {
 const LUX_EFFICACY = 60;  // lm/W
 const LUX_PLANE = 85;     // cm — hauteur du plan utile
 const LUX_TARGET = { sejour: 150, cuisine: 200, chambre: 100, sdb: 150, wc: 100, circ: 100, bureau: 300, garage: 100, annexe: 100, dressing: 100 };
-const LUX_LAMPS = new Set(['dcl', 'wall_light']);
+const LUX_LAMPS = new Set(['dcl', 'wall_light', 'light_ext']);
 
 function lightingStudy(components, wires) {
   const info = computeRooms(components, wires);
@@ -229,7 +232,7 @@ function lightingStudy(components, wires) {
     if (!LUX_LAMPS.has(c.type)) continue;
     const i = roomAt(info, c.x, c.y);
     if (i < 0) continue;
-    const L = { x: c.x / 100, y: c.y / 100, wall: c.type === 'wall_light', h: (mountH(c) * 100 - LUX_PLANE) / 100, lm: loadPower(c) * LUX_EFFICACY };
+    const L = { x: c.x / 100, y: c.y / 100, wall: c.type === 'wall_light' || c.type === 'light_ext', h: (mountH(c) * 100 - LUX_PLANE) / 100, lm: loadPower(c) * LUX_EFFICACY };
     byRoom[i].push(L);
     rooms[i].lamps++; rooms[i].lm += L.lm;
   }
@@ -413,7 +416,7 @@ function designInstallation(components, wires, board) {
     const autoGroup = (D, tag) => {
       const nm = (base, groups) => names(base + tag, groups);
       // Éclairage : 8 points maximum par circuit (16 A, 1,5 mm²), commandes comprises
-      const lights = byRoom(D.filter((c) => LOADS[c.type] && LOADS[c.type].cls === 'light'));
+      const lights = byRoom(D.filter((c) => LOADS[c.type] && LOADS[c.type].cls === 'light' && c.type !== 'light_ext'));
       const lightGroups = chunk(lights, 8), lightNames = nm('Éclairage', lightGroups);
       const wired = new Set();
       lightGroups.forEach((g, i) => {
@@ -431,6 +434,10 @@ function designInstallation(components, wires, board) {
       const socketGroups = chunk(others, 8), socketNames = nm('Prises', socketGroups);
       socketGroups.forEach((g, i) => add({ kind: 'socket', name: socketNames[i], In: 20, S: 2.5, devices: g, rooms: roomsLabel(g), points: g.length }));
       chunk(kitchen, 6).forEach((g, i, all) => add({ kind: 'socket', name: 'Prises cuisine' + tag + (all.length > 1 ? ' ' + (i + 1) : ''), In: 20, S: 2.5, devices: g, rooms: roomsLabel(g), points: g.length }));
+      // Extérieur : prises étanches et appliques à détecteur, chacune sur son circuit
+      const extS = D.filter((c) => c.type === 'socket_ext'), extL = D.filter((c) => c.type === 'light_ext');
+      for (let i = 0; i < extS.length; i += 8) add({ kind: 'socket', name: 'Prises extérieures' + tag + (extS.length > 8 ? ' ' + (i / 8 + 1) : ''), In: 20, S: 2.5, devices: extS.slice(i, i + 8), rooms: 'Extérieur', points: Math.min(8, extS.length - i), outdoor: true });
+      for (let i = 0; i < extL.length; i += 8) add({ kind: 'light', name: 'Éclairage extérieur' + tag + (extL.length > 8 ? ' ' + (i / 8 + 1) : ''), In: 10, S: 1.5, devices: extL.slice(i, i + 8), rooms: 'Extérieur', points: Math.min(8, extL.length - i), outdoor: true });
       // Chauffage : 4 500 W maximum par circuit (20 A, 2,5 mm²)
       const rads = byRoom(D.filter((c) => c.type === 'radiator'));
       const heat = [];

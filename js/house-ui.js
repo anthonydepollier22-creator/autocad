@@ -15,7 +15,7 @@ function initHouseUI(app) {
   try { editor.showRoutes = localStorage.getItem('electricad-routes') === '1'; } catch (_) { editor.showRoutes = false; }
   let design = null, designRev = null;
   const SWITCH_ALL = new Set(['switch_sa', 'switch_vv_wall', 'switch', 'push_button', 'sw_vv']);
-  const LIGHT_T = new Set(['dcl', 'wall_light']);
+  const LIGHT_T = new Set(['dcl', 'wall_light', 'light_ext']);
   const hasPlan = () => editor.wires.some((w) => w.kind === 'wall');
   const byId = (id) => editor.components.find((c) => c.id === id);
   const fmtA = (i) => (i < 10 ? i.toFixed(1) : Math.round(i)).toString().replace('.', ',') + ' A';
@@ -1328,6 +1328,7 @@ function initHouseUI(app) {
     ev_charger: { label: 'Borne de recharge', wall: true, furn: true },
     pv_inverter: { label: 'Onduleur photovoltaïque', wall: true, furn: true, value: '3 kWc' },
     shutter: { label: 'Volet roulant', wall: true },
+    socket_ext: { label: 'Prise extérieure (IP44)', wall: true }, light_ext: { label: 'Applique extérieure à détecteur', wall: true },
   };
   const IMPLANTED = new Set([...Object.keys(IMPLANT), 'radiator', 'jbox', 'vmc']);
   const isCeil = (t) => t === 'dcl' || t === 'smoke_detector' || t === 'vmc';
@@ -1551,7 +1552,7 @@ function initHouseUI(app) {
         : ` à ${h}, ${tg.mat ? esc(tg.mat.label.toLowerCase()) + (tg.mat.doublage ? ' → boîte étanche à l’air' : tg.mat.hollow ? ' → boîte cloison sèche' : ' → boîte maçonnerie') : ''}`) +
       (tg.stud ? ` ; décalée de ${Math.max(1, Math.round(tg.stud.by))} cm pour ne pas tomber sur un montant` : '') + '. Annulable (Ctrl+Z).');
   }
-  const WALL_H = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'switch_shutter', 'rj45', 'wall_light']); // hauteur réglable
+  const WALL_H = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'switch_shutter', 'rj45', 'wall_light', 'socket_ext', 'light_ext']); // hauteur réglable
   function implantHover(id, p) {
     const k = v3.implant;
     let h = '';

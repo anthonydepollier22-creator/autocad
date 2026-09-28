@@ -1098,6 +1098,21 @@ const BUILDERS3D = {
     v.em = e0;
     _light(v, c, m.x + m.nx * 16, 186 + dy, m.z + m.nz * 16, 0.6);
   },
+  // extérieur : prise étanche à clapet, applique à détecteur
+  socket_ext: (v, c) => {
+    const m = _mount(v, c, 45), y = +c.h > 0 ? c.h - 5 : 35;
+    _mb(v, m, 0, 0, y, 10, 10, 2.4, '#8d949e');
+    _mb(v, m, 0, 2.4, y + 1, 8.4, 8.4, 1.2, '#a8afb8'); // clapet
+  },
+  light_ext: (v, c) => {
+    const m = _mount(v, c, 45), dy = +c.h > 0 ? c.h - 180 : 0;
+    _mb(v, m, 0, 0, 166 + dy, 10, 22, 3, '#3a3f47');
+    const e0 = v.em; v.em = c.__lit ? 1 : 0;
+    _mb(v, m, 0, 3, 170 + dy, 14, 14, 7, c.__lit ? '#fff1c4' : '#d9dde3');
+    v.em = e0;
+    _mb(v, m, 0, 3, 164 + dy, 6, 4, 5, '#f2f2f2'); // détecteur
+    _light(v, c, m.x + m.nx * 16, 176 + dy, m.z + m.nz * 16, 0.6);
+  },
   jbox: (v, c) => {
     const m = _mount(v, c, 45);
     _mb(v, m, 0, 0, 226, 12, 12, 5, '#d8dade');
@@ -1272,7 +1287,7 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
   // États des appareils (lampes allumées, appareils en marche)
   for (const c of components) {
     const d = snap && snap.devices[c.id];
-    c.__lit = !!(snap && snap.lit && snap.lit.has(c.id)) || !!(opts.lux && (c.type === 'dcl' || c.type === 'wall_light')); // vue Lumière : tout allumé
+    c.__lit = !!(snap && snap.lit && snap.lit.has(c.id)) || !!(opts.lux && (c.type === 'dcl' || c.type === 'wall_light' || c.type === 'light_ext')); // vue Lumière : tout allumé
     c.__on = !!(d && d.on);
     if (!d && c.on && snap) {
       // appareils branchés sur une prise : en marche si la prise est alimentée
@@ -1514,7 +1529,7 @@ function _buildHouse(viz, components, walls, conduits, symbols, opts, b) {
   // Rayons X : boîtes d'encastrement derrière l'appareillage mural, selon le mur :
   // cloison sèche (orange), étanche à l'air dans un doublage (bleu), maçonnerie (gris)
   if (opts.xray && typeof mountH === 'function') {
-    const BOXT = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'switch_shutter', 'rj45', 'wall_light']);
+    const BOXT = new Set(['socket_wall', 'switch_sa', 'switch_vv_wall', 'switch_shutter', 'rj45', 'wall_light', 'socket_ext']);
     const a0 = viz.alpha, e0 = viz.em, o0 = viz.obj;
     viz.alpha = 1; viz.em = 0.25;
     for (const c of components) {

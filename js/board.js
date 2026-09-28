@@ -1522,7 +1522,7 @@ function nomenclatureDXF(design, meta, components, wires) {
 // phase et le neutre, les commandes (simple allumage, va-et-vient, télérupteur
 // et ses poussoirs) et les points lumineux, conducteurs en couleur.
 // ---------------------------------------------------------------------------
-const DEV_KIND = { sa: 'Simple allumage', vv: 'Va-et-vient', tl: 'Télérupteur', direct: 'Sans commande', hc: 'Contacteur heures creuses', ih: 'Interrupteur horaire' };
+const DEV_KIND = { sa: 'Simple allumage', vv: 'Va-et-vient', tl: 'Télérupteur', direct: 'Sans commande', detect: 'Détecteur de mouvement', hc: 'Contacteur heures creuses', ih: 'Interrupteur horaire' };
 // Circuits commandés par un contacteur heures creuses ou un interrupteur horaire
 function contactorControls(design) {
   return design.circuits.filter((c) => c.contactor === 'hc' || c.contactor === 'ih').map((ct) => ({ ct, room: ct.name, kind: ct.contactor, lamps: [], switches: [] }));
@@ -1555,7 +1555,7 @@ function lightingControls(design, components, wires) {
     const maxSw = Math.max(0, ...[...groups.keys()].map(nSw));
     for (const [r, g] of groups) {
       const sw = sws.filter((c) => roomOf(c) === r);
-      const kind = sw.length >= 3 || (ct.teleruptor && sw.length >= 2 && sw.length === maxSw) ? 'tl' : sw.length === 2 ? 'vv' : sw.length === 1 ? 'sa' : 'direct';
+      const kind = sw.length >= 3 || (ct.teleruptor && sw.length >= 2 && sw.length === maxSw) ? 'tl' : sw.length === 2 ? 'vv' : sw.length === 1 ? 'sa' : g.every((c) => c.type === 'light_ext') ? 'detect' : 'direct';
       out.push({ ct, room: r >= 0 ? info.rooms[r].name : ct.name, lamps: g.map((c) => c.label || c.id), switches: sw.map((c) => c.label || c.id), kind, tlAdvice: kind === 'tl' && !ct.teleruptor });
     }
   }
@@ -1628,6 +1628,15 @@ function drawDeveloped(ctx, design, meta, list, folio) {
       wire(DEV_COLORS.L, [[x, yL], [x, yL + 70]]); ctx.fillStyle = DEV_COLORS.L; dot(x, yL); ctx.fillStyle = ink;
       lamps(x, yL + 70, x);
       layer('TEXTES'); text('Aucune commande dans la pièce : prévoir un interrupteur.', cx + 12, cy + ch - 10, { size: 7.5, color: red });
+    } else if (g.kind === 'detect') { // appliques extérieures : le détecteur intégré ferme le circuit de la lampe
+      wire(DEV_COLORS.L, [[x, yL], [x, yL + 24]]); ctx.fillStyle = DEV_COLORS.L; dot(x, yL); ctx.fillStyle = ink;
+      _dNO(ctx, x, yL + 24, 44);
+      ctx.lineWidth = 1.2; ctx.strokeRect(x - 40, yL + 34, 18, 18); ctx.beginPath(); ctx.arc(x - 31, yL + 43, 5, Math.PI, 2 * Math.PI); ctx.stroke();
+      ctx.save(); ctx.setLineDash([3, 2.5]); _uLine(ctx, x - 22, yL + 43, x - 7, yL + 43, 0.8); ctx.restore();
+      layer('TEXTES'); text('détecteur', x + 8, yL + 46, { size: 7.5, bold: true }); text('(intégré)', x + 8, yL + 56, { size: 6.5, color: mute }); layer('SCHEMA');
+      wire(DEV_COLORS.ret, [[x, yL + 68], [x, yL + 110]]);
+      lamps(x, yL + 110, x);
+      layer('TEXTES'); text('Appliques étanches (IP44) à détecteur de mouvement et crépusculaire.', cx + 12, cy + ch - 10, { size: 7, color: mute });
     } else if (g.kind === 'sa') {
       wire(DEV_COLORS.L, [[x, yL], [x, yL + 24]]); ctx.fillStyle = DEV_COLORS.L; dot(x, yL); ctx.fillStyle = ink;
       _dNO(ctx, x, yL + 24, 44);
