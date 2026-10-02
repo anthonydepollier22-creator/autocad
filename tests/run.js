@@ -1447,6 +1447,18 @@ r = run(`(function(){
 })()`);
 check('Courbe B, C ou D par circuit : Im = 5, 10 ou 20 In, longueur protégée réduite en D, disjoncteurs comptés par courbe, face avant', r.im1 === 20 && r.im2 === 5 && r.lmax && r.cD && r.cB && r.front, JSON.stringify(r));
 
+// Points extérieurs : prise étanche IP44 et appliques à détecteur, chacune sur son circuit, schéma « détecteur », métré
+r = run(`(function(){
+  var h = JSON.parse(JSON.stringify(getExampleData('maison-t3')));
+  var x0 = Math.min.apply(null, h.components.map(function(c){ return c.x; })) - 60, y0 = Math.min.apply(null, h.components.map(function(c){ return c.y; }));
+  h.components.push({ id: 'ext1', type: 'socket_ext', x: x0, y: y0 + 100, rot: 0, label: 'PE1' }, { id: 'ext2', type: 'light_ext', x: x0, y: y0 + 200, rot: 0, label: 'AE1' }, { id: 'ext3', type: 'light_ext', x: x0, y: y0 + 300, rot: 0, label: 'AE2' });
+  var d = designInstallation(h.components, h.wires), cs = d.circuits.filter(function(c){ return c.outdoor; });
+  var dev = developedSVGs(d, {}, h.components, h.wires).join(''), mat = materialList(h.components, h.wires, d).lines.filter(function(l){ return /IP44/.test(l.name); });
+  return { c: cs.map(function(c){ return c.kind + ' ' + c.In + '/' + c.S + ' ' + c.devices.length; }).join(','), detect: lightingControls(d, h.components, h.wires).some(function(g){ return g.kind === 'detect'; }),
+    dev: /détecteur/.test(dev) && !/NaN|undefined/.test(dev), mat: mat.map(function(l){ return l.qty; }).join(','), errs: checkBoard(d).filter(function(m){ return m.level === 'err'; }).length };
+})()`);
+check('Points extérieurs : prises étanches (C20, 2,5 mm²) et appliques à détecteur (C10, 1,5 mm²) sur leurs circuits, schéma développé « détecteur », métré IP44', r.c === 'socket 20/2.5 1,light 10/1.5 2' && r.detect && r.dev && r.mat === '1,2' && r.errs === 0, JSON.stringify(r));
+
 // Schémas développés : contacteur heures creuses (compteur C1-C2, sélecteur, bobine, deux pôles) et horloge
 r = run(`(function(){
   var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d0 = designInstallation(h.components, h.wires);

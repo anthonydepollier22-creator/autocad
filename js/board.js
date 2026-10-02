@@ -1636,7 +1636,7 @@ function drawDeveloped(ctx, design, meta, list, folio) {
       layer('TEXTES'); text('détecteur', x + 8, yL + 46, { size: 7.5, bold: true }); text('(intégré)', x + 8, yL + 56, { size: 6.5, color: mute }); layer('SCHEMA');
       wire(DEV_COLORS.ret, [[x, yL + 68], [x, yL + 110]]);
       lamps(x, yL + 110, x);
-      layer('TEXTES'); text('Appliques étanches (IP44) à détecteur de mouvement et crépusculaire.', cx + 12, cy + ch - 10, { size: 7, color: mute });
+      layer('TEXTES'); text('Appliques étanches IP44 à détecteur intégré', cx + 12, cy + ch - 10, { size: 7, color: mute });
     } else if (g.kind === 'sa') {
       wire(DEV_COLORS.L, [[x, yL], [x, yL + 24]]); ctx.fillStyle = DEV_COLORS.L; dot(x, yL); ctx.fillStyle = ink;
       _dNO(ctx, x, yL + 24, 44);

@@ -274,6 +274,11 @@ l'éditeur du tableau, **avec ou sans plan** :
   triphasé, peigne à quatre barres (L1 marron, L2 noir, L3 gris, N bleu), chaque
   circuit sur sa phase et départs 3P+N ;
   le métré ajoute les conducteurs de liaison. Export SVG et DXF ;
+- **Points extérieurs** : prise étanche IP44 à clapet et applique IP44 à détecteur de
+  mouvement, posées sur le plan ou en 3D sur la façade (boutons « Prise ext. » et
+  « Applique ext. ») ; circuits dédiés « Prises extérieures » (C20, 2,5 mm²) et
+  « Éclairage extérieur » (C10, 1,5 mm², sans interrupteur : détecteur intégré, dessiné
+  dans les schémas développés) ; comptés au métré ;
 - **Synoptique** (folio A3, vue « Synoptique », en tête du dossier) : réseau public,
   compteur communicant (signal heures creuses C1-C2 vers les contacteurs), disjoncteur de
   branchement, tableau principal dans la GTL, départs regroupés par usage (éclairage,
@@ -888,7 +893,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-224 vérifications sans dépendance : valeurs numériques de chaque simulation
+225 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier
