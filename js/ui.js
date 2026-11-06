@@ -1340,11 +1340,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   // Nouveautés : une fois par version (pas quand on arrive par un lien de démo)
   try {
-    const NEWS = '1.20';
+    const NEWS = '1.21';
     if (localStorage.getItem('electricad-news') !== NEWS) {
       localStorage.setItem('electricad-news', NEWS);
       if (!location.search) {
-        setTimeout(() => showToast('<b>Nouveau</b> : folio <b>Synoptique</b> en tête du dossier ; fiche <b>Essais et mesures</b> à remplir dans l’application (valeurs hors critères en rouge) ; sur ordinateur, dossiers enregistrés directement en <b>PDF</b> ; sur téléphone, folios choisis dans une liste.', 9000), 1200);
+        setTimeout(() => showToast('<b>Nouveau</b> : <b>points extérieurs</b> (prise étanche IP44, applique à détecteur) ; courbe <b>B, C ou D</b> par disjoncteur ; circuits types portail, piscine, éclairage extérieur, sèche-serviettes ; détails de pose de la <b>GTL</b> et du point lumineux DCL.', 9000), 1200);
       }
     }
   } catch (_) { /* stockage indisponible */ }
