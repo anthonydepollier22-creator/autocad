@@ -278,7 +278,8 @@ l'éditeur du tableau, **avec ou sans plan** :
   mouvement, posées sur le plan ou en 3D sur la façade (boutons « Prise ext. » et
   « Applique ext. ») ; circuits dédiés « Prises extérieures » (C20, 2,5 mm²) et
   « Éclairage extérieur » (C10, 1,5 mm², sans interrupteur : détecteur intégré, dessiné
-  dans les schémas développés) ; comptés au métré ;
+  dans les schémas développés) ; comptés au métré ; à la création d'une maison, l'option
+  « Points extérieurs » les pose sur la façade, de part et d'autre de la porte d'entrée ;
 - **Synoptique** (folio A3, vue « Synoptique », en tête du dossier) : réseau public,
   compteur communicant (signal heures creuses C1-C2 vers les contacteurs), disjoncteur de
   branchement, tableau principal dans la GTL, départs regroupés par usage (éclairage,
@@ -893,7 +894,7 @@ python3 -m http.server 8000
 node tests/run.js
 ```
 
-225 vérifications sans dépendance : valeurs numériques de chaque simulation
+226 vérifications sans dépendance : valeurs numériques de chaque simulation
 (loi d'Ohm, LED, transistor, charge RC, redresseur, −3 dB du filtre, tables de
 vérité, compteurs), surfaces et conformité NF C 15-100 du plan de maison (y compris
 les cas non conformes), **les 6 types de maison** (pièces fermées, conformes, mobilier

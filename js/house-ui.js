@@ -406,6 +406,7 @@ function initHouseUI(app) {
     const doc = buildHouse(T.key, opts);
     if ($('ho-shutters') && $('ho-shutters').checked && opts.elec) addShutters(doc); // volets roulants motorisés
     if ($('ho-pv') && $('ho-pv').checked && opts.elec) addPvInverter(doc, 3); // onduleur photovoltaïque
+    if ($('ho-ext') && $('ho-ext').checked && opts.elec) addOutdoorPoints(doc); // prise et applique extérieures
     // tableau divisionnaire au garage (maison avec garage, électricité implantée)
     // tableaux divisionnaires : au garage, et à l'étage d'une maison R+1 (sur le palier, pour tout l'étage)
     const wantTd = $('ho-td') && $('ho-td').checked && opts.elec;

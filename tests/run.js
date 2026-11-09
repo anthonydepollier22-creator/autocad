@@ -1459,6 +1459,18 @@ r = run(`(function(){
 })()`);
 check('Points extérieurs : prises étanches (C20, 2,5 mm²) et appliques à détecteur (C10, 1,5 mm²) sur leurs circuits, schéma développé « détecteur », métré IP44', r.c === 'socket 20/2.5 1,light 10/1.5 2' && r.detect && r.dev && r.mat === '1,2' && r.errs === 0, JSON.stringify(r));
 
+// Nouvelle maison, option « Points extérieurs » : prise et applique sur la façade, près de la porte d'entrée
+r = run(`(function(){
+  return ['studio', 't2', 't3', 't5', 'r1'].map(function(k){
+    var h = buildHouse(k), a = addOutdoorPoints(h);
+    if (!a) return k + ' aucune';
+    var info = computeRooms(h.components, h.wires), d = designInstallation(h.components, h.wires);
+    var outside = a.every(function(c){ return _ownerAt(info, c.x, c.y) < 0; }), cs = d.circuits.filter(function(c){ return c.outdoor; }).length;
+    return outside && cs === 2 && !checkBoard(d).some(function(m){ return m.level === 'err'; }) ? 'ok' : k + ' ' + outside + ' ' + cs;
+  }).join(',');
+})()`);
+check('Nouvelle maison, option « Points extérieurs » : prise IP44 et applique à détecteur dehors, près de l’entrée, sur leurs circuits (5 types de maison)', r === 'ok,ok,ok,ok,ok', r);
+
 // Schémas développés : contacteur heures creuses (compteur C1-C2, sélecteur, bobine, deux pôles) et horloge
 r = run(`(function(){
   var h = EXAMPLES.find(function(e){ return e.id === 'maison-t5-td'; }).data, d0 = designInstallation(h.components, h.wires);

@@ -1374,6 +1374,31 @@ function addPvInverter(doc, kwc) {
   return null;
 }
 
+// Points extérieurs : prise étanche IP44 et applique à détecteur sur la façade, de part
+// et d'autre de la porte d'entrée (côté extérieur), chacune sur son circuit
+function addOutdoorPoints(doc) {
+  if (doc.components.some((c) => c.type === 'socket_ext' || c.type === 'light_ext')) return null;
+  const ctx = _planContext(doc), info = ctx.info;
+  const side = (d, s) => { const q = _rot(0, s * 40, d.rot); return _ownerAt(info, d.x + q.x, d.y + q.y); };
+  for (const d of ctx.doors.filter((x) => x.c.type === 'door')) {
+    const outS = side(d, 1) < 0 ? 1 : side(d, -1) < 0 ? -1 : 0;
+    if (!outS || side(d, -outS) < 0) continue; // porte donnant dehors, une pièce de l'autre côté
+    const out = _rot(0, outS, d.rot), along = _rot(1, 0, d.rot);
+    const at = (t) => ({ x: d.x + along.x * t + out.x * DEVICE_OFF, y: d.y + along.y * t + out.y * DEVICE_OFF });
+    const onWall = (t) => { const p = at(t); return _ownerAt(info, p.x - out.x * 2 * DEVICE_OFF, p.y - out.y * 2 * DEVICE_OFF) >= 0 && _ownerAt(info, p.x + out.x * 20, p.y + out.y * 20) < 0; };
+    // applique près de l'ouvrant, prise un peu plus loin (de l'autre côté si l'angle est proche)
+    const tL = [d.half + 35, -(d.half + 35)].find(onWall);
+    if (tL === undefined) continue;
+    const tS = [-Math.sign(tL) * (d.half + 60), Math.sign(tL) * (d.half + 95), -Math.sign(tL) * (d.half + 120)].find(onWall);
+    if (tS === undefined) continue;
+    const rot = _rotDevice(out.x, out.y), pL = at(tL), pS = at(tS);
+    const added = [_addComp(doc, 'light_ext', pL.x, pL.y, rot), _addComp(doc, 'socket_ext', pS.x, pS.y, rot)];
+    if (doc.wires.some((w) => w.kind === 'conduit')) autoConduits(doc);
+    return added;
+  }
+  return null;
+}
+
 // Ajoute les maisons générées à la bibliothèque d'exemples
 if (typeof EXAMPLES !== 'undefined') {
   for (const [key, level] of [['t3', 'Avancé'], ['t5', 'Expert'], ['r1', 'Expert']]) {
